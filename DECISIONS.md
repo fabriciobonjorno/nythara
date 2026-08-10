@@ -329,6 +329,25 @@ jogada imediatamente antes dele (rastreada entre rodadas).
 - **Painel**: a Fase 7 entrega o plano de controle completo via API admin
   (RBAC + auditoria); a página web do painel fica para o ciclo de UI.
 
+## ADR-023 — Postura de segurança da Fase 8
+
+- Rate limiting em três faixas (geral por IP 240/min; autenticação 10/min por
+  IP; comandos WS 120/min por conexão) via token bucket próprio com poda —
+  sem dependência externa. `X-Forwarded-For` NÃO é confiado; atrás de proxy,
+  o proxy reescreve `RemoteAddr`.
+- API JSON com CSP `default-src 'none'`; a PWA carrega CSP própria por meta
+  (`style-src 'unsafe-inline'` é exigido por React/Pixi no alpha; endurecer
+  com nonces quando o pipeline de build ganhar suporte).
+- `govulncheck` bloqueante na CI; base zerada com toolchain go1.25.12 +
+  grpc 1.82.1 + x/text 0.39.0 (30 findings alcançáveis corrigidos em
+  2026-08-10). Resíduo aceito: 1 aviso em módulo requerido sem chamada.
+- Backup/restore é código executável com prova (`ops/backup-restore-test.sh`),
+  não documentação: o processo falha ruidosamente se a restauração perder dados.
+- Métricas mínimas via expvar em `/internal/metrics`; rotas `/internal/*`
+  nunca expostas no edge. Alertas e runbooks em `ops/observability.md`.
+- Fora do alpha (registrado): 2FA/admin hardening no provedor, detecção
+  comportamental de botting, recuperação de conta.
+
 ## Achados de design para revisão de balanceamento
 
 1. **VR-033 (Véu de Prata)**: com fases estritas, o Véu ganho na Guarda expira

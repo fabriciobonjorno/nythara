@@ -61,7 +61,14 @@ make web-dev # cliente em :5173, com proxy REST/WebSocket para :8080
   bans emergenciais de ranked, temporadas, telemetria de partidas e trilha de
   auditoria em toda mutação — via API admin com RBAC (página web do painel
   fica para o ciclo de UI).
-- Próximo: Fase 8 — segurança e produção.
+- **Fase 8** — segurança e produção: threat model vivo em `SECURITY.md`,
+  rate limiting (HTTP por IP, autenticação estrita, flood de comandos WS),
+  cabeçalhos de segurança + CSP (API e PWA), `govulncheck` bloqueante na CI
+  (base zerada), backups com prova executável de restauração
+  (`make backup-test`), métricas em `/internal/metrics` e runbook de alertas
+  em `ops/observability.md`.
+- Próximo: Fase 9 — conteúdo completo (precons oficiais, tutorial) e
+  Definition of Done (Fase 10).
 
 Decisões de regra onde o GDD era ambíguo estão registradas em [DECISIONS.md](DECISIONS.md).
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"expvar"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +19,7 @@ import (
 	"veurubro/backend/internal/battle"
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
+	"veurubro/backend/internal/security"
 )
 
 const maxBodyBytes = 1 << 20
@@ -29,18 +31,25 @@ type API struct {
 	battles *battle.Manager
 	logger  *slog.Logger
 	ready   func(context.Context) error
+
+	generalLimiter *security.RateLimiter
+	authLimiter    *security.RateLimiter
+	wsLimiter      *security.RateLimiter
 }
 
 func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, ready func(context.Context) error) http.Handler {
-	api := &API{service: service, battles: battles, logger: logger, ready: ready}
+	api := &API{service: service, battles: battles, logger: logger, ready: ready,
+		generalLimiter: newGeneralLimiter(), authLimiter: newAuthLimiter(),
+		wsLimiter: newWSCommandLimiter()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
 	mux.HandleFunc("GET /readyz", api.readiness)
 	mux.HandleFunc("GET /version", api.version)
 	mux.HandleFunc("GET /internal/implementation-report", api.implementationReport)
-	mux.HandleFunc("POST /v1/auth/register", api.register)
-	mux.HandleFunc("POST /v1/auth/login", api.login)
-	mux.HandleFunc("POST /v1/auth/refresh", api.refresh)
+	mux.Handle("GET /internal/metrics", expvar.Handler())
+	mux.HandleFunc("POST /v1/auth/register", api.strictLimit(api.register))
+	mux.HandleFunc("POST /v1/auth/login", api.strictLimit(api.login))
+	mux.HandleFunc("POST /v1/auth/refresh", api.strictLimit(api.refresh))
 	mux.HandleFunc("POST /v1/auth/logout", api.logout)
 	mux.HandleFunc("GET /v1/catalog/cards", api.cards)
 	mux.HandleFunc("GET /v1/catalog/champions", api.champions)
@@ -64,7 +73,7 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 		mux.Handle("POST /v1/battles/{id}/tickets", api.auth(http.HandlerFunc(api.battleTicket)))
 		mux.HandleFunc("GET /v1/battles/{id}/ws", api.battleWebSocket)
 	}
-	return api.recover(mux)
+	return api.recover(api.harden(mux))
 }
 
 func (a *API) matchmakingStatus(w http.ResponseWriter, r *http.Request) {
@@ -179,9 +188,15 @@ func (a *API) battleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	wsKey := "ws:" + r.URL.Query().Get("ticket")
 	for {
 		messageType, raw, err := connection.Read(r.Context())
 		if err != nil {
+			return
+		}
+		if !a.wsLimiter.Allow(wsKey) {
+			metricWSFlood.Add(1)
+			_ = connection.Close(websocket.StatusPolicyViolation, "excesso de comandos; reconecte")
 			return
 		}
 		if messageType != websocket.MessageText {
@@ -266,6 +281,7 @@ func (a *API) recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
+				metricPanics.Add(1)
 				a.logger.Error("panic na API", "error", recovered)
 				writeError(w, http.StatusInternalServerError, "internal_error", "erro interno")
 			}

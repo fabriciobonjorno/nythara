@@ -1,4 +1,4 @@
-.PHONY: setup migrate-up migrate-down test test-race lint web-build web-dev run sim sim-smoke sim-100k down
+.PHONY: setup migrate-up migrate-down test test-race lint vuln web-build web-dev run sim sim-smoke sim-100k down backup restore backup-test
 
 setup: ## Sobe PostgreSQL e Redis locais
 	docker compose up -d --wait
@@ -42,3 +42,15 @@ sim-100k:
 # Regenera goldens após revisão manual de mudança de regra
 golden:
 	cd backend && go test ./internal/engine/ -run TestScriptedMatchGolden -update
+
+vuln:
+	cd backend && go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+backup: ## DATABASE_URL=... make backup
+	ops/backup.sh
+
+restore: ## DATABASE_URL=... make restore DUMP=backups/arquivo.dump
+	ops/restore.sh $(DUMP)
+
+backup-test: ## prova de backup/restore num Postgres efêmero
+	ops/backup-restore-test.sh
