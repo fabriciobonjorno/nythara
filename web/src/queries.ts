@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
-import type { CardDefinition, Champion, Collection, Deck, Principal, Season } from "./types";
+import type { CardDefinition, Champion, Collection, Deck, Principal, ProgressSummary, Season } from "./types";
 
 export const useCards = () => useQuery({
   queryKey: ["catalog", "cards"],
@@ -18,3 +18,4 @@ export const useCollection = () => useQuery({ queryKey: ["collection"], queryFn:
 export const useDecks = () => useQuery({ queryKey: ["decks"], queryFn: () => api<{ decks: Deck[] }>("/v1/decks") });
 export const useMe = () => useQuery({ queryKey: ["me"], queryFn: () => api<Principal>("/v1/me") });
 export const useSeason = () => useQuery({ queryKey: ["season"], queryFn: () => api<Season>("/v1/seasons/current"), staleTime: 10 * 60 * 1000 });
+export const useProgress = () => useQuery({ queryKey: ["progress"], queryFn: () => api<ProgressSummary>("/v1/progress"), staleTime: 60 * 1000 });

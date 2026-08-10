@@ -24,6 +24,8 @@ type liveopsState struct {
 	bans     map[string]domain.CardBan
 	seasons  []domain.Season
 	audit    []domain.AuditEntry
+	rituals     map[string][]domain.RitualState
+	progressLog map[string]domain.MatchProgress
 }
 
 func newLiveopsState() *liveopsState {
@@ -403,4 +405,57 @@ func TestBanLifecycle(t *testing.T) {
 	if strings.Contains(list.Body.String(), "VR-020") {
 		t.Fatalf("ban deveria ter sido suspenso: %s", list.Body)
 	}
+}
+
+// --- Progressão (P1): fake em memória ---
+
+func (f *fakeStore) prog() *liveopsState { return f.ops() }
+
+func (f *fakeStore) RecordMatchProgress(_ context.Context, progress domain.MatchProgress) (bool, error) {
+	s := f.ops()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.progressLog == nil {
+		s.progressLog = map[string]domain.MatchProgress{}
+	}
+	if _, seen := s.progressLog[progress.MatchID]; seen {
+		return false, nil
+	}
+	s.progressLog[progress.MatchID] = progress
+	return true, nil
+}
+
+func (f *fakeStore) RitualsFor(_ context.Context, userID, day string) ([]domain.RitualState, error) {
+	s := f.ops()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]domain.RitualState{}, s.rituals[userID+"|"+day]...), nil
+}
+
+func (f *fakeStore) SaveRitualStates(_ context.Context, userID, day string, states []domain.RitualState) error {
+	s := f.ops()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.rituals == nil {
+		s.rituals = map[string][]domain.RitualState{}
+	}
+	key := userID + "|" + day
+	if len(s.rituals[key]) == 0 {
+		s.rituals[key] = append([]domain.RitualState{}, states...)
+	}
+	return nil
+}
+
+func (f *fakeStore) Fragments(context.Context, string) (int, error) { return 120, nil }
+
+func (f *fakeStore) MasteryFor(context.Context, string) ([]domain.ChampionMastery, error) {
+	return []domain.ChampionMastery{{ChampionID: "CH-VH-01", XP: 150, Games: 5, Wins: 3}}, nil
+}
+
+func (f *fakeStore) RankedStandingFor(_ context.Context, _, seasonID string) (domain.RankedStanding, error) {
+	return domain.RankedStanding{SeasonID: seasonID, Rating: 1012, Games: 4, Wins: 2, Position: 7}, nil
+}
+
+func (f *fakeStore) Leaderboard(_ context.Context, seasonID string, _ int) ([]domain.LeaderboardEntry, error) {
+	return []domain.LeaderboardEntry{{Position: 1, UserID: "u1", DisplayName: "Alva", Rating: 1210}}, nil
 }

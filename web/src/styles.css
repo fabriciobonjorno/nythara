@@ -131,6 +131,16 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .ritual-progress { width: 100%; height: 5px; background: #35292c; }
 .ritual-progress span { display: block; height: 100%; background: var(--gold); }
 .ritual-panel > small { color: var(--muted); margin-top: .4rem; }
+.ritual-list { list-style: none; width: 100%; display: flex; flex-direction: column; gap: .85rem; margin: .6rem 0 .2rem; padding: 0; }
+.ritual-list li { display: flex; flex-direction: column; gap: .3rem; }
+.ritual-list li.is-done { opacity: .6; }
+.ritual-list li.is-done .ritual-progress span { background: #7da87d; }
+.ritual-head { display: flex; justify-content: space-between; gap: .8rem; align-items: baseline; }
+.ritual-head span { color: var(--gold); font-size: .7rem; white-space: nowrap; }
+.ritual-list small { color: var(--muted); font-size: .68rem; line-height: 1.4; }
+.mastery-note { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; }
+.mastery-note span { color: var(--gold); }
+.mastery-note strong { color: var(--ivory); }
 
 /* Catalog and cards */
 .filter-bar { display: grid; gap: .65rem; margin-bottom: 1.25rem; padding: .8rem; background: var(--panel); border: 1px solid var(--line); }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"time"
 )
 
@@ -123,6 +124,99 @@ type Mutation struct {
 	Operation   string
 	RequestHash []byte
 	ScopeUserID string
+}
+
+// --- Progressão (P1) ---
+
+// EloDelta calcula a variação de rating (K=32) de A contra B; nunca zero.
+func EloDelta(ratingA, ratingB int, wonA bool) int {
+	expected := 1.0 / (1.0 + math.Pow(10, (float64(ratingB)-float64(ratingA))/400.0))
+	score := 0.0
+	if wonA {
+		score = 1.0
+	}
+	delta := int(math.Round(32.0 * (score - expected)))
+	if delta == 0 {
+		if wonA {
+			return 1
+		}
+		return -1
+	}
+	return delta
+}
+
+// RitualIncrement é o progresso de um ritual creditado por uma partida.
+type RitualIncrement struct {
+	RitualID string `json:"ritual_id"`
+	Delta    int    `json:"delta"`
+	Target   int    `json:"target"`
+	Reward   int    `json:"reward"`
+}
+
+// PlayerMatchProgress é a fatia de progresso de um jogador numa partida.
+type PlayerMatchProgress struct {
+	UserID     string            `json:"user_id"`
+	ChampionID string            `json:"champion_id"`
+	Won        bool              `json:"won"`
+	MasteryXP  int               `json:"mastery_xp"`
+	RitualDay  string            `json:"ritual_day"`
+	Rituals    []RitualIncrement `json:"rituals"`
+}
+
+// MatchProgress é a gravação idempotente de progresso de uma partida.
+type MatchProgress struct {
+	MatchID  string                `json:"match_id"`
+	Ranked   bool                  `json:"ranked"` // PvP atualiza rating
+	SeasonID string                `json:"season_id,omitempty"`
+	Players  []PlayerMatchProgress `json:"players"`
+}
+
+// RitualState é um ritual do dia com progresso corrente.
+type RitualState struct {
+	RitualID    string     `json:"ritual_id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Progress    int        `json:"progress"`
+	Target      int        `json:"target"`
+	Reward      int        `json:"reward"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+}
+
+// ChampionMastery é a maestria acumulada com um Campeão.
+type ChampionMastery struct {
+	ChampionID string `json:"champion_id"`
+	XP         int    `json:"xp"`
+	Level      int    `json:"level"`
+	Games      int    `json:"games"`
+	Wins       int    `json:"wins"`
+}
+
+// RankedStanding é o rating do jogador na temporada.
+type RankedStanding struct {
+	SeasonID string `json:"season_id"`
+	Rating   int    `json:"rating"`
+	Games    int    `json:"games"`
+	Wins     int    `json:"wins"`
+	Position int    `json:"position,omitempty"`
+}
+
+// LeaderboardEntry é uma linha do ranking da temporada.
+type LeaderboardEntry struct {
+	Position    int    `json:"position"`
+	UserID      string `json:"user_id"`
+	DisplayName string `json:"display_name"`
+	Rating      int    `json:"rating"`
+	Games       int    `json:"games"`
+	Wins        int    `json:"wins"`
+}
+
+// ProgressSummary alimenta a Home: rituais do dia, carteira, maestria, rating.
+type ProgressSummary struct {
+	Day       string            `json:"day"`
+	Rituals   []RitualState     `json:"rituals"`
+	Fragments int               `json:"fragments"`
+	Mastery   []ChampionMastery `json:"mastery"`
+	Ranked    *RankedStanding   `json:"ranked,omitempty"`
 }
 
 // --- Admin/LiveOps (Fase 7) ---
@@ -246,4 +340,14 @@ type Store interface {
 
 	MatchTelemetry(ctx context.Context) (MatchTelemetry, error)
 	ListAudit(ctx context.Context, limit int) ([]AuditEntry, error)
+
+	// Progressão (P1). RecordMatchProgress é idempotente por partida (retorna
+	// false quando a partida já havia sido creditada).
+	RecordMatchProgress(ctx context.Context, progress MatchProgress) (bool, error)
+	RitualsFor(ctx context.Context, userID, day string) ([]RitualState, error)
+	SaveRitualStates(ctx context.Context, userID, day string, states []RitualState) error
+	Fragments(ctx context.Context, userID string) (int, error)
+	MasteryFor(ctx context.Context, userID string) ([]ChampionMastery, error)
+	RankedStandingFor(ctx context.Context, userID, seasonID string) (RankedStanding, error)
+	Leaderboard(ctx context.Context, seasonID string, limit int) ([]LeaderboardEntry, error)
 }

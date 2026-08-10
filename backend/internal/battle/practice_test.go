@@ -3,6 +3,7 @@ package battle
 import (
 	"context"
 	"testing"
+	"time"
 
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
@@ -20,6 +21,14 @@ func TestPracticeMatchFullGameAgainstBot(t *testing.T) {
 	human := domain.Principal{UserID: "00000000-0000-4000-8000-000000000042", Role: domain.RolePlayer}
 	deck := testDeck(t, human.UserID, "deck-humano", "CH-VH-01")
 	botDeck := testDeck(t, domain.BotUserID, "deck-bot", "CH-SO-01")
+
+	recorded := make(chan FinishedMatch, 1)
+	manager.SetProgressRecorder(func(_ context.Context, finished FinishedMatch, events []engine.Event) {
+		if len(events) == 0 {
+			t.Error("gravador sem eventos")
+		}
+		recorded <- finished
+	})
 
 	result, err := manager.StartPractice(ctx, human, deck, botDeck)
 	if err != nil {
@@ -74,6 +83,14 @@ func TestPracticeMatchFullGameAgainstBot(t *testing.T) {
 			}
 			if !botActed {
 				t.Fatal("o bot nunca agiu na partida inteira")
+			}
+			select {
+			case finished := <-recorded:
+				if finished.Mode != ModePractice || finished.MatchID != result.MatchID {
+					t.Fatalf("gravação inesperada: %+v", finished)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("gravador de progresso não foi chamado")
 			}
 			return
 		}

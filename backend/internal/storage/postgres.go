@@ -43,6 +43,12 @@ var migration4Up string
 //go:embed migrations/000004_practice.down.sql
 var migration4Down string
 
+//go:embed migrations/000005_progression.up.sql
+var migration5Up string
+
+//go:embed migrations/000005_progression.down.sql
+var migration5Down string
+
 type migration struct {
 	version int64
 	up      string
@@ -54,6 +60,7 @@ var migrations = []migration{
 	{version: 2, up: migration2Up, down: migration2Down},
 	{version: 3, up: migration3Up, down: migration3Down},
 	{version: 4, up: migration4Up, down: migration4Down},
+	{version: 5, up: migration5Up, down: migration5Down},
 }
 
 type Postgres struct {

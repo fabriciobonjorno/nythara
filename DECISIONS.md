@@ -383,6 +383,40 @@ Medido: média 35,2→33,0 rodadas; p95 75→59. Meta de p95 ≤ 40 segue aberta
 O catálogo runtime (backend/internal/engine/data/) é a fonte de verdade;
 docs/design/ preserva o pacote original do alpha como referência histórica.
 
+## ADR-025 — P1: progressão (rituais, maestria, ranked, carteira)
+
+**Contexto.** Retenção pedia motivo para voltar (rituais diários), senso de
+evolução (maestria por Campeão), stakes (rating) e economia futura
+(Fragmentos do Véu), sem abrir nenhum vetor de trapaça.
+
+**Decisão.**
+- **Fonte de verdade**: progresso nasce só no battle server, derivado dos
+  eventos authoritative da partida (`StatsFromEvents`), nunca do cliente. O
+  recorder roda fora do goroutine da sala (cópia do estado + timeout próprio)
+  e falha de progressão jamais bloqueia o fim da partida.
+- **Idempotência**: `match_progress_log` (PK match_id) trava a transação —
+  rituais, fragmentos (trilha em `economy_transactions`, kind
+  `fragment_grant`), maestria e rating no mesmo commit; replay do recorder é
+  no-op.
+- **Rituais**: 3 por dia, sorteio determinístico `sha256(diaUTC|user)` sobre
+  pool de 8 (verificável, sem RNG de servidor); progresso `LEAST(p+delta,
+  target)`; recompensa creditada uma única vez (transição de completed
+  observada na mesma query).
+- **Maestria**: XP 10 base +5 PvP +15 vitória; nível custa 100 +20/nível,
+  teto 50. Treino progride maestria e rituais não-PvP — quem só treina também
+  sente evolução.
+- **Ranked**: Elo K=32 (piso 0, delta nunca 0), `FOR UPDATE` nos dois
+  ratings na transação; só PvP com dois humanos pontua; bot excluído do
+  leaderboard e reservado fora de progressão.
+- **Superfície**: `GET /v1/progress` (materializa o dia na primeira leitura)
+  e `GET /v1/ranked/leaderboard`; Home mostra rituais/carteira/maestria/
+  ranked reais; fila ganhou o botão de treino.
+
+**Consequências.** Migração 000005 (5 tabelas); temporada "Alpha 0.5" semeada
+para dar season ativa ao rating. Loop diário completo: jogar → ritual →
+fragmento auditado → maestria/rating na Home. Fragmentos ainda não têm loja
+(sink) — decisão futura de economia; a trilha de auditoria já nasce pronta.
+
 ## Achados de design para revisão de balanceamento
 
 1. **VR-033 (Véu de Prata)**: com fases estritas, o Véu ganho na Guarda expira

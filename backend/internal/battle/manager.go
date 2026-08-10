@@ -22,6 +22,7 @@ const persistenceTimeout = 5 * time.Second
 
 type Manager struct {
 	store         Store
+	progress      atomic.Value // ProgressRecorder
 	activeRuleset atomic.Value // string: versão competitiva corrente
 	mu            sync.Mutex
 	queue         []QueuedPlayer
@@ -39,6 +40,21 @@ func NewManager(store Store) *Manager {
 		now: time.Now}
 	m.activeRuleset.Store(engine.RulesetVersion)
 	return m
+}
+
+// SetProgressRecorder instala o gravador de progressão (rituais, maestria,
+// rating) chamado a cada partida encerrada.
+func (m *Manager) SetProgressRecorder(recorder ProgressRecorder) {
+	if recorder != nil {
+		m.progress.Store(recorder)
+	}
+}
+
+func (m *Manager) progressRecorder() ProgressRecorder {
+	if value := m.progress.Load(); value != nil {
+		return value.(ProgressRecorder)
+	}
+	return nil
 }
 
 // SetActiveRuleset aponta o matchmaking para outra versão publicada
@@ -586,6 +602,7 @@ func (r *room) handleCommand(request commandRequest) error {
 	if step.Finished {
 		r.match.Status, r.match.Winner, r.match.EndReason = StatusFinished, step.Winner, step.EndReason
 		r.stopTimer()
+		r.notifyFinished()
 	} else {
 		r.armActionTimer()
 	}
@@ -642,6 +659,35 @@ func (r *room) handleTimeout() {
 	r.match.Status, r.match.Winner, r.match.EndReason = StatusFinished, &winner, "timeout"
 	r.broadcastEvents(events, "", 0, false)
 	r.stopTimer()
+	r.notifyFinished()
+}
+
+// notifyFinished entrega a partida encerrada ao gravador de progresso, com
+// cópias feitas dentro do goroutine da sala (sem corrida) e execução fora
+// dele (sem atrasar a sala).
+func (r *room) notifyFinished() {
+	recorder := r.manager.progressRecorder()
+	if recorder == nil || r.game == nil {
+		return
+	}
+	finished := FinishedMatch{
+		MatchID:        r.match.ID,
+		Mode:           r.match.Mode,
+		RulesetVersion: r.match.Config.RulesetVersion,
+		Winner:         r.match.Winner,
+	}
+	for slot := 0; slot < 2; slot++ {
+		finished.Players[slot] = FinishedParticipant{
+			UserID:     r.match.Players[slot].UserID,
+			ChampionID: r.match.Config.Players[slot].ChampionID,
+		}
+	}
+	events := append([]engine.Event{}, r.game.Log...)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), persistenceTimeout)
+		defer cancel()
+		recorder(ctx, finished, events)
+	}()
 }
 
 func (r *room) sendSync(sub *subscriber, after int) {

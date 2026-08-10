@@ -180,3 +180,37 @@ export interface LastBattle {
   events: BattleEvent[];
   finishedAt: string;
 }
+
+export interface RitualState {
+  ritual_id: string;
+  title: string;
+  description: string;
+  progress: number;
+  target: number;
+  reward: number;
+  completed_at?: string;
+}
+
+export interface ChampionMastery {
+  champion_id: string;
+  xp: number;
+  level: number;
+  games: number;
+  wins: number;
+}
+
+export interface RankedStanding {
+  season_id: string;
+  rating: number;
+  games: number;
+  wins: number;
+  position?: number;
+}
+
+export interface ProgressSummary {
+  day: string;
+  rituals: RitualState[];
+  fragments: number;
+  mastery: ChampionMastery[];
+  ranked?: RankedStanding;
+}

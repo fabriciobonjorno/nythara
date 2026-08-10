@@ -76,10 +76,15 @@ make web-dev # cliente em :5173, com proxy REST/WebSocket para :8080
   ritmo mais rápido (Fadiga ×2, Essência máx. 10 — p95 75→59 rodadas) e 1ª
   rodada de balanceamento guiada por 100 mil simulações por iteração
   (ADR-024; fundo da tabela 20–30%→24–42%; dívida Solara documentada).
+- **Progressão P1** — rituais diários (3/dia, sorteio determinístico por
+  jogador), maestria por Campeão, ranked Elo por temporada e carteira de
+  Fragmentos do Véu auditada. Gravação idempotente por partida, derivada só
+  dos eventos authoritative (`GET /v1/progress`, `GET /v1/ranked/leaderboard`;
+  ADR-025). Home mostra tudo; a fila ganhou treino em um clique.
 - **Fase 10** — Definition of Done: suíte race verde, 100 mil partidas locais
   bit a bit idênticas à baseline, zero TODOs críticos, backup/restore provado,
   scan de vulnerabilidades zerado. MVP Alpha completo; pendências honestas:
-  página web do painel admin, modo treino vs bot e 2FA (backlog pós-alpha).
+  página web do painel admin e 2FA (backlog pós-alpha).
 
 Decisões de regra onde o GDD era ambíguo estão registradas em [DECISIONS.md](DECISIONS.md).
 

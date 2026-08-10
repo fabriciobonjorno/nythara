@@ -162,6 +162,7 @@ func (r *room) applyServerCommand(slot int, origin string, command engine.Comman
 	if step.Finished {
 		r.match.Status, r.match.Winner, r.match.EndReason = StatusFinished, step.Winner, step.EndReason
 		r.stopTimer()
+		r.notifyFinished()
 	}
 	r.broadcastEvents(events, "", 0, false)
 	return nil

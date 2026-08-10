@@ -352,3 +352,78 @@ func TestPostgresRotateToRuleset(t *testing.T) {
 		t.Fatalf("segunda rotação deveria ser vazia: granted=%d cloned=%d", granted2, cloned2)
 	}
 }
+
+// P1: gravação de progresso — rituais, carteira auditada, maestria, rating e
+// idempotência por partida, contra Postgres real.
+func TestPostgresRecordMatchProgress(t *testing.T) {
+	ctx, db, userID := integrationDB(t)
+	opponentID, _ := security.NewID()
+	if _, err := db.CreateUser(ctx, domain.User{ID: opponentID, Email: opponentID + "@ex.test",
+		DisplayName: "Rival", Role: domain.RolePlayer, PasswordHash: "x"}, engine.RulesetVersion); err != nil {
+		t.Fatal(err)
+	}
+	season, err := db.ActiveSeason(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deck0 := legalIntegrationDeck(t, userID, "CH-VH-01", "Progresso 0")
+	deck1 := legalIntegrationDeck(t, opponentID, "CH-SO-01", "Progresso 1")
+	for i, deck := range []*domain.Deck{&deck0, &deck1} {
+		mutation := domain.Mutation{Key: "progress-deck-" + string(rune('1'+i)),
+			Operation: "deck:create", RequestHash: []byte{byte(i + 40)}}
+		if _, _, err := db.SaveDeck(ctx, *deck, nil, mutation); err != nil {
+			t.Fatal(err)
+		}
+	}
+	matchID, _ := security.NewID()
+	config := engine.Config{RulesetVersion: engine.RulesetVersion, Seed: 42, FirstPlayer: 0,
+		Players: [2]engine.PlayerSetup{{ChampionID: deck0.ChampionID, Deck: expandIntegrationDeck(deck0)},
+			{ChampionID: deck1.ChampionID, Deck: expandIntegrationDeck(deck1)}}}
+	match := battle.Match{ID: matchID, Mode: "pvp", Config: config,
+		Status: battle.StatusWaitingReady, CreatedAt: time.Now().UTC(),
+		Players: [2]battle.Participant{{UserID: userID, DeckID: deck0.ID, Slot: 0},
+			{UserID: opponentID, DeckID: deck1.ID, Slot: 1}}}
+	if err := db.CreateMatch(ctx, match); err != nil {
+		t.Fatal(err)
+	}
+
+	progress := domain.MatchProgress{MatchID: matchID, Ranked: true, SeasonID: season.ID,
+		Players: []domain.PlayerMatchProgress{
+			{UserID: userID, ChampionID: "CH-VH-01", Won: true, MasteryXP: 30, RitualDay: "2026-08-10",
+				Rituals: []domain.RitualIncrement{{RitualID: "win_pvp_1", Delta: 1, Target: 1, Reward: 60}}},
+			{UserID: opponentID, ChampionID: "CH-SO-01", Won: false, MasteryXP: 15, RitualDay: "2026-08-10"},
+		}}
+	first, err := db.RecordMatchProgress(ctx, progress)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !first {
+		t.Fatal("primeira gravação deveria creditar")
+	}
+	again, err := db.RecordMatchProgress(ctx, progress)
+	if err != nil || again {
+		t.Fatalf("regressão de idempotência: again=%v err=%v", again, err)
+	}
+
+	fragments, err := db.Fragments(ctx, userID)
+	if err != nil || fragments != 60 {
+		t.Fatalf("fragmentos: %d err=%v; esperado 60", fragments, err)
+	}
+	rituals, err := db.RitualsFor(ctx, userID, "2026-08-10")
+	if err != nil || len(rituals) != 1 || rituals[0].CompletedAt == nil {
+		t.Fatalf("ritual deveria estar completo: %+v err=%v", rituals, err)
+	}
+	winner, _ := db.RankedStandingFor(ctx, userID, season.ID)
+	loser, _ := db.RankedStandingFor(ctx, opponentID, season.ID)
+	if winner.Rating != 1016 || loser.Rating != 984 {
+		t.Fatalf("elo: %d/%d; esperado 1016/984", winner.Rating, loser.Rating)
+	}
+	board, err := db.Leaderboard(ctx, season.ID, 10)
+	if err != nil || len(board) < 2 || board[0].UserID != userID {
+		t.Fatalf("leaderboard: %+v err=%v", board, err)
+	}
+	mastery, err := db.MasteryFor(ctx, userID)
+	if err != nil || len(mastery) != 1 || mastery[0].XP != 30 || mastery[0].Wins != 1 {
+		t.Fatalf("maestria: %+v err=%v", mastery, err)
+	}
+}

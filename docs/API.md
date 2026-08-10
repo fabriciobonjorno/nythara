@@ -20,6 +20,17 @@ protegidas recebem `Authorization: Bearer <access_token>`.
 - `GET /v1/seasons/current`
 - `GET /v1/collection`
 - `GET /v1/rewards`
+- `GET /v1/progress` — rituais do dia (sorteio determinístico por
+  `sha256(dia|usuário)`, materializado na primeira consulta), carteira de
+  Fragmentos do Véu, maestria por Campeão e rating da temporada ativa.
+- `GET /v1/ranked/leaderboard?limit=n` — topo da temporada (`entries`, máx.
+  100) e a posição do solicitante (`me`). O bot nunca aparece.
+
+A progressão é gravada exclusivamente pelo battle server ao fim da partida, a
+partir dos eventos authoritative — o cliente não envia progresso. A gravação é
+idempotente por partida (`match_progress_log`); fragmentos deixam trilha em
+`economy_transactions`. Treinos rendem rituais (exceto os marcados PvP) e
+maestria reduzida; rating Elo (K=32) só muda em PvP com dois humanos.
 
 ## Decks
 
@@ -77,6 +88,10 @@ construção e auditadas em `admin_audit` na mesma transação.
 - `GET /v1/matchmaking` — estado `idle`, `queued` ou `matched`.
 - `POST /v1/matchmaking` — corpo `{"deck_id":"..."}`; fila FIFO 1v1.
 - `DELETE /v1/matchmaking` — sai da fila enquanto ainda não pareado.
+- `POST /v1/practice` — corpo `{"deck_id":"...", "bot_champion_id":"CH-…"}`
+  (campeão opcional; sem ele o servidor sorteia um precon do bot). Cria
+  partida de treino contra o Treinador do Véu no mesmo pipeline authoritative
+  (persistência, replay, reconexão); não passa por bans nem conta para PvP.
 - `POST /v1/battles/{id}/tickets` — cria ticket WebSocket de uso único por
   60 segundos. `mode` é `player`; `spectator` exige admin.
 - `GET /v1/battles/{id}/ws?ticket=...&after_event=N` — upgrade WebSocket.

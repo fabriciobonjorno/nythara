@@ -65,6 +65,8 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 	mux.Handle("PUT /v1/decks/{id}", api.auth(http.HandlerFunc(api.updateDeck)))
 	mux.Handle("DELETE /v1/decks/{id}", api.auth(http.HandlerFunc(api.deleteDeck)))
 	mux.Handle("GET /v1/rewards", api.auth(http.HandlerFunc(api.rewards)))
+	mux.Handle("GET /v1/progress", api.auth(http.HandlerFunc(api.progress)))
+	mux.Handle("GET /v1/ranked/leaderboard", api.auth(http.HandlerFunc(api.leaderboard)))
 	mux.Handle("POST /v1/admin/rewards/grant", api.auth(api.requireRole(domain.RoleAdmin,
 		http.HandlerFunc(api.grantReward))))
 	api.adminRoutes(mux)
@@ -132,6 +134,25 @@ func (a *API) startPractice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (a *API) progress(w http.ResponseWriter, r *http.Request) {
+	summary, err := a.service.ProgressSummary(r.Context(), principal(r))
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, summary)
+}
+
+func (a *API) leaderboard(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	entries, standing, err := a.service.Leaderboard(r.Context(), principal(r), limit)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "me": standing})
 }
 
 func (a *API) cancelMatchmaking(w http.ResponseWriter, r *http.Request) {

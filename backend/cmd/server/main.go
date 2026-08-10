@@ -70,6 +70,17 @@ func main() {
 		}
 	}
 	service.SetRulesetActivationHook(battleManager.SetActiveRuleset)
+	battleManager.SetProgressRecorder(func(ctx context.Context, finished battle.FinishedMatch, events []engine.Event) {
+		players := [2]app.FinishedPlayer{}
+		for slot := 0; slot < 2; slot++ {
+			players[slot] = app.FinishedPlayer{UserID: finished.Players[slot].UserID,
+				ChampionID: finished.Players[slot].ChampionID}
+		}
+		if err := service.RecordFinishedMatch(ctx, finished.MatchID, finished.Mode,
+			finished.RulesetVersion, players, finished.Winner, events); err != nil {
+			logger.Error("progressão da partida falhou", "match", finished.MatchID, "error", err)
+		}
+	})
 
 	handler := otelhttp.NewHandler(httpapi.New(service, battleManager, logger, db.Ping), "http.server")
 	port := os.Getenv("PORT")

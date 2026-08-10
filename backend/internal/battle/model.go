@@ -99,6 +99,24 @@ type Store interface {
 	ActiveBans(ctx context.Context) ([]domain.CardBan, error)
 }
 
+// FinishedMatch resume uma partida encerrada para o gravador de progresso.
+type FinishedMatch struct {
+	MatchID        string
+	Mode           string
+	RulesetVersion string
+	Players        [2]FinishedParticipant
+	Winner         *int
+}
+
+type FinishedParticipant struct {
+	UserID     string
+	ChampionID string
+}
+
+// ProgressRecorder recebe partidas encerradas (chamado fora do goroutine da
+// sala; erros são do gravador — jamais afetam a partida).
+type ProgressRecorder func(ctx context.Context, finished FinishedMatch, events []engine.Event)
+
 type QueueResult struct {
 	Status  string `json:"status"`
 	MatchID string `json:"match_id,omitempty"`

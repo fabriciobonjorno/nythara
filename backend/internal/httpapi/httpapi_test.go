@@ -205,7 +205,9 @@ func (f *fakeStore) SaveDeck(context.Context, domain.Deck, *int64, domain.Mutati
 func (*fakeStore) DeleteDeck(context.Context, string, string, int64, domain.Mutation) (bool, error) {
 	panic("not used")
 }
-func (*fakeStore) ActiveSeason(context.Context) (domain.Season, error)          { panic("not used") }
+func (*fakeStore) ActiveSeason(context.Context) (domain.Season, error) {
+	return domain.Season{ID: "00000000-0000-4000-8000-000000000003", Name: "Alpha 0.5"}, nil
+}
 func (*fakeStore) ListRewards(context.Context, string) ([]domain.Reward, error) { panic("not used") }
 func (f *fakeStore) GrantReward(context.Context, domain.Reward, domain.Mutation) (domain.Reward, bool, error) {
 	f.grantCalls++
