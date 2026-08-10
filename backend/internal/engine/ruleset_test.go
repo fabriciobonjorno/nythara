@@ -86,11 +86,11 @@ func TestCompileAndPlayModifiedRuleset(t *testing.T) {
 
 	gOld, dmgOld := play("") // embutido
 	gNew, dmgNew := play(version)
-	if dmgOld != 3 {
-		t.Fatalf("embutido: dano %d; esperado 3 (2 + eclipse ≤0)", dmgOld)
+	if dmgOld != 2 {
+		t.Fatalf("embutido: dano %d; esperado 2 (sem bônus a 0 no alpha-0.5.0)", dmgOld)
 	}
-	if dmgNew != 2 {
-		t.Fatalf("versão nerfada: dano %d; esperado 2 (1 + eclipse ≤0)", dmgNew)
+	if dmgNew != 1 {
+		t.Fatalf("versão nerfada: dano %d; esperado 1", dmgNew)
 	}
 
 	// Replays respeitam a versão gravada na config de cada partida.

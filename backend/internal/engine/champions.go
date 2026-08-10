@@ -84,9 +84,11 @@ func init() {
 		// Mara Vale, Lâmina do Primeiro Sol — primeira Guarda +1; compra ao
 		// prevenir tudo na Aurora Total; ultimate: Aurora Implacável.
 		"CH-SO-01": {
-			guardPreventBonus: func(g *Game, player int) int {
-				if g.s.Players[player].GuardsRound == 1 {
-					return 1
+			// alpha-0.5.0: era "+1 de prevenção na 1ª Guarda" — dominava o
+			// meta (91% com bots). Vira vantagem de tempo, não de muralha.
+			costDelta: func(g *Game, player int, def *CardDef) int {
+				if def.Type == TypeGuarda && g.s.Players[player].GuardsRound == 0 {
+					return -1
 				}
 				return 0
 			},
@@ -106,7 +108,7 @@ func init() {
 		// Ritos -1 na Aurora Total; ultimate: anula o próximo Eclipse adversário.
 		"CH-SO-02": {
 			onOppNightShift: func(g *Game, player int) {
-				g.gainWard(player, 2, "CH-SO-02")
+				g.gainWard(player, 1, "CH-SO-02") // alpha-0.5.0: era 2
 			},
 			costDelta: func(g *Game, player int, def *CardDef) int {
 				if def.Type == TypeRito && g.s.EclipseState == EclipseAurora {
@@ -124,15 +126,9 @@ func init() {
 		// Sigilo extra em Eclipse Total; ultimate: copia o último Rito rival.
 		"CH-MI-01": {
 			on3Sigils: func(g *Game, player int) {
-				if len(g.s.Players[player].Deck) == 0 {
-					return
-				}
-				top := g.s.Players[player].Deck[0]
-				g.emit(Event{Kind: EvDeckTopRevealed, P: player, Card: top, Def: g.s.Cards[top].Def})
-				g.requestDecision(&Decision{
-					Player: player, Kind: DecScryBottom,
-					Options: []string{"yes", "no"}, N: 1, Card: top, Source: "CH-MI-01",
-				})
+				// alpha-0.5.0: era só scry — vira compra direta (valor que
+				// sustenta o arquétipo de combo).
+				g.drawOne(player)
 			},
 			copyExtraSigil: func(g *Game, player int) bool { return anyTotal(g) },
 			canUltimate: func(g *Game, player int) error {
@@ -155,9 +151,7 @@ func init() {
 		"CH-MI-02": {
 			preMulliganScry: true,
 			onExtraDraw: func(g *Game, player int, inst string) {
-				if !anyTotal(g) {
-					return
-				}
+				// alpha-0.5.0: sem exigir Eclipse Total (era só em totais).
 				p := g.s.Players[player]
 				p.CostMods = append(p.CostMods, CostMod{
 					Instance: inst, Delta: -1, Uses: 1, Round: g.s.Round, Source: "CH-MI-02",

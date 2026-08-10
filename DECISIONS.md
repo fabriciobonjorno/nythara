@@ -348,6 +348,41 @@ jogada imediatamente antes dele (rastreada entre rodadas).
 - Fora do alpha (registrado): 2FA/admin hardening no provedor, detecção
   comportamental de botting, recuperação de conta.
 
+## ADR-024 — alpha-0.5.0: modo treino, ritmo e 1ª rodada de balanceamento
+
+**Modo treino vs bot**: partidas `mode=practice` no mesmo pipeline
+authoritative (persistência, snapshots, replay, reconexão); o bot heurístico
+ocupa o assento 1 com origem `bot` e RNG derivado da seed da partida; conta e
+decks oficiais do bot são semeados (a conta jamais autentica). Treino ignora
+bans (não é competitivo) e fica fora da telemetria PvP. A implementação achou
+e corrigiu um bug real de reentrância: morte por Fadiga durante emissão de
+Sigilo numa Guarda corrompia a resolução (endMatch não limpa mais s.Guard;
+resolveAssault tolera contexto nulo; teste de regressão dedicado).
+
+**Ritmo**: Fadiga em passos de 2 (2, 4, 6…) e Essência máxima 10.
+Medido: média 35,2→33,0 rodadas; p95 75→59. Meta de p95 ≤ 40 segue aberta.
+
+**Balanceamento (4 lotes, 10–20 mil partidas por iteração)**:
+- Nerfs Solara: VR-014 previne 3 e custa 2; VR-017 custa 2; VR-019 custa 4;
+  VR-022 previne 6 (era tudo) e custa 4; VR-013 exige Eclipse ≤ -1; VR-023
+  move 2 (não seta -2); passiva de Mara vira desconto (era +1 prevenção);
+  Ilyan ganha Ward 1 (era 2).
+- Buffs Mirr/Cinéreo: Nyra compra 1 ao completar 3 Sigilos (era scry) e tem
+  30 de Vitalidade; Oren tem 32 e o desconto de compra extra vale sempre;
+  VR-025 base 3; VR-031 base 4/instead 6; VR-027 previne 3; VR-030 compra 1
+  ao entrar; VR-033 previne 4; VR-034/VR-036/VR-060 custam menos; VR-050 +2
+  com exílio; VR-053 Maldição 3; VR-055 causa 5.
+- Resultado (100 mil, heurístico): fundo levantou de 20–30% para 24–42%
+  (Nyra 20,7→32,8; Cinéreo ~30→41); Solara resiste (Mara 91,6→83,8). Duas
+  hipóteses estruturais foram testadas e rejeitadas com dados: quantidade de
+  prevenção (lote 4: 84,0→84,0) e velocidade de Eclipse (VR-023: 83,8).
+  Conclusão honesta: a dominância Solara sob ESTE bot é sistêmica (kit
+  consistente + o heurístico joga defesa melhor que combo) e exige sessão de
+  design dedicada + bot melhor + dados humanos — não mais botões numéricos.
+
+O catálogo runtime (backend/internal/engine/data/) é a fonte de verdade;
+docs/design/ preserva o pacote original do alpha como referência histórica.
+
 ## Achados de design para revisão de balanceamento
 
 1. **VR-033 (Véu de Prata)**: com fases estritas, o Véu ganho na Guarda expira
@@ -357,13 +392,10 @@ jogada imediatamente antes dele (rastreada entre rodadas).
 2. **VR-005 (Fome Educada)**: a sequência Presa→Coroa exige um emissor de Coroa
    pós-Presa na mesma janela; no set, só VR-061/VR-002+ordem viabilizam. Ok com
    VR-061 implementada, mas a densidade de enablers é baixa em mono-Vhal.
-3. Bots aleatórios amplificam custos de vida: com decks amplos (alpha-0.2.0),
-   o arquétipo prevenção+Mara massacrou o arquétipo Vhal/Varka de sacrifícios
-   (38–2). Diagnóstico com troca de assentos confirmou: a vitória segue o
-   deck, não o assento (40–0 invertido) — sem viés de primeiro jogador na
-   engine em 80 partidas. Cartas que se autoferem (VR-002, VR-045) precisam de
-   bot heurístico (Fase 6) para leitura real de winrate; sob jogo aleatório
-   são quase estritamente ruins.
+3. Baseline alpha-0.5.0 (100 mil, heurístico): Mara 83,8 / Ilyan 77,7 no
+   topo; Oren 24,0 no fundo. Próximos passos registrados no ADR-024:
+   heurístico com linha combo/eclipse, sessão de design Solara/Mirr e
+   telemetria humana antes de novos nerfs numéricos.
 4. **Baseline alpha-0.4.0 (100 mil, heuristic × heuristic)**: iniciativa ficou
    neutra (50,038%); média 35,23 rodadas, p95 75 e máximo 155, sem loops. A
    matriz precon encontrou forte delta de arquétipo: Mara 91,61%, Ilyan 83,75%,

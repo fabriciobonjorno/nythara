@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"fmt"
+	"math/big"
 	"sort"
 
 	"veurubro/backend/internal/domain"
@@ -81,4 +83,32 @@ func (s *Service) CreatePreconDeck(ctx context.Context, principal domain.Princip
 		Cards:      collapseDeck(cards),
 	}
 	return s.SaveDeck(ctx, principal, deck, nil, key, rawBody)
+}
+
+// BotDeck localiza o deck oficial do bot para o Campeão pedido (vazio =
+// sorteio). Os decks do bot são semeados pelo SyncCatalog na conta reservada.
+func (s *Service) BotDeck(ctx context.Context, championID, rulesetVersion string) (domain.Deck, error) {
+	decks, err := s.store.ListDecks(ctx, domain.BotUserID)
+	if err != nil {
+		return domain.Deck{}, err
+	}
+	var candidates []domain.Deck
+	for _, deck := range decks {
+		if deck.RulesetVersion != rulesetVersion {
+			continue
+		}
+		if championID != "" && deck.ChampionID != championID {
+			continue
+		}
+		candidates = append(candidates, deck)
+	}
+	if len(candidates) == 0 {
+		return domain.Deck{}, fmt.Errorf("%w: nenhum deck de bot para %q em %s",
+			domain.ErrInvalid, championID, rulesetVersion)
+	}
+	pick, err := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(len(candidates))))
+	if err != nil {
+		return domain.Deck{}, err
+	}
+	return candidates[pick.Int64()], nil
 }

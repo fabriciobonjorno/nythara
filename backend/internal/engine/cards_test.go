@@ -125,8 +125,8 @@ func TestCurseVR053(t *testing.T) {
 	h.passConfront()
 	h.assertVit(1, 30) // rodada 1: nada
 	h.passRound()
-	// Crepúsculo da rodada 2: p1 com 7 cartas (≥5) sofre 2.
-	h.assertVit(1, 28)
+	// Crepúsculo da rodada 2: p1 com 7 cartas (≥5) sofre 3 (alpha-0.5.0).
+	h.assertVit(1, 27)
 }
 
 func TestGuardHealVR003(t *testing.T) {
@@ -138,13 +138,13 @@ func TestGuardHealVR003(t *testing.T) {
 
 	h.play(0, h.handInst(0, "VR-013"))
 	h.pass(1)
-	h.assertVit(1, 27) // eclipse 0 → 3
+	h.assertVit(1, 28) // eclipse 0: sem bônus no alpha-0.5.0 → 2
 	h.assertEclipse(-1)
 
 	h.play(0, h.handInst(0, "VR-013"))
 	h.play(1, h.handInst(1, "VR-003"))
-	// Preveniu os 3 → cura 1.
-	h.assertVit(1, 28)
+	// Eclipse -1 → 3; preveniu os 3 → cura 1.
+	h.assertVit(1, 29)
 }
 
 func TestPeleGrossaVR042(t *testing.T) {
@@ -183,7 +183,7 @@ func TestResonanceComboVR005(t *testing.T) {
 	h.pass(0) // p0 não ataca na rodada 1
 	h.play(1, h.handInst(1, "VR-013"))
 	h.pass(0)
-	h.assertVit(0, 27)
+	h.assertVit(0, 28) // VR-013 sem bônus a 0 (alpha-0.5.0)
 	h.pass(1)
 
 	// Rodada 2: iniciativa de p1; p0 monta Presa→Coroa e fecha com VR-005.
@@ -196,8 +196,8 @@ func TestResonanceComboVR005(t *testing.T) {
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-005"))
 	h.pass(1)
-	// Trilha própria: Presa, Coroa → bônus: cura 2.
-	h.assertVit(0, 29)
+	// Trilha própria: Presa, Coroa → bônus: cura 2 (teto 30).
+	h.assertVit(0, 30)
 	h.assertVit(1, 30-2-2-3)
 }
 
@@ -279,13 +279,13 @@ func TestFatigueOnEmptyDeck(t *testing.T) {
 	}
 	p.Deck = nil
 
-	// Dívida de Sangue: sacrifica 2 e compra 2 → 1ª compra: Fadiga 1 +
+	// Dívida de Sangue: sacrifica 2 e compra 2 → 1ª compra: Fadiga 2 +
 	// reembaralha o descarte; 2ª compra normal.
 	h.play(0, h.handInst(0, "VR-002"))
-	// Seris: 30 - 2 (sacrifício) - 1 (fadiga) = 27.
-	h.assertVit(0, 27)
-	if p.Fatigue != 1 {
-		t.Fatalf("fadiga: %d; esperado 1", p.Fatigue)
+	// Seris: 30 - 2 (sacrifício) - 2 (fadiga alpha-0.5.0) = 26.
+	h.assertVit(0, 26)
+	if p.Fatigue != 2 {
+		t.Fatalf("fadiga: %d; esperado 2", p.Fatigue)
 	}
 	if len(p.Deck) == 0 {
 		t.Fatal("deck deveria ter sido reembaralhado do descarte")
@@ -535,10 +535,10 @@ func TestExileHealVR051AndVR050(t *testing.T) {
 	}
 	h.pass(1)
 
-	// Janela de p0: Lâmina Carbonizada com bônus de exílio → 3.
+	// Janela de p0: Lâmina Carbonizada com bônus de exílio → 4 (alpha-0.5.0).
 	h.play(0, h.handInst(0, "VR-050"))
 	h.pass(1)
-	h.assertVit(1, 27)
+	h.assertVit(1, 26)
 }
 
 func TestKaedorCostReduction(t *testing.T) {
@@ -593,8 +593,8 @@ func TestVigiliaOnlyFirstGuard(t *testing.T) {
 	h.play(1, h.handInst(1, "VR-014"))
 	h.play(0, h.handInst(0, "VR-013"))
 	h.play(1, h.handInst(1, "VR-014"))
-	if got := h.g.State().Players[1].Essence; got != 2 {
-		t.Fatalf("essência de p1: %d; esperado 2 (0 + 1)", got)
+	if got := h.g.State().Players[1].Essence; got != 0 {
+		t.Fatalf("essência de p1: %d; esperado 0 (custo 2: 1 com Vigília + 2)", got)
 	}
 }
 
@@ -691,7 +691,7 @@ func TestVeilGuardVR033(t *testing.T) {
 	h.bothPassRite()
 	h.play(0, h.handInst(0, "VR-020"))
 	h.play(1, h.handInst(1, "VR-033"))
-	h.assertVit(1, 29) // 4 - 3
+	h.assertVit(1, 30) // 4 - 4 (alpha-0.5.0)
 	s := h.g.State()
 	if s.Players[1].VeilRound != s.Round {
 		t.Fatal("p1 deveria estar sob Véu")

@@ -48,7 +48,7 @@ const (
 	OpeningHandSize = 5
 	HandLimit       = 7
 	EssenceStart    = 3
-	EssenceMax      = 8
+	EssenceMax      = 10 // alpha-0.5.0: teto maior acelera o meio de jogo
 	EclipseMin      = -3
 	EclipseMax      = 3
 	ResonanceCap    = 5

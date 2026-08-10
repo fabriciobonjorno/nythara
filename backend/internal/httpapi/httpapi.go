@@ -71,6 +71,7 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 	if battles != nil {
 		mux.Handle("GET /v1/matchmaking", api.auth(http.HandlerFunc(api.matchmakingStatus)))
 		mux.Handle("POST /v1/matchmaking", api.auth(http.HandlerFunc(api.enqueueMatchmaking)))
+		mux.Handle("POST /v1/practice", api.auth(http.HandlerFunc(api.startPractice)))
 		mux.Handle("DELETE /v1/matchmaking", api.auth(http.HandlerFunc(api.cancelMatchmaking)))
 		mux.Handle("POST /v1/battles/{id}/tickets", api.auth(http.HandlerFunc(api.battleTicket)))
 		mux.HandleFunc("GET /v1/battles/{id}/ws", api.battleWebSocket)
@@ -100,6 +101,32 @@ func (a *API) enqueueMatchmaking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := a.battles.Queue(r.Context(), principal(r), deck)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (a *API) startPractice(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		DeckID        string `json:"deck_id"`
+		BotChampionID string `json:"bot_champion_id"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	deck, err := a.service.Deck(r.Context(), principal(r), input.DeckID)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	botDeck, err := a.service.BotDeck(r.Context(), input.BotChampionID, deck.RulesetVersion)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	result, err := a.battles.StartPractice(r.Context(), principal(r), deck, botDeck)
 	if err != nil {
 		a.respondError(w, err)
 		return

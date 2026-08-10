@@ -132,8 +132,8 @@ func TestVR016ShortensCurse(t *testing.T) {
 	h.pass(0)
 	h.passConfront()
 	// Sem o Rosário a Maldição dispararia só no fim da rodada 2; com ele,
-	// dispara já no Crepúsculo da rodada 1 (mão de p1 ≥ 5).
-	h.assertVit(1, 28)
+	// dispara já no Crepúsculo da rodada 1 (mão de p1 ≥ 5). Maldição vale 3.
+	h.assertVit(1, 27)
 	if got := len(h.g.State().Players[1].Curses); got != 0 {
 		t.Fatalf("maldições restantes: %d", got)
 	}
@@ -145,10 +145,11 @@ func TestVR019WardOnFirstGuard(t *testing.T) {
 	h.keepAll()
 	h.stances(engine.StanceArcano, engine.StanceVigilia)
 	h.pass(0)
+	h.g.State().Players[1].Essence = 6 // VR-019 custa 4 no alpha-0.5.0
 	h.play(1, h.handInst(1, "VR-019"))
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-013"))
-	h.play(1, h.handInst(1, "VR-014")) // custo 0 pela Vigília; Sentinela → Ward 1
+	h.play(1, h.handInst(1, "VR-014")) // custo 1 pela Vigília; Sentinela → Ward 1
 	if got := h.g.State().Players[1].Ward; got != 1 {
 		t.Fatalf("ward: %d; esperado 1", got)
 	}
@@ -194,6 +195,7 @@ func TestVR022PreventsAllOpponentDraws(t *testing.T) {
 	h.stances(engine.StanceArcano, engine.StanceArcano)
 	h.bothPassRite()
 	before := len(h.g.State().Players[0].Hand)
+	h.g.State().Players[1].Essence = 4 // VR-022 custa 4 no alpha-0.5.0
 	h.play(0, h.handInst(0, "VR-020"))
 	h.play(1, h.handInst(1, "VR-022"))
 	h.assertVit(1, 30)
@@ -213,7 +215,7 @@ func TestVR023ResetToAurora(t *testing.T) {
 	s.Players[0].Bleeds = []engine.TimedN{{N: 2, Round: 2}}
 	s.Players[0].Curses = []engine.TimedN{{N: 2, Round: 2, Kind: "VR-053"}}
 	h.play(0, h.handInst(0, "VR-023"))
-	h.assertEclipse(-2) // sem duplicar o deslocamento intrínseco
+	h.assertEclipse(-1) // alpha-0.5.0: move 2 (não seta -2); +1 → -1
 	if len(s.Players[0].Bleeds) != 0 || len(s.Players[0].Curses) != 0 {
 		t.Fatal("Sangramento e Maldição deveriam ter sido removidos")
 	}

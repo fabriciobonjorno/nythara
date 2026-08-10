@@ -39,6 +39,7 @@ type Participant struct {
 
 type Match struct {
 	ID        string         `json:"id"`
+	Mode      string         `json:"mode,omitempty"` // pvp | practice
 	Config    engine.Config  `json:"config"`
 	Players   [2]Participant `json:"players"`
 	Status    Status         `json:"status"`

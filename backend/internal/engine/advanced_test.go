@@ -291,7 +291,7 @@ func TestVR055PreExileAndDirection(t *testing.T) {
 	}
 	h.choose(0, vr049) // exila o Rito
 	h.pass(1)          // janela de Guarda anunciada após a escolha
-	h.assertVit(1, 26) // 4 de dano
+	h.assertVit(1, 25) // 5 de dano (alpha-0.5.0)
 	if s.Pending == nil || s.Pending.Kind != engine.DecDirection {
 		t.Fatalf("Rito exilado deveria abrir escolha de direção; %+v", s.Pending)
 	}
@@ -417,7 +417,7 @@ func TestSaelaUltimateShieldAndBonus(t *testing.T) {
 	// Saela ataca com +2; depois o dano de p0 é reduzido a 0.
 	h.play(1, h.handInst(1, "VR-013"))
 	h.pass(0)
-	h.assertVit(0, 25) // 3 + 2
+	h.assertVit(0, 26) // 2 + 2 (VR-013 sem bônus a 0 no alpha-0.5.0)
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-020"))
 	h.pass(1)
@@ -454,9 +454,9 @@ func TestIlyanPassiveAndNullify(t *testing.T) {
 	s := h.g.State()
 	h.play(0, h.handInst(0, "VR-068"))
 	h.play(0, h.handInst(0, "VR-068"))
-	// Segundo empurrão à Noite na rodada: Ilyan ganha Ward 2.
-	if got := s.Players[1].Ward; got != 2 {
-		t.Fatalf("ward de Ilyan: %d; esperado 2", got)
+	// Segundo empurrão à Noite na rodada: Ilyan ganha Ward 1 (alpha-0.5.0).
+	if got := s.Players[1].Ward; got != 1 {
+		t.Fatalf("ward de Ilyan: %d; esperado 1", got)
 	}
 	h.pass(0)
 	// Ilyan arma a anulação; o próximo deslocamento de p0 é anulado.
@@ -593,4 +593,35 @@ func TestMaraUltimateAurora(t *testing.T) {
 	h.must(engine.Command{Player: 0, Kind: engine.CmdKindUltimate})
 	h.assertEclipse(-2)
 	h.assertVit(1, 28)
+}
+
+// Regressão: morte por Fadiga no meio da emissão de Sigilo de uma Guarda
+// (compra da passiva de Nyra) não pode corromper a resolução do Assalto.
+func TestDeathDuringGuardSigilEmissionEndsCleanly(t *testing.T) {
+	h := newHarness(t, "CH-CI-01", "CH-MI-01",
+		deckWith("VR-020"), deckWith("VR-014"), 0)
+	h.keepAll()
+	h.stances(engine.StanceArcano, engine.StanceArcano)
+	h.bothPassRite()
+	s := h.g.State()
+	// Cirurgia: Nyra à beira da morte, sem deck nem descarte, trilha com 2
+	// Sigilos — a Guarda emite o 3º, a passiva compra, a Fadiga (2) mata.
+	p1 := s.Players[1]
+	p1.Vitality = 2
+	p1.Trail = []engine.Sigil{engine.SigilSol, engine.SigilCoroa}
+	for _, id := range p1.Deck {
+		s.Cards[id].Zone = engine.ZoneExile
+		p1.Exile = append(p1.Exile, id)
+	}
+	p1.Deck = nil
+
+	h.play(0, h.handInst(0, "VR-020"))
+	h.play(1, h.handInst(1, "VR-014"))
+	if !s.Over || s.Winner != 0 {
+		t.Fatalf("a partida deveria ter terminado com vitória de p0; over=%v winner=%d", s.Over, s.Winner)
+	}
+	// Zonas íntegras: Assalto e Guarda finalizaram no descarte.
+	if s.Cards[h.g.CommandLog[len(h.g.CommandLog)-1].Card].Zone != engine.ZoneDiscard {
+		t.Fatal("a Guarda deveria ter ido ao descarte mesmo com a morte no meio")
+	}
 }

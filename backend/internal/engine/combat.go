@@ -205,6 +205,9 @@ func (g *Game) playGuard(player int, inst *CardInstance, def *CardDef) error {
 func (g *Game) resolveAssault() {
 	s := g.s
 	ctx := s.Guard
+	if ctx == nil {
+		return
+	}
 	impl := g.rs.assault[ctx.AssaultDef]
 	att := s.Players[ctx.Attacker]
 	defP := s.Players[ctx.Defender]

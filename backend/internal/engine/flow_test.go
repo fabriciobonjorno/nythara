@@ -51,22 +51,22 @@ func TestScriptedMatchGolden(t *testing.T) {
 	h.pass(1)
 
 	// Confronto p0: Corte Rubro = 2 +1 (sacrifício) +1 (Predação) = 4.
-	// p1 responde com Égide de Lumen (custo 0 pela Vigília): previne 4+1 (Mara).
+	// p1 responde com Égide de Lumen (custo 0: Vigília + Mara): previne 3 → 1 passa.
 	h.play(0, h.handInst(0, "VR-001"))
 	h.play(1, h.handInst(1, "VR-014"))
-	h.assertVit(1, 31)
+	h.assertVit(1, 30)
 
-	// Golpe da Alvorada: eclipse em 0 → 3 de dano; p1 passa a guarda.
+	// Golpe da Alvorada: eclipse em 0 → 2 (sem bônus no alpha-0.5.0).
 	h.play(0, h.handInst(0, "VR-013"))
 	h.pass(1)
 	h.assertVit(1, 28)
 	h.pass(0)
 
-	// Confronto p1: Refração Dolorosa: último sigilo global foi Presa → 3;
-	// Exposto em p0 → +2 = 5.
+	// Confronto p1: Refração Dolorosa: 3 base +1 (último sigilo global Presa);
+	// Exposto em p0 → +2 = 6.
 	h.play(1, h.handInst(1, "VR-025"))
 	h.pass(0)
-	h.assertVit(0, 23)
+	h.assertVit(0, 22)
 	if g.State().Players[0].Exposto {
 		t.Fatal("Exposto deveria ter sido consumido")
 	}

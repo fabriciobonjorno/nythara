@@ -251,48 +251,12 @@ func championIDs(rs *engine.Ruleset) []string {
 
 // PreconstructedDeck monta o precon sob o ruleset embutido.
 func PreconstructedDeck(championID string) ([]string, error) {
-	return PreconstructedDeckFor(engine.Builtin(), championID)
+	return engine.Builtin().PreconstructedDeck(championID)
 }
 
-// PreconstructedDeckFor monta o precon determinístico de um Campeão sob o
-// ruleset dado.
+// PreconstructedDeckFor monta o precon determinístico sob o ruleset dado.
 func PreconstructedDeckFor(rs *engine.Ruleset, championID string) ([]string, error) {
-	champion := rs.Champions[championID]
-	if champion == nil {
-		return nil, fmt.Errorf("campeão desconhecido: %s", championID)
-	}
-	cards := append([]*engine.CardDef{}, rs.CardList...)
-	sort.Slice(cards, func(i, j int) bool {
-		leftCore := cards[i].Faction == champion.Faction
-		rightCore := cards[j].Faction == champion.Faction
-		if leftCore != rightCore {
-			return leftCore
-		}
-		return cards[i].ID < cards[j].ID
-	})
-	deck := make([]string, 0, engine.DeckSize)
-	for _, card := range cards {
-		if card.Faction != champion.Faction && card.Faction != engine.NeutralFaction {
-			continue
-		}
-		copies := engine.MaxCopies
-		if card.Rarity == engine.RarityLendaria {
-			copies = engine.MaxLegendary
-		}
-		for range copies {
-			if len(deck) == engine.DeckSize {
-				break
-			}
-			deck = append(deck, card.ID)
-		}
-		if len(deck) == engine.DeckSize {
-			break
-		}
-	}
-	if err := rs.ValidateDeck(championID, deck); err != nil {
-		return nil, fmt.Errorf("precon %s: %w", championID, err)
-	}
-	return deck, nil
+	return rs.PreconstructedDeck(championID)
 }
 
 func simulateOne(cfg Config, index int, champions []string, decks map[string][]string) (result matchResult) {

@@ -24,9 +24,13 @@ func (p *Postgres) CreateMatch(ctx context.Context, match battle.Match) error {
 		return err
 	}
 	defer tx.Rollback()
+	mode := match.Mode
+	if mode == "" {
+		mode = "pvp"
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO matches
-		(id,ruleset_version,seed,config,status,created_at) VALUES($1,$2,$3,$4,$5,$6)`,
-		match.ID, match.Config.RulesetVersion, int64(match.Config.Seed), config, match.Status, match.CreatedAt); err != nil {
+		(id,ruleset_version,seed,config,status,mode,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+		match.ID, match.Config.RulesetVersion, int64(match.Config.Seed), config, match.Status, mode, match.CreatedAt); err != nil {
 		return mapError(err)
 	}
 	for _, player := range match.Players {
@@ -162,9 +166,9 @@ func (p *Postgres) LoadMatch(ctx context.Context, matchID string) (battle.Loaded
 	var winner sql.NullInt16
 	var started, ended sql.NullTime
 	err := p.db.QueryRowContext(ctx, `SELECT id,config,status,winner_slot,COALESCE(end_reason,''),
-		created_at,started_at,ended_at FROM matches WHERE id=$1`, matchID).Scan(
+		mode,created_at,started_at,ended_at FROM matches WHERE id=$1`, matchID).Scan(
 		&loaded.Match.ID, &configRaw, &loaded.Match.Status, &winner, &loaded.Match.EndReason,
-		&loaded.Match.CreatedAt, &started, &ended)
+		&loaded.Match.Mode, &loaded.Match.CreatedAt, &started, &ended)
 	if err != nil {
 		return loaded, mapError(err)
 	}

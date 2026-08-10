@@ -26,7 +26,7 @@ make run     # servidor de health/relatórios em :8080
 make web-dev # cliente em :5173, com proxy REST/WebSocket para :8080
 ```
 
-## Estado atual (alpha 0.4)
+## Estado atual (alpha 0.5)
 
 - **Fase 0** — monorepo, compose, CI, governança: pronto.
 - **Fase 1** — engine determinística: pronto. Essência, Posturas, Eclipse,
@@ -71,6 +71,11 @@ make web-dev # cliente em :5173, com proxy REST/WebSocket para :8080
   engine), 10 precons oficiais como produto (`GET /v1/catalog/precons` +
   `POST /v1/decks/precon`), tutorial com os 8 fundamentos exigidos e rotação
   de coleção/decks entre versões (`rotate`, fechando o ADR-022).
+- **Jogabilidade P0 (alpha-0.5.0)** — modo treino contra o bot heurístico
+  (`POST /v1/practice`, mesmo pipeline authoritative, replays inclusos),
+  ritmo mais rápido (Fadiga ×2, Essência máx. 10 — p95 75→59 rodadas) e 1ª
+  rodada de balanceamento guiada por 100 mil simulações por iteração
+  (ADR-024; fundo da tabela 20–30%→24–42%; dívida Solara documentada).
 - **Fase 10** — Definition of Done: suíte race verde, 100 mil partidas locais
   bit a bit idênticas à baseline, zero TODOs críticos, backup/restore provado,
   scan de vulnerabilidades zerado. MVP Alpha completo; pendências honestas:

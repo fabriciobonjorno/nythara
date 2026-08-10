@@ -282,6 +282,10 @@ func (m *Manager) getRoom(ctx context.Context, matchID string) (*room, error) {
 		r.armActionTimer()
 	}
 	go r.loop()
+	if r.match.Mode == ModePractice && r.match.Status == StatusActive {
+		// Sala restaurada mid-partida: o bot pode estar devendo a jogada.
+		r.requests <- pumpRequest{}
+	}
 	return r, nil
 }
 
@@ -350,6 +354,7 @@ type room struct {
 	timer        *time.Timer
 	timerGen     int64
 	deadline     *time.Time
+	bot          *engine.HeuristicBot
 }
 
 type subscribeRequest struct {
@@ -369,6 +374,8 @@ type commandRequest struct {
 	response chan error
 }
 type timeoutRequest struct{ generation int64 }
+
+type pumpRequest struct{}
 type statusRequest struct {
 	userID   string
 	response chan QueueResult
@@ -462,6 +469,8 @@ func (r *room) loop() {
 			value.response <- result
 		case participantRequest:
 			value.response <- r.slotFor(value.userID)
+		case pumpRequest:
+			r.pumpBot()
 		}
 	}
 }
@@ -511,6 +520,7 @@ func (r *room) handleReady(subID string) error {
 		r.armActionTimer()
 	}
 	r.broadcastState("ready")
+	r.pumpBot()
 	return nil
 }
 
@@ -580,6 +590,7 @@ func (r *room) handleCommand(request commandRequest) error {
 		r.armActionTimer()
 	}
 	r.broadcastEvents(events, sub.id, request.sequence, false)
+	r.pumpBot()
 	return nil
 }
 

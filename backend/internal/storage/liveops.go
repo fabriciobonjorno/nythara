@@ -368,7 +368,7 @@ func (p *Postgres) CreateSeason(ctx context.Context, season domain.Season,
 func (p *Postgres) MatchTelemetry(ctx context.Context) (domain.MatchTelemetry, error) {
 	var t domain.MatchTelemetry
 	err := p.db.QueryRowContext(ctx, `SELECT count(*),
-		count(*) FILTER (WHERE status='finished') FROM matches`).
+		count(*) FILTER (WHERE status='finished') FROM matches WHERE mode='pvp'`).
 		Scan(&t.TotalMatches, &t.FinishedMatches)
 	if err != nil {
 		return t, mapError(err)
@@ -378,7 +378,7 @@ func (p *Postgres) MatchTelemetry(ctx context.Context) (domain.MatchTelemetry, e
 		       count(*) FILTER (WHERE m.winner_slot = mp.slot) AS wins
 		FROM match_players mp
 		JOIN matches m ON m.id = mp.match_id
-		WHERE m.status = 'finished'
+		WHERE m.status = 'finished' AND m.mode = 'pvp'
 		GROUP BY mp.champion_id ORDER BY mp.champion_id`)
 	if err != nil {
 		return t, mapError(err)

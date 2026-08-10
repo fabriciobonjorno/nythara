@@ -130,7 +130,7 @@ func NewGame(cfg Config) (*Game, error) {
 
 // RulesetVersion corrente da engine. Acompanha o version do arquivo de
 // efeitos: mudanças de conteúdo/regra exigem bump + regeneração dos goldens.
-const RulesetVersion = "alpha-0.4.0"
+const RulesetVersion = "alpha-0.5.0"
 
 // Apply valida e aplica um comando. Comando ilegal retorna erro e não muta
 // nada. Retorna os eventos gerados por este comando.
@@ -493,7 +493,9 @@ func (g *Game) drawOne(player int) *CardInstance {
 	s := g.s
 	p := s.Players[player]
 	if len(p.Deck) == 0 {
-		p.Fatigue++
+		// alpha-0.5.0: Fadiga em passos de 2 (2, 4, 6…) — fecha partidas de
+		// atrito muito antes (ADR-024).
+		p.Fatigue += 2
 		g.emit(Event{Kind: EvFatigue, P: player, N: p.Fatigue})
 		g.loseVitality(player, p.Fatigue, "Fadiga")
 		if s.Over {
@@ -600,7 +602,9 @@ func (g *Game) endMatch(winner int, reason string) {
 	s.EndReason = reason
 	s.Phase = PhaseOver
 	s.Pending = nil
-	s.Guard = nil
+	// s.Guard NÃO é limpo aqui: uma morte no meio de uma resolução (ex.:
+	// compra da passiva de Nyra matando por Fadiga durante uma Guarda) deixa
+	// a resolução em andamento finalizar as zonas com o contexto íntegro.
 	g.emit(Event{Kind: EvMatchEnded, P: winner, S: reason})
 }
 

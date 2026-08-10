@@ -22,7 +22,7 @@
     "name": "Mara Vale, Lâmina do Primeiro Sol",
     "faction": "Ordem Solara",
     "vitality": 31,
-    "passive": "A primeira Guarda que você usar em cada rodada previne +1 dano.",
+    "passive": "A primeira Guarda que você usar em cada rodada custa 1 a menos.",
     "ultimate": "Aurora Implacável — mova o Medidor de Eclipse 2 passos em direção à Aurora e cause 2 de dano.",
     "eclipse_form": "Na Aurora Total, após prevenir todo o dano de um Assalto, compre 1 carta."
   },
@@ -39,8 +39,8 @@
     "id": "CH-MI-01",
     "name": "Nyra dos Sete Reflexos",
     "faction": "Conclave Mirr",
-    "vitality": 29,
-    "passive": "Uma vez por rodada, ao completar Ressonância de 3 Sigilos, olhe a carta do topo do seu deck; pode colocá-la no fundo.",
+    "vitality": 30,
+    "passive": "Uma vez por rodada, ao completar Ressonância de 3 Sigilos, compre 1 carta.",
     "ultimate": "Reflexo Impossível — copie o texto base do último Rito do oponente; você pode jogá-lo sem possuir a carta.",
     "eclipse_form": "Em qualquer Eclipse Total, seus efeitos de cópia mantêm também um bônus de Ressonância."
   },
@@ -48,7 +48,7 @@
     "id": "CH-MI-02",
     "name": "Oren, Leitor do Véu",
     "faction": "Conclave Mirr",
-    "vitality": 30,
+    "vitality": 32,
     "passive": "No início da partida, veja as 3 cartas do topo do seu deck e reordene-as.",
     "ultimate": "Fenda de Probabilidade — escolha entre comprar 2 cartas ou fazer o oponente embaralhar 2 cartas aleatórias da mão no deck.",
     "eclipse_form": "Em qualquer Eclipse Total, a primeira carta comprada além da compra normal custa 1 a menos neste turno."

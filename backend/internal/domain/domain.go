@@ -17,6 +17,10 @@ var (
 	ErrIdempotencyConflict = errors.New("chave de idempotência reutilizada com conteúdo diferente")
 )
 
+// BotUserID é a conta reservada do bot de treino (semeada na migração 4;
+// jamais autentica).
+const BotUserID = "00000000-0000-4000-8000-0000000000b0"
+
 type Role string
 
 const (
