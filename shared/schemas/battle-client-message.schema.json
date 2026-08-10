@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veurubro.local/schemas/battle-client-message.schema.json",
+  "title": "Véu Rubro battle client message v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "const": "ready" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "client_sequence", "command"],
+      "properties": {
+        "type": { "const": "command" },
+        "client_sequence": { "type": "integer", "minimum": 1 },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": {
+              "enum": ["mulligan", "stance", "play", "choose", "pass", "concede", "activate", "ultimate"]
+            },
+            "card": { "type": "string", "maxLength": 64 },
+            "cards": {
+              "type": "array",
+              "maxItems": 36,
+              "items": { "type": "string", "maxLength": 64 }
+            },
+            "stance": { "enum": ["Predação", "Vigília", "Arcano"] },
+            "decision_id": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    }
+  ]
+}

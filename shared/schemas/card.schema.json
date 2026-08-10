@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "veurubro/card",
+  "title": "Carta do catálogo Véu Rubro",
+  "type": "object",
+  "required": ["id", "name", "faction", "type", "rarity", "cost", "eclipse_shift", "sigil", "rules_text"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^VR-\\d{3}$" },
+    "name": { "type": "string", "minLength": 1 },
+    "faction": {
+      "enum": ["Casa Vhal", "Ordem Solara", "Conclave Mirr", "Matilha Varka", "Sínodo Cinéreo", "Errantes"]
+    },
+    "type": { "enum": ["Assalto", "Guarda", "Rito", "Relíquia", "Manifestação"] },
+    "rarity": { "enum": ["Comum", "Incomum", "Rara", "Épica", "Lendária"] },
+    "cost": { "type": "integer", "minimum": 0, "maximum": 10 },
+    "eclipse_shift": { "type": "integer", "minimum": -2, "maximum": 2 },
+    "sigil": { "enum": ["Presa", "Sol", "Espelho", "Garra", "Cinza", "Coroa"] },
+    "rules_text": { "type": "string", "minLength": 1 },
+    "flavor": { "type": "string" },
+    "design_role": { "type": "string" }
+  }
+}

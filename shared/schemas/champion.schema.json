@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "veurubro/champion",
+  "title": "Campeão do catálogo Véu Rubro",
+  "type": "object",
+  "required": ["id", "name", "faction", "vitality", "passive", "ultimate", "eclipse_form"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^CH-[A-Z]{2}-\\d{2}$" },
+    "name": { "type": "string", "minLength": 1 },
+    "faction": {
+      "enum": ["Casa Vhal", "Ordem Solara", "Conclave Mirr", "Matilha Varka", "Sínodo Cinéreo", "Errantes"]
+    },
+    "vitality": { "type": "integer", "minimum": 25, "maximum": 40 },
+    "passive": { "type": "string", "minLength": 1 },
+    "ultimate": { "type": "string", "minLength": 1 },
+    "eclipse_form": { "type": "string", "minLength": 1 }
+  }
+}

@@ -1,0 +1,22 @@
+# Go
+backend/bin/
+*.test
+*.out
+coverage.*
+backend/artifacts/
+
+# Node
+node_modules/
+web/dist/
+*.local
+
+# Ambiente
+.env
+.env.*
+!.env.example
+
+# SO / editor
+.DS_Store
+.idea/
+.vscode/
+*.tsbuildinfo

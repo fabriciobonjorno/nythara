@@ -1,0 +1,88 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        working-directory: web
+        run: npm ci
+      - name: Typecheck and build PWA
+        working-directory: web
+        run: npm run build
+      - name: Dependency audit
+        working-directory: web
+        run: npm audit --audit-level=high
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: veurubro
+          POSTGRES_PASSWORD: veurubro_dev
+          POSTGRES_DB: veurubro_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U veurubro -d veurubro_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://veurubro:veurubro_dev@localhost:5432/veurubro_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+      - name: Build
+        working-directory: backend
+        run: go build ./...
+      - name: Vet
+        working-directory: backend
+        run: go vet ./...
+      - name: Test (race)
+        working-directory: backend
+        run: go test -race -count=1 ./...
+      - name: Relatório de implementação de cartas
+        working-directory: backend
+        run: go test ./internal/engine/ -run TestImplementationReportGate -v | grep 'cartas implementadas' || true
+      - name: Smoke de balanceamento
+        working-directory: backend
+        run: go run ./cmd/sim -games 1000 -workers 2 -json artifacts/smoke.json -markdown artifacts/smoke.md
+
+  balance:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+      - name: Gate noturno — 100 mil partidas com replay
+        working-directory: backend
+        run: go run ./cmd/sim -games 100000 -workers 2 -json artifacts/balance-report.json -markdown artifacts/balance-report.md
+      - name: Publicar relatório de balanceamento
+        uses: actions/upload-artifact@v4
+        with:
+          name: balance-${{ github.sha }}
+          path: backend/artifacts/
+          retention-days: 30

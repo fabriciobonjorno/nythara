@@ -1,0 +1,307 @@
+package app
+
+import (
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"net/mail"
+	"sort"
+	"strings"
+	"time"
+
+	"veurubro/backend/internal/domain"
+	"veurubro/backend/internal/engine"
+	"veurubro/backend/internal/security"
+)
+
+const (
+	AccessTTL  = 15 * time.Minute
+	RefreshTTL = 30 * 24 * time.Hour
+)
+
+type Clock func() time.Time
+
+type Service struct {
+	store domain.Store
+	now   Clock
+}
+
+func New(store domain.Store) *Service {
+	return &Service{store: store, now: time.Now}
+}
+
+func NewWithClock(store domain.Store, now Clock) *Service {
+	return &Service{store: store, now: now}
+}
+
+type RegisterInput struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	DisplayName string `json:"display_name"`
+}
+
+func (s *Service) Register(ctx context.Context, input RegisterInput) (domain.User, domain.SessionTokens, error) {
+	email, err := normalizeEmail(input.Email)
+	if err != nil {
+		return domain.User{}, domain.SessionTokens{}, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	displayName := strings.TrimSpace(input.DisplayName)
+	if n := len([]rune(displayName)); n < 2 || n > 32 {
+		return domain.User{}, domain.SessionTokens{}, fmt.Errorf("%w: nome de exibição deve ter entre 2 e 32 caracteres", domain.ErrInvalid)
+	}
+	passwordHash, err := security.HashPassword(input.Password)
+	if err != nil {
+		return domain.User{}, domain.SessionTokens{}, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	id, err := security.NewID()
+	if err != nil {
+		return domain.User{}, domain.SessionTokens{}, err
+	}
+	user, err := s.store.CreateUser(ctx, domain.User{ID: id, Email: email, DisplayName: displayName,
+		Role: domain.RolePlayer, PasswordHash: passwordHash}, engine.RulesetVersion)
+	if err != nil {
+		return domain.User{}, domain.SessionTokens{}, err
+	}
+	tokens, err := s.newSession(ctx, user.ID)
+	return user, tokens, err
+}
+
+func (s *Service) Login(ctx context.Context, email, password string) (domain.User, domain.SessionTokens, error) {
+	normalized, err := normalizeEmail(email)
+	if err != nil {
+		return domain.User{}, domain.SessionTokens{}, domain.ErrInvalidCredentials
+	}
+	user, err := s.store.UserByEmail(ctx, normalized)
+	if err != nil || !security.VerifyPassword(user.PasswordHash, password) {
+		return domain.User{}, domain.SessionTokens{}, domain.ErrInvalidCredentials
+	}
+	tokens, err := s.newSession(ctx, user.ID)
+	return user, tokens, err
+}
+
+func (s *Service) newSession(ctx context.Context, userID string) (domain.SessionTokens, error) {
+	access, accessHash, err := security.NewToken()
+	if err != nil {
+		return domain.SessionTokens{}, err
+	}
+	refresh, refreshHash, err := security.NewToken()
+	if err != nil {
+		return domain.SessionTokens{}, err
+	}
+	id, err := security.NewID()
+	if err != nil {
+		return domain.SessionTokens{}, err
+	}
+	now := s.now().UTC()
+	tokens := domain.SessionTokens{AccessToken: access, RefreshToken: refresh,
+		AccessExpiry: now.Add(AccessTTL), RefreshExpiry: now.Add(RefreshTTL)}
+	err = s.store.CreateSession(ctx, domain.NewSession{ID: id, UserID: userID, AccessHash: accessHash,
+		RefreshHash: refreshHash, AccessUntil: tokens.AccessExpiry, RefreshUntil: tokens.RefreshExpiry})
+	return tokens, err
+}
+
+func (s *Service) Authenticate(ctx context.Context, token string) (domain.Principal, error) {
+	if token == "" {
+		return domain.Principal{}, domain.ErrUnauthorized
+	}
+	record, err := s.store.AccessToken(ctx, security.TokenHash(token), s.now().UTC())
+	if err != nil {
+		return domain.Principal{}, domain.ErrUnauthorized
+	}
+	return record.Principal, nil
+}
+
+func (s *Service) Refresh(ctx context.Context, refresh string) (domain.SessionTokens, error) {
+	access, accessHash, err := security.NewToken()
+	if err != nil {
+		return domain.SessionTokens{}, err
+	}
+	nextRefresh, refreshHash, err := security.NewToken()
+	if err != nil {
+		return domain.SessionTokens{}, err
+	}
+	now := s.now().UTC()
+	tokens := domain.SessionTokens{AccessToken: access, RefreshToken: nextRefresh,
+		AccessExpiry: now.Add(AccessTTL), RefreshExpiry: now.Add(RefreshTTL)}
+	_, err = s.store.RotateSession(ctx, security.TokenHash(refresh), domain.RotatedSession{
+		AccessHash: accessHash, RefreshHash: refreshHash, AccessUntil: tokens.AccessExpiry,
+		RefreshUntil: tokens.RefreshExpiry}, now)
+	if err != nil {
+		return domain.SessionTokens{}, domain.ErrInvalidCredentials
+	}
+	return tokens, nil
+}
+
+func (s *Service) Logout(ctx context.Context, refresh string) error {
+	if refresh == "" {
+		return nil
+	}
+	return s.store.RevokeSession(ctx, security.TokenHash(refresh))
+}
+
+func (s *Service) Collection(ctx context.Context, principal domain.Principal) (domain.Collection, error) {
+	return s.store.Collection(ctx, principal.UserID, engine.RulesetVersion)
+}
+
+func (s *Service) ListDecks(ctx context.Context, principal domain.Principal) ([]domain.Deck, error) {
+	return s.store.ListDecks(ctx, principal.UserID)
+}
+
+func (s *Service) Deck(ctx context.Context, principal domain.Principal, id string) (domain.Deck, error) {
+	return s.store.Deck(ctx, principal.UserID, id)
+}
+
+func (s *Service) SaveDeck(ctx context.Context, principal domain.Principal, deck domain.Deck,
+	expected *int64, key string, rawBody []byte) (domain.Deck, bool, error) {
+	if err := validateIdempotencyKey(key); err != nil {
+		return domain.Deck{}, false, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	deck.UserID = principal.UserID
+	deck.RulesetVersion = engine.RulesetVersion
+	deck.Name = strings.TrimSpace(deck.Name)
+	if len([]rune(deck.Name)) < 1 || len([]rune(deck.Name)) > 64 {
+		return domain.Deck{}, false, fmt.Errorf("%w: nome do deck deve ter entre 1 e 64 caracteres", domain.ErrInvalid)
+	}
+	if deck.ID == "" {
+		id, err := security.NewID()
+		if err != nil {
+			return domain.Deck{}, false, err
+		}
+		deck.ID = id
+	}
+	if err := ValidateDeck(deck); err != nil {
+		return domain.Deck{}, false, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	collection, err := s.store.Collection(ctx, principal.UserID, engine.RulesetVersion)
+	if err != nil {
+		return domain.Deck{}, false, err
+	}
+	owned := make(map[string]int, len(collection.Cards))
+	for _, card := range collection.Cards {
+		owned[card.CardID] = card.Quantity
+	}
+	championOwned := false
+	for _, champion := range collection.Champions {
+		championOwned = championOwned || champion == deck.ChampionID
+	}
+	if !championOwned {
+		return domain.Deck{}, false, fmt.Errorf("%w: campeão não pertence à coleção", domain.ErrInvalid)
+	}
+	for _, card := range deck.Cards {
+		if owned[card.CardID] < card.Quantity {
+			return domain.Deck{}, false, fmt.Errorf("%w: coleção não possui %d cópia(s) de %s", domain.ErrInvalid, card.Quantity, card.CardID)
+		}
+	}
+	hash := sha256.Sum256(rawBody)
+	operation := "deck:create"
+	if expected != nil {
+		operation = "deck:update:" + deck.ID
+	}
+	return s.store.SaveDeck(ctx, deck, expected, domain.Mutation{Key: key, Operation: operation, RequestHash: hash[:]})
+}
+
+func ValidateDeck(deck domain.Deck) error {
+	flat := make([]string, 0, engine.DeckSize)
+	seen := make(map[string]bool, len(deck.Cards))
+	for _, card := range deck.Cards {
+		if seen[card.CardID] {
+			return fmt.Errorf("carta repetida na lista: %s", card.CardID)
+		}
+		seen[card.CardID] = true
+		if card.Quantity < 1 || card.Quantity > engine.MaxCopies {
+			return fmt.Errorf("quantidade inválida para %s", card.CardID)
+		}
+		for range card.Quantity {
+			flat = append(flat, card.CardID)
+		}
+	}
+	return engine.ValidateDeck(deck.ChampionID, flat)
+}
+
+func (s *Service) DeleteDeck(ctx context.Context, principal domain.Principal, deckID string,
+	version int64, key string) (bool, error) {
+	if err := validateIdempotencyKey(key); err != nil {
+		return false, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	hash := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", deckID, version)))
+	return s.store.DeleteDeck(ctx, principal.UserID, deckID, version,
+		domain.Mutation{Key: key, Operation: "deck:delete:" + deckID, RequestHash: hash[:]})
+}
+
+func (s *Service) ActiveSeason(ctx context.Context) (domain.Season, error) {
+	return s.store.ActiveSeason(ctx)
+}
+
+func (s *Service) ListRewards(ctx context.Context, principal domain.Principal) ([]domain.Reward, error) {
+	return s.store.ListRewards(ctx, principal.UserID)
+}
+
+func (s *Service) GrantReward(ctx context.Context, principal domain.Principal, reward domain.Reward,
+	key string, rawBody []byte) (domain.Reward, bool, error) {
+	if principal.Role != domain.RoleAdmin {
+		return reward, false, domain.ErrForbidden
+	}
+	if err := validateIdempotencyKey(key); err != nil {
+		return reward, false, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	if reward.Quantity < 1 || reward.Quantity > 100 || (reward.CardID == "") == (reward.ChampionID == "") {
+		return reward, false, fmt.Errorf("%w: recompensa inválida", domain.ErrInvalid)
+	}
+	if reward.ChampionID != "" && reward.Quantity != 1 {
+		return reward, false, fmt.Errorf("%w: recompensa de Campeão deve ter quantidade 1", domain.ErrInvalid)
+	}
+	if reward.CardID != "" && engine.Cards[reward.CardID] == nil {
+		return reward, false, fmt.Errorf("%w: carta desconhecida", domain.ErrInvalid)
+	}
+	if reward.ChampionID != "" && engine.Champions[reward.ChampionID] == nil {
+		return reward, false, fmt.Errorf("%w: campeão desconhecido", domain.ErrInvalid)
+	}
+	if _, err := s.store.UserByID(ctx, reward.UserID); err != nil {
+		return reward, false, err
+	}
+	id, err := security.NewID()
+	if err != nil {
+		return reward, false, err
+	}
+	reward.ID = id
+	reward.RulesetVersion = engine.RulesetVersion
+	hash := sha256.Sum256(rawBody)
+	return s.store.GrantReward(ctx, reward, domain.Mutation{Key: key,
+		Operation: "reward:grant", RequestHash: hash[:], ScopeUserID: principal.UserID})
+}
+
+func ChampionsSorted() []*engine.ChampionDef {
+	ids := make([]string, 0, len(engine.Champions))
+	for id := range engine.Champions {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	result := make([]*engine.ChampionDef, 0, len(ids))
+	for _, id := range ids {
+		result = append(result, engine.Champions[id])
+	}
+	return result
+}
+
+func normalizeEmail(value string) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	parsed, err := mail.ParseAddress(value)
+	if err != nil || parsed.Address != value || len(value) > 320 {
+		return "", fmt.Errorf("e-mail inválido")
+	}
+	return value, nil
+}
+
+func validateIdempotencyKey(key string) error {
+	if len(key) < 8 || len(key) > 128 || strings.TrimSpace(key) != key {
+		return fmt.Errorf("Idempotency-Key deve ter entre 8 e 128 caracteres")
+	}
+	return nil
+}
+
+func IsClientError(err error) bool {
+	return errors.Is(err, domain.ErrConflict) || errors.Is(err, domain.ErrNotFound) ||
+		errors.Is(err, domain.ErrIdempotencyConflict) || errors.Is(err, domain.ErrForbidden) ||
+		errors.Is(err, domain.ErrUnauthorized) || errors.Is(err, domain.ErrInvalidCredentials)
+}
