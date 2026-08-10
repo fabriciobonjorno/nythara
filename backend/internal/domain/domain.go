@@ -236,6 +236,9 @@ type Store interface {
 	ActiveBans(ctx context.Context) ([]CardBan, error)
 
 	CreateSeason(ctx context.Context, season Season, audit AuditEntry) (Season, error)
+	// RotateToRuleset concede a coleção da versão e clona decks válidos da
+	// ativa (granted, decksCloned).
+	RotateToRuleset(ctx context.Context, version string, audit AuditEntry) (int, int, error)
 
 	MatchTelemetry(ctx context.Context) (MatchTelemetry, error)
 	ListAudit(ctx context.Context, limit int) ([]AuditEntry, error)

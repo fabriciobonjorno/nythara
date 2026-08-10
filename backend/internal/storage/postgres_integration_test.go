@@ -7,10 +7,13 @@ import (
 	"testing"
 	"time"
 
+	"encoding/json"
+	"strings"
 	"veurubro/backend/internal/battle"
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
 	"veurubro/backend/internal/security"
+	"veurubro/backend/internal/sim"
 )
 
 func TestPostgresRejectsIllegalDeckAtCommit(t *testing.T) {
@@ -259,4 +262,93 @@ func expandIntegrationDeck(deck domain.Deck) []string {
 		}
 	}
 	return result
+}
+
+// Fase 9: publicar → rotacionar clona coleção e decks válidos para a nova
+// versão, com idempotência (segunda rotação não duplica).
+func TestPostgresRotateToRuleset(t *testing.T) {
+	ctx, db, userID := integrationDB(t)
+
+	// Publica uma versão nova a partir do snapshot do embutido.
+	payload, err := db.RulesetPayload(ctx, engine.RulesetVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const next = "alpha-rotate-test"
+	var fx engine.EffectsFile
+	if err := json.Unmarshal(payload.Effects, &fx); err != nil {
+		t.Fatal(err)
+	}
+	fx.Version = next
+	effects, _ := json.Marshal(&fx)
+	newPayload := domain.RulesetPayload{Version: next, Cards: payload.Cards,
+		Champions: payload.Champions, Effects: effects}
+	audit := domain.AuditEntry{Actor: userID, Action: "test", Subject: next}
+	if err := db.PublishRuleset(ctx, newPayload, "", audit); err != nil {
+		t.Fatal(err)
+	}
+	rs, err := engine.CompileRuleset(next, newPayload.Cards, newPayload.Champions, newPayload.Effects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := engine.RegisterRuleset(rs); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { engine.UnregisterRuleset(next) })
+
+	// O usuário tem um deck legal na versão ativa (precon de Seris).
+	precon, err := sim.PreconstructedDeck("CH-VH-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[string]int{}
+	var order []string
+	for _, id := range precon {
+		if counts[id] == 0 {
+			order = append(order, id)
+		}
+		counts[id]++
+	}
+	deck := domain.Deck{ID: "11111111-1111-4111-8111-111111111111", UserID: userID,
+		Name: "Rotação", ChampionID: "CH-VH-01", RulesetVersion: engine.RulesetVersion}
+	for _, id := range order {
+		deck.Cards = append(deck.Cards, domain.DeckCard{CardID: id, Quantity: counts[id]})
+	}
+	if _, _, err := db.SaveDeck(ctx, deck, nil, domain.Mutation{Key: "rotate-deck-1",
+		Operation: "deck:save", RequestHash: []byte("h"), ScopeUserID: userID}); err != nil {
+		t.Fatal(err)
+	}
+
+	granted, cloned, err := db.RotateToRuleset(ctx, next, audit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if granted == 0 || cloned == 0 {
+		t.Fatalf("rotação vazia: granted=%d cloned=%d", granted, cloned)
+	}
+	decks, err := db.ListDecks(ctx, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, d := range decks {
+		if d.RulesetVersion == next && strings.Contains(d.Name, next) {
+			found = true
+			if len(d.Cards) == 0 {
+				t.Fatal("clone sem cartas")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("deck clonado não encontrado: %+v", decks)
+	}
+
+	// Idempotência: repetir não duplica decks nem coleção.
+	granted2, cloned2, err := db.RotateToRuleset(ctx, next, audit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if granted2 != 0 || cloned2 != 0 {
+		t.Fatalf("segunda rotação deveria ser vazia: granted=%d cloned=%d", granted2, cloned2)
+	}
 }

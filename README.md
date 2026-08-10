@@ -67,8 +67,14 @@ make web-dev # cliente em :5173, com proxy REST/WebSocket para :8080
   (base zerada), backups com prova executável de restauração
   (`make backup-test`), métricas em `/internal/metrics` e runbook de alertas
   em `ops/observability.md`.
-- Próximo: Fase 9 — conteúdo completo (precons oficiais, tutorial) e
-  Definition of Done (Fase 10).
+- **Fase 9** — conteúdo completo: 80 cartas e 10 Campeões (desde o ciclo da
+  engine), 10 precons oficiais como produto (`GET /v1/catalog/precons` +
+  `POST /v1/decks/precon`), tutorial com os 8 fundamentos exigidos e rotação
+  de coleção/decks entre versões (`rotate`, fechando o ADR-022).
+- **Fase 10** — Definition of Done: suíte race verde, 100 mil partidas locais
+  bit a bit idênticas à baseline, zero TODOs críticos, backup/restore provado,
+  scan de vulnerabilidades zerado. MVP Alpha completo; pendências honestas:
+  página web do painel admin, modo treino vs bot e 2FA (backlog pós-alpha).
 
 Decisões de regra onde o GDD era ambíguo estão registradas em [DECISIONS.md](DECISIONS.md).
 

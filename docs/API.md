@@ -23,6 +23,11 @@ protegidas recebem `Authorization: Bearer <access_token>`.
 
 ## Decks
 
+- `GET /v1/catalog/precons` — os 10 decks preconstruídos oficiais (públicos).
+- `POST /v1/decks/precon` — copia um precon para os seus decks; corpo
+  `{"champion_id": "CH-…"}`; exige `Idempotency-Key`.
+
+
 - `GET /v1/decks`
 - `POST /v1/decks`
 - `GET /v1/decks/{id}`
@@ -49,6 +54,9 @@ construção e auditadas em `admin_audit` na mesma transação.
 - `GET /v1/admin/rulesets` — versões publicadas e o ponteiro ativo.
 - `POST /v1/admin/rulesets/{version}/activate` — ativa a versão (rollback é
   ativar uma versão anterior). Reponta o matchmaking em tempo real.
+- `POST /v1/admin/rulesets/{version}/rotate` — concede a coleção da versão a
+  todos os jogadores e clona os decks válidos da versão ativa (idempotente).
+  Ordem operacional: publicar → rotacionar → ativar.
 - `GET|POST /v1/admin/drafts`, `GET|PUT /v1/admin/drafts/{id}` — drafts de
   carta (`card` = CardDef, `effects` = CardFx da DSL) sobre a versão ativa.
 - `POST /v1/admin/drafts/{id}/validate` — schema + validador da DSL +

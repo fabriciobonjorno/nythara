@@ -325,7 +325,7 @@ jogada imediatamente antes dele (rastreada entre rodadas).
 - **Operação de virada de versão**: ativar uma versão nova NÃO migra
   coleções/decks dos jogadores (fila passa a exigir decks da nova versão). A
   ordem operacional é publicar → conceder coleção/rotacionar temporada →
-  ativar. A ferramenta de rotação de coleção entra com o runbook da Fase 9.
+  ativar. A rotação existe desde a Fase 9: `POST /v1/admin/rulesets/{v}/rotate` (idempotente; clona apenas decks que seguem legais na nova versão).
 - **Painel**: a Fase 7 entrega o plano de controle completo via API admin
   (RBAC + auditoria); a página web do painel fica para o ciclo de UI.
 

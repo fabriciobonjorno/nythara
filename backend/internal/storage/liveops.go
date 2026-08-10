@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"veurubro/backend/internal/domain"
+	"veurubro/backend/internal/engine"
 )
 
 // Fase 7 — Admin/LiveOps. Toda mutação grava a entrada de auditoria na mesma
@@ -425,4 +427,134 @@ func (p *Postgres) ListAudit(ctx context.Context, limit int) ([]domain.AuditEntr
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// RotateToRuleset concede a coleção da nova versão a todos os jogadores e
+// clona os decks válidos da versão ativa atual (fecha a lacuna operacional do
+// ADR-022: publicar → rotacionar → ativar).
+func (p *Postgres) RotateToRuleset(ctx context.Context, version string,
+	audit domain.AuditEntry) (int, int, error) {
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer tx.Rollback()
+
+	var exists bool
+	if err := tx.QueryRowContext(ctx,
+		`SELECT true FROM rulesets WHERE version=$1`, version).Scan(&exists); err != nil {
+		return 0, 0, mapError(err)
+	}
+	var current string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT version FROM rulesets WHERE active`).Scan(&current); err != nil {
+		return 0, 0, mapError(err)
+	}
+	if current == version {
+		return 0, 0, fmt.Errorf("%w: %s já é a versão ativa", domain.ErrConflict, version)
+	}
+
+	result, err := tx.ExecContext(ctx, `INSERT INTO player_cards(user_id,card_id,ruleset_version,quantity)
+		SELECT u.id, cd.id, cd.ruleset_version,
+		       CASE WHEN cd.rarity='Lendária' THEN 1 ELSE 2 END
+		FROM users u CROSS JOIN card_definitions cd
+		WHERE cd.ruleset_version=$1
+		ON CONFLICT DO NOTHING`, version)
+	if err != nil {
+		return 0, 0, mapError(err)
+	}
+	granted, _ := result.RowsAffected()
+	if _, err := tx.ExecContext(ctx, `INSERT INTO player_champions(user_id,champion_id,ruleset_version)
+		SELECT u.id, c.id, c.ruleset_version FROM users u CROSS JOIN champions c
+		WHERE c.ruleset_version=$1 ON CONFLICT DO NOTHING`, version); err != nil {
+		return 0, 0, mapError(err)
+	}
+
+	// Clona decks da versão ativa cujos conteúdos seguem legais na nova.
+	targetRuleset, err := engine.RulesetByVersion(version)
+	if err != nil {
+		return 0, 0, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT d.id, d.user_id, d.name, d.champion_id
+		FROM decks d WHERE d.ruleset_version=$1`, current)
+	if err != nil {
+		return 0, 0, mapError(err)
+	}
+	type deckRow struct{ id, userID, name, champion string }
+	var deckRows []deckRow
+	for rows.Next() {
+		var d deckRow
+		if err := rows.Scan(&d.id, &d.userID, &d.name, &d.champion); err != nil {
+			rows.Close()
+			return 0, 0, err
+		}
+		deckRows = append(deckRows, d)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, 0, err
+	}
+
+	cloned := 0
+	for _, d := range deckRows {
+		cardRows, err := tx.QueryContext(ctx,
+			`SELECT card_id, quantity FROM deck_cards WHERE deck_id=$1 ORDER BY card_id`, d.id)
+		if err != nil {
+			return 0, 0, mapError(err)
+		}
+		var expanded []string
+		type pair struct {
+			card string
+			qty  int
+		}
+		var pairs []pair
+		for cardRows.Next() {
+			var card string
+			var qty int
+			if err := cardRows.Scan(&card, &qty); err != nil {
+				cardRows.Close()
+				return 0, 0, err
+			}
+			pairs = append(pairs, pair{card, qty})
+			for i := 0; i < qty; i++ {
+				expanded = append(expanded, card)
+			}
+		}
+		cardRows.Close()
+		if err := cardRows.Err(); err != nil {
+			return 0, 0, err
+		}
+		if targetRuleset.ValidateDeck(d.champion, expanded) != nil {
+			continue // deck ficou ilegal na nova versão; dono ajusta no builder
+		}
+		// UNIQUE(user_id, name): o clone ganha sufixo da versão (limite 64).
+		suffix := " · " + version
+		name := d.name
+		if len(name)+len(suffix) > 64 {
+			name = name[:64-len(suffix)]
+		}
+		name += suffix
+		var newID string
+		if err := tx.QueryRowContext(ctx, `INSERT INTO decks(id,user_id,name,champion_id,ruleset_version)
+			VALUES(gen_random_uuid(),$1,$2,$3,$4)
+			ON CONFLICT (user_id, name) DO NOTHING RETURNING id`,
+			d.userID, name, d.champion, version).Scan(&newID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue // já rotacionado antes (idempotência)
+			}
+			return 0, 0, mapError(err)
+		}
+		for _, pr := range pairs {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO deck_cards(deck_id,card_id,ruleset_version,quantity)
+				VALUES($1,$2,$3,$4)`, newID, pr.card, version, pr.qty); err != nil {
+				return 0, 0, mapError(err)
+			}
+		}
+		cloned++
+	}
+
+	if err := appendAudit(ctx, tx, audit); err != nil {
+		return 0, 0, err
+	}
+	return int(granted), cloned, tx.Commit()
 }

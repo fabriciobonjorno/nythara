@@ -222,6 +222,18 @@ func (f *fakeStore) CreateSeason(_ context.Context, season domain.Season,
 	return season, nil
 }
 
+func (f *fakeStore) RotateToRuleset(_ context.Context, version string,
+	audit domain.AuditEntry) (int, int, error) {
+	s := f.ops()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.payloads[version]; !ok {
+		return 0, 0, domain.ErrNotFound
+	}
+	s.audit = append(s.audit, audit)
+	return 80, 1, nil
+}
+
 func (f *fakeStore) MatchTelemetry(context.Context) (domain.MatchTelemetry, error) {
 	return domain.MatchTelemetry{}, nil
 }

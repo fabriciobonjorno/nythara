@@ -19,6 +19,7 @@ func (a *API) adminRoutes(mux *http.ServeMux) {
 	}
 	mux.Handle("GET /v1/admin/rulesets", admin(a.adminListRulesets))
 	mux.Handle("POST /v1/admin/rulesets/{version}/activate", admin(a.adminActivateRuleset))
+	mux.Handle("POST /v1/admin/rulesets/{version}/rotate", admin(a.adminRotateRuleset))
 	mux.Handle("GET /v1/admin/drafts", admin(a.adminListDrafts))
 	mux.Handle("POST /v1/admin/drafts", admin(a.adminCreateDraft))
 	mux.Handle("GET /v1/admin/drafts/{id}", admin(a.adminGetDraft))
@@ -49,6 +50,15 @@ func (a *API) adminActivateRuleset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) adminRotateRuleset(w http.ResponseWriter, r *http.Request) {
+	result, err := a.service.RotateRuleset(r.Context(), principal(r), r.PathValue("version"))
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (a *API) adminListDrafts(w http.ResponseWriter, r *http.Request) {
@@ -204,4 +214,35 @@ func (a *API) adminAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, entries)
+}
+
+// precons lista os decks oficiais (público: ajuda o onboarding e o builder).
+func (a *API) precons(w http.ResponseWriter, r *http.Request) {
+	list, err := app.Precons()
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (a *API) createPreconDeck(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		ChampionID string `json:"champion_id"`
+	}
+	raw, ok := decodeRaw(w, r, &input)
+	if !ok {
+		return
+	}
+	deck, replayed, err := a.service.CreatePreconDeck(r.Context(), principal(r),
+		input.ChampionID, r.Header.Get("Idempotency-Key"), raw)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	status := http.StatusCreated
+	if replayed {
+		status = http.StatusOK
+	}
+	writeJSON(w, status, deck)
 }

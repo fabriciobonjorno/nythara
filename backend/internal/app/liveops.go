@@ -383,6 +383,32 @@ func (s *Service) PublishDraft(ctx context.Context, principal domain.Principal,
 	return domain.RulesetInfo{Version: newVersion, Active: false, CreatedAt: s.now().UTC()}, nil
 }
 
+// RotationResult resume a rotação de coleção para uma versão publicada.
+type RotationResult struct {
+	Version     string `json:"version"`
+	CardsGranted int   `json:"cards_granted"`
+	DecksCloned  int   `json:"decks_cloned"`
+}
+
+// RotateRuleset concede a coleção da versão publicada a todos os jogadores e
+// clona os decks válidos da versão ativa (passo entre publicar e ativar).
+func (s *Service) RotateRuleset(ctx context.Context, principal domain.Principal,
+	version string) (RotationResult, error) {
+	if err := requireAdmin(principal); err != nil {
+		return RotationResult{}, err
+	}
+	if _, err := engine.RulesetByVersion(version); err != nil {
+		return RotationResult{}, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	granted, cloned, err := s.store.RotateToRuleset(ctx, version,
+		auditEntry(principal, "ruleset:rotate", version,
+			map[string]string{"version": version}))
+	if err != nil {
+		return RotationResult{}, err
+	}
+	return RotationResult{Version: version, CardsGranted: granted, DecksCloned: cloned}, nil
+}
+
 // --- Bans emergenciais de ranked ---
 
 func (s *Service) BanCard(ctx context.Context, principal domain.Principal,
