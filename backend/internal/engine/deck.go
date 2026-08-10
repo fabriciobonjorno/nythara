@@ -10,10 +10,15 @@ const (
 	MaxAlliedCards  = 12
 )
 
-// ValidateDeck aplica as regras de construção do GDD §4. No alpha, qualquer
-// facção única pode ser a aliada da temporada.
+// ValidateDeck aplica as regras de construção do GDD §4 sob o ruleset
+// embutido. No alpha, qualquer facção única pode ser a aliada da temporada.
 func ValidateDeck(championID string, deck []string) error {
-	champ := Champions[championID]
+	return builtin.ValidateDeck(championID, deck)
+}
+
+// ValidateDeck aplica as regras de construção sob este Ruleset.
+func (rs *Ruleset) ValidateDeck(championID string, deck []string) error {
+	champ := rs.Champions[championID]
 	if champ == nil {
 		return fmt.Errorf("campeão desconhecido: %q", championID)
 	}
@@ -25,7 +30,7 @@ func ValidateDeck(championID string, deck []string) error {
 	core := 0
 	allied := map[string]int{}
 	for _, id := range deck {
-		def := Cards[id]
+		def := rs.Cards[id]
 		if def == nil {
 			return fmt.Errorf("carta desconhecida: %q", id)
 		}

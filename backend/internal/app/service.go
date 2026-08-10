@@ -25,6 +25,8 @@ type Clock func() time.Time
 type Service struct {
 	store domain.Store
 	now   Clock
+
+	onRulesetActivated OnRulesetActivated
 }
 
 func New(store domain.Store) *Service {

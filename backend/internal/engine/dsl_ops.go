@@ -54,7 +54,7 @@ func (g *Game) runOp(op *Op, ctx *opCtx) {
 	case "lose_vitality":
 		n := op.N
 		if op.NFrom == "picked_cost" && ctx.picked != "" {
-			n = Cards[s.Cards[ctx.picked].Def].Cost
+			n = g.rs.Cards[s.Cards[ctx.picked].Def].Cost
 		}
 		g.loseVitality(tgt, n, ctx.source)
 	case "shift":
@@ -136,7 +136,7 @@ func (g *Game) runOp(op *Op, ctx *opCtx) {
 	case "emit_last_card_sigil":
 		// VR-030: copia o Sigilo da última carta que você jogou (antes dele).
 		if prev := s.Players[ctx.player].PrevPlayed; prev != "" {
-			g.emitSigil(ctx.player, Cards[prev].Sigil, ctx.source, ctx.depth+1)
+			g.emitSigil(ctx.player, g.rs.Cards[prev].Sigil, ctx.source, ctx.depth+1)
 		}
 	case "moon_return":
 		// VR-048: o Assalto retorna à mão no fim da rodada e custa +1.
@@ -167,7 +167,7 @@ func (g *Game) runOp(op *Op, ctx *opCtx) {
 func (g *Game) applyStatusOp(op *Op, tgt int, ctx *opCtx) {
 	s := g.s
 	if tgt != ctx.player && s.Players[tgt].VeilRound == s.Round &&
-		Cards[ctx.source] != nil && Cards[ctx.source].Type == TypeRito {
+		g.rs.Cards[ctx.source] != nil && g.rs.Cards[ctx.source].Type == TypeRito {
 		g.emit(Event{Kind: EvStatusFizzled, P: tgt, S: op.Status, Def: ctx.source})
 		return
 	}
@@ -290,7 +290,7 @@ func (g *Game) evalCond(c Cond, ctx *opCtx) bool {
 		return opp.VeilRound == s.Round
 	case "discard_has":
 		for _, id := range p.Discard {
-			def := Cards[s.Cards[id].Def]
+			def := g.rs.Cards[s.Cards[id].Def]
 			if c.Type == "" || string(def.Type) == c.Type {
 				return true
 			}
@@ -304,7 +304,7 @@ func (g *Game) evalCond(c Cond, ctx *opCtx) bool {
 		return p.AssaultsRound == c.N
 	case "picked_was_rite":
 		return ctx.guard != nil && ctx.guard.PickedExile != "" &&
-			Cards[s.Cards[ctx.guard.PickedExile].Def].Type == TypeRito
+			g.rs.Cards[s.Cards[ctx.guard.PickedExile].Def].Type == TypeRito
 	}
 	return false
 }
@@ -369,7 +369,7 @@ func (g *Game) runDecisionOp(op *Op, ctx *opCtx) {
 	case "recover_pick":
 		var opts []string
 		for _, id := range p.Discard {
-			if filterMatches(Cards[s.Cards[id].Def], op.Filter) {
+			if filterMatches(g.rs.Cards[s.Cards[id].Def], op.Filter) {
 				opts = append(opts, id)
 			}
 		}
@@ -461,7 +461,7 @@ func (g *Game) runDecisionOp(op *Op, ctx *opCtx) {
 		var assaults []string
 		for _, id := range opp.Hand {
 			g.emit(Event{Kind: EvHandRevealed, P: ctx.player, Card: id, Def: s.Cards[id].Def})
-			if Cards[s.Cards[id].Def].Type == TypeAssalto {
+			if g.rs.Cards[s.Cards[id].Def].Type == TypeAssalto {
 				assaults = append(assaults, id)
 			}
 		}
@@ -488,7 +488,7 @@ func (g *Game) runDecisionOp(op *Op, ctx *opCtx) {
 		seen := map[string]bool{}
 		var opts []string
 		for _, pc := range s.PlayedRound {
-			def := Cards[pc.Def]
+			def := g.rs.Cards[pc.Def]
 			if pc.IsCopy || seen[pc.Def] || def.Rarity == RarityLendaria {
 				continue
 			}
@@ -646,14 +646,14 @@ func (g *Game) resolveDecisionPicks(d *Decision, picks []string) string {
 		op.RelicDestroyedRound = true
 		g.emit(Event{Kind: EvPermanentDestroyed, P: owner, Card: pick, Def: s.Cards[pick].Def, S: string(TypeReliquia)})
 		// VR-046: se custava 3+, o controlador sofre 2.
-		if Cards[s.Cards[pick].Def].Cost >= 3 {
+		if g.rs.Cards[s.Cards[pick].Def].Cost >= 3 {
 			g.loseVitality(owner, 2, d.Source)
 		}
 		return pick
 	case DecTaxTypePick:
 		pick := picks[0]
 		owner := s.Cards[pick].Owner
-		taxed := Cards[s.Cards[pick].Def].Type
+		taxed := g.rs.Cards[s.Cards[pick].Def].Type
 		s.Players[owner].CostMods = append(s.Players[owner].CostMods, CostMod{
 			Type: taxed, Delta: 1, Uses: 999, Round: s.Round, Source: d.Source,
 		})
@@ -709,7 +709,7 @@ func (g *Game) resolveDecisionPicks(d *Decision, picks []string) string {
 		}
 		top := opp.Deck[0]
 		g.emit(Event{Kind: EvDeckTopRevealed, P: d.Player, Card: top, Def: s.Cards[top].Def})
-		if string(Cards[s.Cards[top].Def].Type) == picks[0] {
+		if string(g.rs.Cards[s.Cards[top].Def].Type) == picks[0] {
 			g.drawOne(d.Player)
 			opp.CostMods = append(opp.CostMods, CostMod{
 				Instance: top, Delta: 1, Uses: 1, Round: s.Round, Source: d.Source,

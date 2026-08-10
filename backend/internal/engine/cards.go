@@ -98,14 +98,6 @@ var (
 	Champions map[string]*ChampionDef
 )
 
-func init() {
-	var err error
-	Cards, CardList, Champions, err = loadCatalog(cardsAlphaJSON, championsAlphaJSON)
-	if err != nil {
-		panic(fmt.Sprintf("engine: catálogo alpha inválido: %v", err))
-	}
-}
-
 func loadCatalog(cardsRaw, champsRaw []byte) (map[string]*CardDef, []*CardDef, map[string]*ChampionDef, error) {
 	var list []*CardDef
 	if err := json.Unmarshal(cardsRaw, &list); err != nil {

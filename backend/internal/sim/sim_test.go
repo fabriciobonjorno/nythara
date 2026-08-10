@@ -12,7 +12,7 @@ import (
 )
 
 func TestPreconstructedDecksAreLegal(t *testing.T) {
-	for _, champion := range championIDs() {
+	for _, champion := range championIDs(engine.Builtin()) {
 		deck, err := PreconstructedDeck(champion)
 		if err != nil {
 			t.Fatalf("precon %s: %v", champion, err)

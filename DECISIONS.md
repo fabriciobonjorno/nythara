@@ -295,6 +295,40 @@ jogada imediatamente antes dele (rastreada entre rodadas).
   uma cópia aninhada conclui escolha/Sigilo/deslocamento antes de o Rito físico
   externo retomar, sem criar instância ou zona para a cópia.
 
+## ADR-022 — Rulesets versionados e LiveOps (Fase 7)
+
+- **Engine**: `Ruleset` é o conjunto imutável {catálogo, Campeões, efeitos
+  compilados} de uma versão. `CompileRuleset` é o único caminho de construção
+  (o embutido passa por ele) e um registro por versão resolve `NewGame`/replay.
+  Registrar a mesma versão com conteúdo diferente é rejeitado. Os globais
+  (`engine.Cards` etc.) viram visões do embutido. Passivas/ultimates de
+  Campeão continuam em Go: mudar comportamento de Campeão exige release do
+  binário + bump de versão (apenas atributos são versionados por dados).
+- **Persistência**: `ruleset_payloads` guarda o snapshot compilável (3
+  documentos JSON) de cada versão; `SyncCatalog` também grava o do embutido.
+  O boot do servidor compila e registra todas as versões persistidas —
+  partidas históricas seguem reproduzíveis para sempre.
+- **Fluxo de conteúdo**: draft de carta (novo ou alteração) → `validate`
+  (schema + DSL + compilação completa do catálogo candidato) → `simulate`
+  (versão efêmera `draft:<id>:sim`, headless com verificação de replay,
+  descartada ao final) → `publish` (nova versão imutável, inativa) →
+  `activate` (ponteiro competitivo; **rollback é ativar a versão anterior**).
+  O matchmaking segue o ponteiro em tempo real; partidas em andamento não são
+  afetadas.
+- **Ban emergencial**: `ranked_card_bans` remove a carta da fila competitiva
+  sem tocar em histórico, coleções ou decks; o lift é imediato. Um ban ativo
+  por carta (índice parcial).
+- **Auditoria**: toda mutação administrativa grava `admin_audit` na mesma
+  transação do efeito — sem auditoria, sem mudança. Mutações são idempotentes
+  por construção (publicar versão repetida/banir carta banida conflitam;
+  ativar a ativa é no-op), então não exigem `Idempotency-Key`.
+- **Operação de virada de versão**: ativar uma versão nova NÃO migra
+  coleções/decks dos jogadores (fila passa a exigir decks da nova versão). A
+  ordem operacional é publicar → conceder coleção/rotacionar temporada →
+  ativar. A ferramenta de rotação de coleção entra com o runbook da Fase 9.
+- **Painel**: a Fase 7 entrega o plano de controle completo via API admin
+  (RBAC + auditoria); a página web do painel fica para o ciclo de UI.
+
 ## Achados de design para revisão de balanceamento
 
 1. **VR-033 (Véu de Prata)**: com fases estritas, o Véu ganho na Guarda expira

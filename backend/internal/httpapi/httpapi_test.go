@@ -173,6 +173,7 @@ type fakeStore struct {
 	tokens        map[string]domain.Principal
 	saveDeckCalls int
 	grantCalls    int
+	liveops       *liveopsState
 }
 
 func (*fakeStore) CreateUser(context.Context, domain.User, string) (domain.User, error) {
@@ -212,6 +213,8 @@ func (f *fakeStore) GrantReward(context.Context, domain.Reward, domain.Mutation)
 }
 
 type wireBattleStore struct{ loaded battle.LoadedMatch }
+
+func (*wireBattleStore) ActiveBans(context.Context) ([]domain.CardBan, error) { return nil, nil }
 
 func (s *wireBattleStore) CreateMatch(context.Context, battle.Match) error { return nil }
 func (s *wireBattleStore) MarkReady(context.Context, string, int) error    { return nil }

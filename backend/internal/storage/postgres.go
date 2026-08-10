@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,6 +31,12 @@ var migration2Up string
 //go:embed migrations/000002_battles.down.sql
 var migration2Down string
 
+//go:embed migrations/000003_liveops.up.sql
+var migration3Up string
+
+//go:embed migrations/000003_liveops.down.sql
+var migration3Down string
+
 type migration struct {
 	version int64
 	up      string
@@ -39,6 +46,7 @@ type migration struct {
 var migrations = []migration{
 	{version: 1, up: migrationUp, down: migrationDown},
 	{version: 2, up: migration2Up, down: migration2Down},
+	{version: 3, up: migration3Up, down: migration3Down},
 }
 
 type Postgres struct {
@@ -192,6 +200,33 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 			return fmt.Errorf("campeão %s mudou sem novo RulesetVersion", id)
 		}
 	}
+	cardsPayload, err := json.Marshal(engine.CardList)
+	if err != nil {
+		return err
+	}
+	championIDs := make([]string, 0, len(engine.Champions))
+	for id := range engine.Champions {
+		championIDs = append(championIDs, id)
+	}
+	sort.Strings(championIDs)
+	champList := make([]*engine.ChampionDef, 0, len(championIDs))
+	for _, id := range championIDs {
+		champList = append(champList, engine.Champions[id])
+	}
+	champsPayload, err := json.Marshal(champList)
+	if err != nil {
+		return err
+	}
+	effectsPayload, err := json.Marshal(engine.Effects)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO ruleset_payloads(version,cards,champions,effects)
+		VALUES($1,$2,$3,$4) ON CONFLICT(version) DO NOTHING`,
+		engine.RulesetVersion, cardsPayload, champsPayload, effectsPayload); err != nil {
+		return fmt.Errorf("snapshot do ruleset embutido: %w", err)
+	}
+
 	const alphaSeasonStart = "2026-08-10T00:00:00Z"
 	if _, err := tx.ExecContext(ctx, `UPDATE seasons SET ends_at=$2
 		WHERE ends_at IS NULL AND ruleset_version<>$1 AND starts_at<$2`,

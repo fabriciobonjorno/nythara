@@ -4,17 +4,17 @@ package engine
 // (assaultImpls/guardImpls/riteImpls/permImpls). Roda no boot, após o
 // validador. As cartas viram closures pequenas sobre o intérprete — nenhum
 // switch por carta no código de jogo.
-func compileEffects(fx *EffectsFile) {
+func compileEffects(fx *EffectsFile, rs *Ruleset) {
 	for id, cfx := range fx.Cards {
 		switch {
 		case cfx.Assault != nil:
-			assaultImpls[id] = compileAssault(id, cfx.Assault)
+			rs.assault[id] = compileAssault(id, cfx.Assault)
 		case cfx.Guard != nil:
-			guardImpls[id] = compileGuard(id, cfx.Guard)
+			rs.guard[id] = compileGuard(id, cfx.Guard)
 		case cfx.Rite != nil:
-			riteImpls[id] = compileRite(id, cfx.Rite)
+			rs.rite[id] = compileRite(id, cfx.Rite)
 		case cfx.Permanent != nil:
-			permImpls[id] = compilePerm(id, cfx.Permanent)
+			rs.perm[id] = compilePerm(id, cfx.Permanent)
 		}
 	}
 }
@@ -168,7 +168,7 @@ func compilePerm(id string, p *PermFx) *permImpl {
 		case "assault_resolved":
 			costEq := tr.NEquals
 			impl.onAssaultResolved = func(g *Game, inst *CardInstance, ctx *GuardCtx) {
-				if costEq > 0 && Cards[ctx.AssaultDef].Cost != costEq {
+				if costEq > 0 && g.rs.Cards[ctx.AssaultDef].Cost != costEq {
 					return
 				}
 				run(g, inst, &opCtx{guard: ctx})

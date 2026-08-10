@@ -45,7 +45,7 @@ func (g *Game) CanActivate(player int, instID string) error {
 	if inst == nil || inst.Owner != player || inst.Zone != ZonePlay {
 		return errCmd(ErrInvalidCard, "permanente %q não está ativo", instID)
 	}
-	pi := permImpls[inst.Def]
+	pi := g.rs.perm[inst.Def]
 	if pi == nil || pi.activated == nil {
 		return errCmd(ErrNotImplemented, "%s não tem habilidade ativada", inst.Def)
 	}
@@ -78,7 +78,7 @@ func (g *Game) applyActivate(cmd Command) error {
 	}
 	s := g.s
 	inst := s.Cards[cmd.Card]
-	ai := permImpls[inst.Def].activated
+	ai := g.rs.perm[inst.Def].activated
 	if ai.oncePerRound {
 		inst.UsedRound = s.Round
 	}
@@ -114,7 +114,7 @@ func (g *Game) resolveCopy(player int, defID string, depth int) {
 		g.emit(Event{Kind: EvChainTruncated, P: player, S: defID})
 		return
 	}
-	def := Cards[defID]
+	def := g.rs.Cards[defID]
 	if def == nil || def.Rarity == RarityLendaria {
 		return
 	}
@@ -123,7 +123,7 @@ func (g *Game) resolveCopy(player int, defID string, depth int) {
 
 	switch def.Type {
 	case TypeRito:
-		impl := riteImpls[defID]
+		impl := g.rs.rite[defID]
 		if impl == nil {
 			return
 		}
@@ -144,7 +144,7 @@ func (g *Game) resolveCopy(player int, defID string, depth int) {
 		}
 		g.finalizeRiteCopy(player, def, impl, depth)
 	case TypeAssalto:
-		impl := assaultImpls[defID]
+		impl := g.rs.assault[defID]
 		if impl == nil || g.s.Guard != nil {
 			return
 		}
@@ -191,11 +191,11 @@ func (g *Game) openExtraOrTwilight() {
 func (g *Game) defenderHoldsCounter(defender int) bool {
 	p := g.s.Players[defender]
 	for _, id := range p.Hand {
-		def := Cards[g.s.Cards[id].Def]
+		def := g.rs.Cards[g.s.Cards[id].Def]
 		if def.Type != TypeGuarda {
 			continue
 		}
-		gi := guardImpls[def.ID]
+		gi := g.rs.guard[def.ID]
 		if gi != nil && gi.counterRite && g.canAfford(defender, g.effectiveCost(defender, def, id)) {
 			return true
 		}
@@ -206,7 +206,7 @@ func (g *Game) defenderHoldsCounter(defender int) bool {
 // playCounterGuard resolve um counter na janela de reação.
 func (g *Game) playCounterGuard(player int, inst *CardInstance, def *CardDef) error {
 	react := g.s.RiteReact
-	gi := guardImpls[def.ID]
+	gi := g.rs.guard[def.ID]
 	if gi == nil || !gi.counterRite {
 		return errCmd(ErrWrongPhase, "apenas Guardas de counter na janela de reação")
 	}
@@ -242,7 +242,7 @@ func (g *Game) resumeSuspendedRite() {
 	react := g.s.RiteReact
 	g.s.RiteReact = nil
 	inst := g.s.Cards[react.Inst]
-	g.resolveRiteBody(react.Caster, inst, Cards[react.Def], riteImpls[react.Def])
+	g.resolveRiteBody(react.Caster, inst, g.rs.Cards[react.Def], g.rs.rite[react.Def])
 }
 
 // --- Crepúsculo: retornos do Coração da Lua Feral (VR-048) ---

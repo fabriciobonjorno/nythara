@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -287,6 +288,7 @@ func testDeck(t *testing.T, userID, id, championID string) domain.Deck {
 type memoryBattleStore struct {
 	mu      sync.Mutex
 	matches map[string]LoadedMatch
+	bans []domain.CardBan
 }
 
 func newMemoryBattleStore() *memoryBattleStore {
@@ -370,6 +372,10 @@ func (s *memoryBattleStore) LoadMatch(_ context.Context, id string) (LoadedMatch
 	return clone, nil
 }
 
+func (s *memoryBattleStore) ActiveBans(ctx context.Context) ([]domain.CardBan, error) {
+	return s.bans, nil
+}
+
 func (s *memoryBattleStore) ActiveMatchForUser(_ context.Context, userID string) (Match, int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -397,4 +403,41 @@ func cloneSnapshot(snapshot *Snapshot) *Snapshot {
 	clone := *snapshot
 	clone.Data = append([]byte{}, snapshot.Data...)
 	return &clone
+}
+
+// Fase 7: deck com carta banida não entra na fila; após o lift, entra.
+func TestQueueRejectsBannedCards(t *testing.T) {
+	ctx := context.Background()
+	store := newMemoryBattleStore()
+	manager := NewManager(store)
+	p0 := domain.Principal{UserID: "00000000-0000-4000-8000-000000000001", Role: domain.RolePlayer}
+	deck := testDeck(t, p0.UserID, "deck-ban", "CH-VH-01")
+
+	store.bans = []domain.CardBan{{CardID: deck.Cards[0].CardID, Reason: "loop reportado"}}
+	if _, err := manager.Queue(ctx, p0, deck); err == nil ||
+		!strings.Contains(err.Error(), "desativada do competitivo") {
+		t.Fatalf("fila deveria recusar carta banida; err=%v", err)
+	}
+
+	store.bans = nil
+	if result, err := manager.Queue(ctx, p0, deck); err != nil || result.Status != "queued" {
+		t.Fatalf("fila deveria aceitar após o lift; %+v err=%v", result, err)
+	}
+}
+
+// Ativação/rollback repontam o matchmaking sem afetar decks da versão antiga.
+func TestQueueFollowsActiveRuleset(t *testing.T) {
+	ctx := context.Background()
+	manager := NewManager(newMemoryBattleStore())
+	p0 := domain.Principal{UserID: "00000000-0000-4000-8000-000000000002", Role: domain.RolePlayer}
+	deck := testDeck(t, p0.UserID, "deck-vs", "CH-VH-01")
+
+	manager.SetActiveRuleset("alpha-9.9.9")
+	if _, err := manager.Queue(ctx, p0, deck); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("deck de versão antiga deveria ser recusado; err=%v", err)
+	}
+	manager.SetActiveRuleset(engine.RulesetVersion)
+	if result, err := manager.Queue(ctx, p0, deck); err != nil || result.Status != "queued" {
+		t.Fatalf("rollback deveria reabilitar o deck; %+v err=%v", result, err)
+	}
 }

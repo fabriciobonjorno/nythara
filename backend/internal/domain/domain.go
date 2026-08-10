@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 )
@@ -120,6 +121,83 @@ type Mutation struct {
 	ScopeUserID string
 }
 
+// --- Admin/LiveOps (Fase 7) ---
+
+type RulesetInfo struct {
+	Version   string    `json:"version"`
+	Active    bool      `json:"active"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// RulesetPayload é o snapshot compilável de uma versão (os três documentos).
+type RulesetPayload struct {
+	Version   string          `json:"version"`
+	Cards     json.RawMessage `json:"cards"`
+	Champions json.RawMessage `json:"champions"`
+	Effects   json.RawMessage `json:"effects"`
+}
+
+type DraftStatus string
+
+const (
+	DraftOpen      DraftStatus = "draft"
+	DraftValidated DraftStatus = "validated"
+	DraftPublished DraftStatus = "published"
+	DraftDiscarded DraftStatus = "discarded"
+)
+
+// CardDraft é uma proposta de carta (nova ou alteração) sobre uma versão base.
+type CardDraft struct {
+	ID               string          `json:"id"`
+	CardID           string          `json:"card_id"`
+	BaseVersion      string          `json:"base_version"`
+	Status           DraftStatus     `json:"status"`
+	Note             string          `json:"note"`
+	Card             json.RawMessage `json:"card"`
+	Effects          json.RawMessage `json:"effects"`
+	LastValidation   json.RawMessage `json:"last_validation,omitempty"`
+	PublishedVersion string          `json:"published_version,omitempty"`
+	CreatedBy        string          `json:"created_by"`
+	CreatedAt        time.Time       `json:"created_at"`
+	UpdatedAt        time.Time       `json:"updated_at"`
+}
+
+// CardBan é a desativação emergencial de uma carta no competitivo.
+type CardBan struct {
+	ID        string     `json:"id"`
+	CardID    string     `json:"card_id"`
+	Reason    string     `json:"reason"`
+	CreatedBy string     `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	LiftedBy  string     `json:"lifted_by,omitempty"`
+	LiftedAt  *time.Time `json:"lifted_at,omitempty"`
+}
+
+// AuditEntry registra toda mutação administrativa.
+type AuditEntry struct {
+	ID        int64           `json:"id"`
+	Actor     string          `json:"actor"`
+	Action    string          `json:"action"`
+	Subject   string          `json:"subject"`
+	Payload   json.RawMessage `json:"payload"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+// ChampionMatchStats agrega desempenho de um Campeão em partidas reais.
+type ChampionMatchStats struct {
+	ChampionID string  `json:"champion_id"`
+	Games      int     `json:"games"`
+	Wins       int     `json:"wins"`
+	WinRate    float64 `json:"win_rate"`
+}
+
+// MatchTelemetry agrega as partidas persistidas pelo battle server.
+type MatchTelemetry struct {
+	TotalMatches    int                  `json:"total_matches"`
+	FinishedMatches int                  `json:"finished_matches"`
+	ByChampion      []ChampionMatchStats `json:"by_champion"`
+}
+
 type Store interface {
 	CreateUser(ctx context.Context, user User, starterRuleset string) (User, error)
 	UserByEmail(ctx context.Context, email string) (User, error)
@@ -139,4 +217,26 @@ type Store interface {
 	ActiveSeason(ctx context.Context) (Season, error)
 	ListRewards(ctx context.Context, userID string) ([]Reward, error)
 	GrantReward(ctx context.Context, reward Reward, mutation Mutation) (Reward, bool, error)
+
+	// Admin/LiveOps (Fase 7). Toda mutação recebe também uma entrada de
+	// auditoria gravada na mesma transação.
+	ListRulesets(ctx context.Context) ([]RulesetInfo, error)
+	RulesetPayload(ctx context.Context, version string) (RulesetPayload, error)
+	ListRulesetPayloads(ctx context.Context) ([]RulesetPayload, error)
+	PublishRuleset(ctx context.Context, payload RulesetPayload, draftID string, audit AuditEntry) error
+	ActivateRuleset(ctx context.Context, version string, audit AuditEntry) error
+
+	CreateDraft(ctx context.Context, draft CardDraft, audit AuditEntry) (CardDraft, error)
+	UpdateDraft(ctx context.Context, draft CardDraft, audit AuditEntry) (CardDraft, error)
+	Draft(ctx context.Context, id string) (CardDraft, error)
+	ListDrafts(ctx context.Context, status DraftStatus) ([]CardDraft, error)
+
+	CreateBan(ctx context.Context, ban CardBan, audit AuditEntry) (CardBan, error)
+	LiftBan(ctx context.Context, cardID, liftedBy string, audit AuditEntry) (CardBan, error)
+	ActiveBans(ctx context.Context) ([]CardBan, error)
+
+	CreateSeason(ctx context.Context, season Season, audit AuditEntry) (Season, error)
+
+	MatchTelemetry(ctx context.Context) (MatchTelemetry, error)
+	ListAudit(ctx context.Context, limit int) ([]AuditEntry, error)
 }

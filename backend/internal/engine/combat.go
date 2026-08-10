@@ -8,7 +8,7 @@ func (g *Game) applyPlay(cmd Command) error {
 	if inst == nil || inst.Owner != cmd.Player || inst.Zone != ZoneHand {
 		return errCmd(ErrInvalidCard, "carta %q não está na sua mão", cmd.Card)
 	}
-	def := Cards[inst.Def]
+	def := g.rs.Cards[inst.Def]
 
 	// Janela de reação a Rito (VR-035): só o defensor, só Guarda de counter.
 	if s.RiteReact != nil {
@@ -75,7 +75,7 @@ func (g *Game) payAndAnnounce(player int, inst *CardInstance, def *CardDef) int 
 // --- Assalto ---
 
 func (g *Game) playAssault(player int, inst *CardInstance, def *CardDef) error {
-	impl := assaultImpls[def.ID]
+	impl := g.rs.assault[def.ID]
 	if impl == nil {
 		return errCmd(ErrNotImplemented, "%s (%s) ainda não implementada no alpha", def.ID, def.Name)
 	}
@@ -148,7 +148,7 @@ func (g *Game) announceAssault() {
 	s := g.s
 	ctx := s.Guard
 	ctx.Announced = true
-	impl := assaultImpls[ctx.AssaultDef]
+	impl := g.rs.assault[ctx.AssaultDef]
 	if impl.undefendable != nil && impl.undefendable(g, ctx) {
 		g.resolveAssault()
 		return
@@ -158,7 +158,7 @@ func (g *Game) announceAssault() {
 }
 
 func (g *Game) playGuard(player int, inst *CardInstance, def *CardDef) error {
-	impl := guardImpls[def.ID]
+	impl := g.rs.guard[def.ID]
 	if impl == nil {
 		return errCmd(ErrNotImplemented, "%s (%s) ainda não implementada no alpha", def.ID, def.Name)
 	}
@@ -205,7 +205,7 @@ func (g *Game) playGuard(player int, inst *CardInstance, def *CardDef) error {
 func (g *Game) resolveAssault() {
 	s := g.s
 	ctx := s.Guard
-	impl := assaultImpls[ctx.AssaultDef]
+	impl := g.rs.assault[ctx.AssaultDef]
 	att := s.Players[ctx.Attacker]
 	defP := s.Players[ctx.Defender]
 
@@ -255,7 +255,7 @@ func (g *Game) resolveAssault() {
 	// Efeito posterior da Guarda (sabe se preveniu tudo).
 	var gImpl *guardImpl
 	if ctx.GuardInst != "" {
-		gImpl = guardImpls[s.Cards[ctx.GuardInst].Def]
+		gImpl = g.rs.guard[s.Cards[ctx.GuardInst].Def]
 	}
 	if gImpl != nil && gImpl.after != nil && !s.Over {
 		gImpl.after(g, ctx)
@@ -287,7 +287,7 @@ func (g *Game) resolveAssault() {
 	if !s.Over {
 		// Sigilo e deslocamento intrínseco do Assalto, efeitos posteriores
 		// e gatilhos de permanentes, nessa ordem.
-		aDef := Cards[ctx.AssaultDef]
+		aDef := g.rs.Cards[ctx.AssaultDef]
 		g.emitCardSigil(ctx.Attacker, aDef, ctx.AssaultInst)
 		g.shiftEclipse(aDef.EclipseShift, aDef.ID, ctx.Attacker)
 		if impl.after != nil {
@@ -335,7 +335,7 @@ func (g *Game) resolveAssault() {
 // --- Rito ---
 
 func (g *Game) playRite(player int, inst *CardInstance, def *CardDef) error {
-	impl := riteImpls[def.ID]
+	impl := g.rs.rite[def.ID]
 	if impl == nil {
 		return errCmd(ErrNotImplemented, "%s (%s) ainda não implementada no alpha", def.ID, def.Name)
 	}
@@ -427,8 +427,8 @@ func (g *Game) finalizePendingRite() {
 		index := len(g.s.PendingRites) - 1
 		pending := g.s.PendingRites[index]
 		g.s.PendingRites = g.s.PendingRites[:index]
-		def := Cards[pending.Def]
-		impl := riteImpls[pending.Def]
+		def := g.rs.Cards[pending.Def]
+		impl := g.rs.rite[pending.Def]
 		if def == nil || impl == nil {
 			panic("engine: continuação de Rito inválida: " + pending.Def)
 		}
@@ -462,7 +462,7 @@ func (g *Game) oppBlocksReveal(caster int) bool {
 // --- Permanentes ---
 
 func (g *Game) playPermanent(player int, inst *CardInstance, def *CardDef) error {
-	impl := permImpls[def.ID]
+	impl := g.rs.perm[def.ID]
 	if impl == nil {
 		return errCmd(ErrNotImplemented, "%s (%s) ainda não implementada no alpha", def.ID, def.Name)
 	}
@@ -497,7 +497,7 @@ func (g *Game) playPermanent(player int, inst *CardInstance, def *CardDef) error
 // permSuppressed responde se um permanente está com texto passivo suprimido
 // (VR-021 silencia Manifestações adversárias).
 func (g *Game) permSuppressed(inst *CardInstance) bool {
-	if Cards[inst.Def].Type != TypeManifestacao {
+	if g.rs.Cards[inst.Def].Type != TypeManifestacao {
 		return false
 	}
 	return g.s.Players[inst.Owner].ManifsSuppressedUntil >= g.s.Round
@@ -512,7 +512,7 @@ func (g *Game) firePerms(owner int, fn func(pi *permImpl, inst *CardInstance)) {
 			return
 		}
 		inst := g.s.Cards[id]
-		pi := permImpls[inst.Def]
+		pi := g.rs.perm[inst.Def]
 		if pi == nil || g.permSuppressed(inst) {
 			continue
 		}
@@ -520,7 +520,7 @@ func (g *Game) firePerms(owner int, fn func(pi *permImpl, inst *CardInstance)) {
 	}
 	// VR-032: cópia temporária do texto de uma Relíquia adversária.
 	if p.MirroredRelic != "" && p.MirrorUntil >= g.s.Round && !g.s.Over {
-		if pi := permImpls[p.MirroredRelic]; pi != nil {
+		if pi := g.rs.perm[p.MirroredRelic]; pi != nil {
 			virtual := &CardInstance{
 				ID: "mirror-" + p.MirroredRelic, Def: p.MirroredRelic,
 				Owner: owner, Zone: ZonePlay, UsedRound: p.MirrorUsedRound,
@@ -561,7 +561,7 @@ func (g *Game) emitCardSigil(player int, def *CardDef, instID string) {
 
 func (g *Game) fireRoundStart(instID string) {
 	inst := g.s.Cards[instID]
-	pi := permImpls[inst.Def]
+	pi := g.rs.perm[inst.Def]
 	if pi == nil || pi.onRoundStart == nil || g.permSuppressed(inst) {
 		return
 	}

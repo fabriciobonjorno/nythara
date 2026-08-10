@@ -77,8 +77,8 @@ func (g *Game) legalPlays(player int) []Command {
 			return nil
 		}
 		for _, id := range p.Hand {
-			def := Cards[s.Cards[id].Def]
-			gi := guardImpls[def.ID]
+			def := g.rs.Cards[s.Cards[id].Def]
+			gi := g.rs.guard[def.ID]
 			if def.Type == TypeGuarda && gi != nil && gi.counterRite &&
 				g.canAfford(player, g.effectiveCost(player, def, id)) {
 				add(id)
@@ -92,8 +92,8 @@ func (g *Game) legalPlays(player int) []Command {
 			return nil
 		}
 		for _, id := range p.Hand {
-			def := Cards[s.Cards[id].Def]
-			gi := guardImpls[def.ID]
+			def := g.rs.Cards[s.Cards[id].Def]
+			gi := g.rs.guard[def.ID]
 			if def.Type == TypeGuarda && gi != nil && !gi.counterRite &&
 				g.canAfford(player, g.effectiveCost(player, def, id)) {
 				add(id)
@@ -107,8 +107,8 @@ func (g *Game) legalPlays(player int) []Command {
 			return nil
 		}
 		for _, id := range p.Hand {
-			def := Cards[s.Cards[id].Def]
-			impl := assaultImpls[def.ID]
+			def := g.rs.Cards[s.Cards[id].Def]
+			impl := g.rs.assault[def.ID]
 			if def.Type != TypeAssalto || impl == nil ||
 				s.Cards[id].LockedRound == s.Round {
 				continue
@@ -132,10 +132,10 @@ func (g *Game) legalPlays(player int) []Command {
 	switch s.Phase {
 	case PhaseRite:
 		for _, id := range p.Hand {
-			def := Cards[s.Cards[id].Def]
+			def := g.rs.Cards[s.Cards[id].Def]
 			switch def.Type {
 			case TypeRito:
-				impl := riteImpls[def.ID]
+				impl := g.rs.rite[def.ID]
 				if impl == nil || !g.canAfford(player, g.effectiveCost(player, def, id)) {
 					continue
 				}
@@ -153,12 +153,12 @@ func (g *Game) legalPlays(player int) []Command {
 				}
 				add(id)
 			case TypeReliquia:
-				if permImpls[def.ID] != nil && len(p.Relics) < 2 &&
+				if g.rs.perm[def.ID] != nil && len(p.Relics) < 2 &&
 					g.canAfford(player, g.effectiveCost(player, def, id)) {
 					add(id)
 				}
 			case TypeManifestacao:
-				if permImpls[def.ID] != nil && len(p.Manifs) < 2 &&
+				if g.rs.perm[def.ID] != nil && len(p.Manifs) < 2 &&
 					g.canAfford(player, g.effectiveCost(player, def, id)) {
 					add(id)
 				}
@@ -166,8 +166,8 @@ func (g *Game) legalPlays(player int) []Command {
 		}
 	case PhaseConfront:
 		for _, id := range p.Hand {
-			def := Cards[s.Cards[id].Def]
-			impl := assaultImpls[def.ID]
+			def := g.rs.Cards[s.Cards[id].Def]
+			impl := g.rs.assault[def.ID]
 			if def.Type != TypeAssalto || impl == nil ||
 				s.Cards[id].LockedRound == s.Round {
 				continue

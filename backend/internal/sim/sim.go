@@ -29,6 +29,8 @@ type Config struct {
 	Bot0         BotKind `json:"bot_0"`
 	Bot1         BotKind `json:"bot_1"`
 	VerifyReplay bool    `json:"verify_replay"`
+	// RulesetVersion escolhe a versão registrada na engine (vazio = embutida).
+	RulesetVersion string `json:"ruleset_version,omitempty"`
 }
 
 type Report struct {
@@ -175,10 +177,17 @@ func Run(cfg Config) (Report, error) {
 	if err := validateConfig(cfg); err != nil {
 		return Report{}, err
 	}
-	champions := championIDs()
+	if cfg.RulesetVersion == "" {
+		cfg.RulesetVersion = engine.RulesetVersion
+	}
+	rs, err := engine.RulesetByVersion(cfg.RulesetVersion)
+	if err != nil {
+		return Report{}, err
+	}
+	champions := championIDs(rs)
 	decks := map[string][]string{}
 	for _, id := range champions {
-		deck, err := PreconstructedDeck(id)
+		deck, err := PreconstructedDeckFor(rs, id)
 		if err != nil {
 			return Report{}, err
 		}
@@ -231,21 +240,28 @@ func validateConfig(cfg Config) error {
 	return nil
 }
 
-func championIDs() []string {
-	ids := make([]string, 0, len(engine.Champions))
-	for id := range engine.Champions {
+func championIDs(rs *engine.Ruleset) []string {
+	ids := make([]string, 0, len(rs.Champions))
+	for id := range rs.Champions {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
 	return ids
 }
 
+// PreconstructedDeck monta o precon sob o ruleset embutido.
 func PreconstructedDeck(championID string) ([]string, error) {
-	champion := engine.Champions[championID]
+	return PreconstructedDeckFor(engine.Builtin(), championID)
+}
+
+// PreconstructedDeckFor monta o precon determinístico de um Campeão sob o
+// ruleset dado.
+func PreconstructedDeckFor(rs *engine.Ruleset, championID string) ([]string, error) {
+	champion := rs.Champions[championID]
 	if champion == nil {
 		return nil, fmt.Errorf("campeão desconhecido: %s", championID)
 	}
-	cards := append([]*engine.CardDef{}, engine.CardList...)
+	cards := append([]*engine.CardDef{}, rs.CardList...)
 	sort.Slice(cards, func(i, j int) bool {
 		leftCore := cards[i].Faction == champion.Faction
 		rightCore := cards[j].Faction == champion.Faction
@@ -273,7 +289,7 @@ func PreconstructedDeck(championID string) ([]string, error) {
 			break
 		}
 	}
-	if err := engine.ValidateDeck(championID, deck); err != nil {
+	if err := rs.ValidateDeck(championID, deck); err != nil {
 		return nil, fmt.Errorf("precon %s: %w", championID, err)
 	}
 	return deck, nil
@@ -295,7 +311,7 @@ func simulateOne(cfg Config, index int, champions []string, decks map[string][]s
 	result.champions = [2]string{champions[pair/len(champions)], champions[pair%len(champions)]}
 	result.first = repetition % 2
 	seed := cfg.BaseSeed + uint64(index)*0x9e3779b97f4a7c15
-	gameCfg := engine.Config{RulesetVersion: engine.RulesetVersion, Seed: seed, FirstPlayer: result.first,
+	gameCfg := engine.Config{RulesetVersion: cfg.RulesetVersion, Seed: seed, FirstPlayer: result.first,
 		Players: [2]engine.PlayerSetup{{ChampionID: result.champions[0], Deck: decks[result.champions[0]]},
 			{ChampionID: result.champions[1], Deck: decks[result.champions[1]]}}}
 	game, err := engine.NewGame(gameCfg)
@@ -445,15 +461,15 @@ func analyzeCards(game *engine.Game, result *matchResult) {
 				card.PlayedGame = true
 			}
 		case engine.EvDamage:
-			if def != "" && engine.Cards[def] != nil && owner >= 0 {
+			if def != "" && game.Ruleset().Cards[def] != nil && owner >= 0 {
 				cardResult(result.cards[owner], def).Damage += event.N
 			}
 		case engine.EvPrevented:
-			if def != "" && engine.Cards[def] != nil && owner >= 0 {
+			if def != "" && game.Ruleset().Cards[def] != nil && owner >= 0 {
 				cardResult(result.cards[owner], def).Prevented += event.N
 			}
 		case engine.EvEclipseShifted:
-			if engine.Cards[event.S] != nil && event.P >= 0 {
+			if game.Ruleset().Cards[event.S] != nil && event.P >= 0 {
 				cardResult(result.cards[event.P], event.S).EclipseDisplacement += abs(event.To - event.From)
 			}
 		}
@@ -665,17 +681,21 @@ func (a *aggregate) merge(other *aggregate) {
 }
 
 func (a *aggregate) report(cfg Config) Report {
-	report := Report{SchemaVersion: "balance-report.v1", Ruleset: engine.RulesetVersion, Config: cfg, Health: a.health}
+	rs, rsErr := engine.RulesetByVersion(cfg.RulesetVersion)
+	if rsErr != nil {
+		rs = engine.Builtin()
+	}
+	report := Report{SchemaVersion: "balance-report.v1", Ruleset: cfg.RulesetVersion, Config: cfg, Health: a.health}
 	sort.Slice(a.failures, func(i, j int) bool { return a.failures[i].Game < a.failures[j].Game })
 	report.Failures = append(report.Failures, a.failures...)
 	report.FirstPlayer = FirstPlayerMetric{Games: a.firstGames, Wins: a.firstWins, WinRate: rate(a.firstWins, a.firstGames)}
 	report.Duration = durationMetric(a.rounds, a.commands)
-	for _, id := range championIDs() {
+	for _, id := range championIDs(rs) {
 		raw := a.champions[id]
 		if raw == nil {
 			raw = &rawChampion{}
 		}
-		report.Champions = append(report.Champions, ChampionMetric{ID: id, Name: engine.Champions[id].Name,
+		report.Champions = append(report.Champions, ChampionMetric{ID: id, Name: championName(rs, id),
 			Games: raw.Games, Wins: raw.Wins, Losses: raw.Games - raw.Wins, WinRate: rate(raw.Wins, raw.Games)})
 	}
 	keys := make([]string, 0, len(a.matchups))
@@ -769,4 +789,11 @@ func abs(value int) int {
 		return -value
 	}
 	return value
+}
+
+func championName(rs *engine.Ruleset, id string) string {
+	if champ := rs.Champions[id]; champ != nil {
+		return champ.Name
+	}
+	return id
 }

@@ -52,6 +52,25 @@ func main() {
 
 	service := app.New(db)
 	battleManager := battle.NewManager(db)
+
+	// Fase 7: versões publicadas ficam executáveis (replays históricos) e o
+	// matchmaking segue o ponteiro ativo do banco; ativações via admin
+	// repontam o manager em tempo real.
+	if registered, err := service.RegisterStoredRulesets(ctx); err != nil {
+		logger.Error("falha ao registrar rulesets persistidos", "error", err)
+		os.Exit(1)
+	} else if len(registered) > 0 {
+		logger.Info("rulesets registrados", "versions", registered)
+	}
+	if infos, err := db.ListRulesets(ctx); err == nil {
+		for _, info := range infos {
+			if info.Active {
+				battleManager.SetActiveRuleset(info.Version)
+			}
+		}
+	}
+	service.SetRulesetActivationHook(battleManager.SetActiveRuleset)
+
 	handler := otelhttp.NewHandler(httpapi.New(service, battleManager, logger, db.Ping), "http.server")
 	port := os.Getenv("PORT")
 	if port == "" {

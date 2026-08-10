@@ -140,7 +140,7 @@ func init() {
 				if def == "" {
 					return errCmd(ErrRequirement, "o oponente ainda não resolveu um Rito")
 				}
-				if riteImpls[def] == nil {
+				if g.rs.rite[def] == nil {
 					return errCmd(ErrRequirement, "o último Rito rival não é copiável")
 				}
 				return nil
@@ -274,7 +274,7 @@ func init() {
 				}
 				var ok bool
 				for _, id := range p.Discard {
-					if Cards[g.s.Cards[id].Def].Rarity != RarityLendaria {
+					if g.rs.Cards[g.s.Cards[id].Def].Rarity != RarityLendaria {
 						ok = true
 						break
 					}
@@ -289,7 +289,7 @@ func init() {
 				p.CinzaMarkers -= 3
 				var opts []string
 				for _, id := range p.Discard {
-					if Cards[g.s.Cards[id].Def].Rarity != RarityLendaria {
+					if g.rs.Cards[g.s.Cards[id].Def].Rarity != RarityLendaria {
 						opts = append(opts, id)
 					}
 				}

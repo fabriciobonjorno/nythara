@@ -56,6 +56,7 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 	mux.Handle("GET /v1/rewards", api.auth(http.HandlerFunc(api.rewards)))
 	mux.Handle("POST /v1/admin/rewards/grant", api.auth(api.requireRole(domain.RoleAdmin,
 		http.HandlerFunc(api.grantReward))))
+	api.adminRoutes(mux)
 	if battles != nil {
 		mux.Handle("GET /v1/matchmaking", api.auth(http.HandlerFunc(api.matchmakingStatus)))
 		mux.Handle("POST /v1/matchmaking", api.auth(http.HandlerFunc(api.enqueueMatchmaking)))

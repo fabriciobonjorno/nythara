@@ -55,7 +55,13 @@ make web-dev # cliente em :5173, com proxy REST/WebSocket para :8080
   com matriz 10×10 de Campeões, decks preconstruídos legais, métricas por
   Campeão/carta/iniciativa/duração, validação de saúde e replay integral. Pull
   requests rodam smoke; CI noturna/manual salva o relatório de 100 mil partidas.
-- Próximo: Admin/LiveOps (Fase 7).
+- **Fase 7** — Admin/LiveOps: rulesets versionados executáveis (engine compila
+  e registra qualquer versão publicada; replays históricos preservados),
+  drafts de carta com validar/simular/publicar, ativação com rollback,
+  bans emergenciais de ranked, temporadas, telemetria de partidas e trilha de
+  auditoria em toda mutação — via API admin com RBAC (página web do painel
+  fica para o ciclo de UI).
+- Próximo: Fase 8 — segurança e produção.
 
 Decisões de regra onde o GDD era ambíguo estão registradas em [DECISIONS.md](DECISIONS.md).
 

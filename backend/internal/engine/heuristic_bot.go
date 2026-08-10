@@ -64,7 +64,7 @@ func (b *HeuristicBot) mulligan(g *Game, player int) Command {
 	picks := make([]string, 0, 2)
 	guardsKept := 0
 	for _, id := range s.Players[player].Hand {
-		def := Cards[s.Cards[id].Def]
+		def := g.rs.Cards[s.Cards[id].Def]
 		if def.Type == TypeGuarda && guardsKept == 0 {
 			guardsKept++
 			continue
@@ -80,7 +80,7 @@ func (b *HeuristicBot) stance(g *Game, player int) Stance {
 	s := g.State()
 	assaults, rites, guards := 0, 0, 0
 	for _, id := range s.Players[player].Hand {
-		switch Cards[s.Cards[id].Def].Type {
+		switch g.rs.Cards[s.Cards[id].Def].Type {
 		case TypeAssalto:
 			assaults++
 		case TypeRito:
@@ -135,7 +135,7 @@ func (b *HeuristicBot) scoreAction(g *Game, cmd Command) int {
 	if inst == nil {
 		return -1000
 	}
-	def := Cards[inst.Def]
+	def := g.rs.Cards[inst.Def]
 	score := 0
 	switch def.Type {
 	case TypeAssalto:
@@ -150,7 +150,7 @@ func (b *HeuristicBot) scoreAction(g *Game, cmd Command) int {
 	case TypeReliquia, TypeManifestacao:
 		score = 55 + def.Cost*2
 	}
-	champFaction := Champions[s.Players[cmd.Player].Champion].Faction
+	champFaction := g.rs.Champions[s.Players[cmd.Player].Champion].Faction
 	if prefersNight(champFaction) {
 		score += def.EclipseShift * 5
 	} else if champFaction == "Ordem Solara" {
@@ -174,7 +174,7 @@ func (b *HeuristicBot) answerDecision(g *Game, d *Decision) Command {
 	}
 	value := func(option string) int {
 		if inst := g.State().Cards[option]; inst != nil {
-			def := Cards[inst.Def]
+			def := g.rs.Cards[inst.Def]
 			score := def.Cost * 10
 			if def.Type == TypeAssalto {
 				score += 15
@@ -198,11 +198,11 @@ func (b *HeuristicBot) answerDecision(g *Game, d *Decision) Command {
 	case DecMillTop, DecScryBottom:
 		cmd.Cards = []string{pickOption(options, false, "yes", "no")}
 	case DecSwapEclipse:
-		wantSwap := (prefersNight(Champions[g.State().Players[d.Player].Champion].Faction) && g.State().Eclipse < 0) ||
-			(Champions[g.State().Players[d.Player].Champion].Faction == "Ordem Solara" && g.State().Eclipse > 0)
+		wantSwap := (prefersNight(g.rs.Champions[g.State().Players[d.Player].Champion].Faction) && g.State().Eclipse < 0) ||
+			(g.rs.Champions[g.State().Players[d.Player].Champion].Faction == "Ordem Solara" && g.State().Eclipse > 0)
 		cmd.Cards = []string{pickOption(options, wantSwap, "yes", "no")}
 	case DecDirection:
-		if prefersNight(Champions[g.State().Players[d.Player].Champion].Faction) {
+		if prefersNight(g.rs.Champions[g.State().Players[d.Player].Champion].Faction) {
 			cmd.Cards = []string{findOption(options, "noite")}
 		} else {
 			cmd.Cards = []string{findOption(options, "aurora")}

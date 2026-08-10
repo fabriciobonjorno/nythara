@@ -201,19 +201,12 @@ var decisionOps = map[string]bool{
 // Effects é o arquivo carregado e validado no boot.
 var Effects *EffectsFile
 
-func init() {
-	fx, err := loadEffects(effectsAlphaJSON)
-	if err != nil {
-		panic(fmt.Sprintf("engine: effects_alpha.json inválido: %v", err))
-	}
-	Effects = fx
-	compileEffects(fx)
+// LoadEffectsForTest expõe o parser/validador da DSL para testes.
+func LoadEffectsForTest(raw []byte) (*EffectsFile, error) {
+	return loadEffects(raw, builtin.Cards, builtin.CardList)
 }
 
-// LoadEffectsForTest expõe o parser/validador da DSL para testes.
-func LoadEffectsForTest(raw []byte) (*EffectsFile, error) { return loadEffects(raw) }
-
-func loadEffects(raw []byte) (*EffectsFile, error) {
+func loadEffects(raw []byte, cards map[string]*CardDef, cardList []*CardDef) (*EffectsFile, error) {
 	var fx EffectsFile
 	if err := json.Unmarshal(raw, &fx); err != nil {
 		return nil, err
@@ -222,7 +215,7 @@ func loadEffects(raw []byte) (*EffectsFile, error) {
 		return nil, fmt.Errorf("sem campo version")
 	}
 	// Cobertura exata: cada carta do catálogo está na DSL OU em unsupported.
-	for _, c := range CardList {
+	for _, c := range cardList {
 		_, inDSL := fx.Cards[c.ID]
 		reason, inUnsup := fx.Unsupported[c.ID]
 		switch {
@@ -235,7 +228,7 @@ func loadEffects(raw []byte) (*EffectsFile, error) {
 		}
 	}
 	for id, cfx := range fx.Cards {
-		def := Cards[id]
+		def := cards[id]
 		if def == nil {
 			return nil, fmt.Errorf("%s: não existe no catálogo", id)
 		}

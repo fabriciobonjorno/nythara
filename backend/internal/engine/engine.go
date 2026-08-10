@@ -28,10 +28,14 @@ type Config struct {
 // comandos (uma goroutine por sala no battle server).
 type Game struct {
 	Cfg        Config
+	rs         *Ruleset
 	s          *GameState
 	Log        []Event
 	CommandLog []Command
 }
+
+// Ruleset devolve o conjunto de regras sob o qual a partida executa.
+func (g *Game) Ruleset() *Ruleset { return g.rs }
 
 // State expõe o estado para leitura. O chamador não deve mutar.
 func (g *Game) State() *GameState { return g.s }
@@ -39,15 +43,19 @@ func (g *Game) State() *GameState { return g.s }
 // NewGame valida a configuração, embaralha decks, compra mãos iniciais e
 // entra na fase de Mulligan.
 func NewGame(cfg Config) (*Game, error) {
+	rs, err := RulesetByVersion(cfg.RulesetVersion)
+	if err != nil {
+		return nil, err
+	}
 	for i, p := range cfg.Players {
-		if Champions[p.ChampionID] == nil {
+		if rs.Champions[p.ChampionID] == nil {
 			return nil, fmt.Errorf("jogador %d: campeão desconhecido %q", i, p.ChampionID)
 		}
 		if len(p.Deck) != DeckSize {
 			return nil, fmt.Errorf("jogador %d: deck com %d cartas (exigido %d)", i, len(p.Deck), DeckSize)
 		}
 		for _, def := range p.Deck {
-			if Cards[def] == nil {
+			if rs.Cards[def] == nil {
 				return nil, fmt.Errorf("jogador %d: carta desconhecida %q", i, def)
 			}
 		}
@@ -56,7 +64,7 @@ func NewGame(cfg Config) (*Game, error) {
 		return nil, fmt.Errorf("first_player inválido: %d", cfg.FirstPlayer)
 	}
 	if cfg.RulesetVersion == "" {
-		cfg.RulesetVersion = RulesetVersion
+		cfg.RulesetVersion = rs.Version
 	}
 
 	s := &GameState{
@@ -67,7 +75,7 @@ func NewGame(cfg Config) (*Game, error) {
 		Cards:          map[string]*CardInstance{},
 		RNG:            NewRNG(cfg.Seed),
 	}
-	g := &Game{Cfg: cfg, s: s}
+	g := &Game{Cfg: cfg, rs: rs, s: s}
 
 	if cfg.FirstPlayer >= 0 {
 		s.Initiative = cfg.FirstPlayer
@@ -77,7 +85,7 @@ func NewGame(cfg Config) (*Game, error) {
 	s.Active = s.Initiative
 
 	for i := 0; i < 2; i++ {
-		champ := Champions[cfg.Players[i].ChampionID]
+		champ := g.rs.Champions[cfg.Players[i].ChampionID]
 		p := &PlayerState{
 			Champion:    champ.ID,
 			Vitality:    champ.Vitality,
@@ -630,7 +638,7 @@ func (g *Game) costModApplies(m CostMod, def *CardDef, inst string) bool {
 	if m.UntilRound != 0 && g.s.Round > m.UntilRound {
 		return false
 	}
-	if m.RequireNonDamage && cardDealsDamage(def.ID) {
+	if m.RequireNonDamage && g.rs.cardDealsDamage(def.ID) {
 		return false
 	}
 	return true

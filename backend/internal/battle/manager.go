@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"veurubro/backend/internal/domain"
@@ -21,6 +22,7 @@ const persistenceTimeout = 5 * time.Second
 
 type Manager struct {
 	store         Store
+	activeRuleset atomic.Value // string: versão competitiva corrente
 	mu            sync.Mutex
 	queue         []QueuedPlayer
 	queued        map[string]bool
@@ -32,17 +34,47 @@ type Manager struct {
 }
 
 func NewManager(store Store) *Manager {
-	return &Manager{store: store, queued: map[string]bool{}, rooms: map[string]*room{},
+	m := &Manager{store: store, queued: map[string]bool{}, rooms: map[string]*room{},
 		tickets: map[string]Ticket{}, readyTimeout: 30 * time.Second, actionTimeout: 45 * time.Second,
 		now: time.Now}
+	m.activeRuleset.Store(engine.RulesetVersion)
+	return m
+}
+
+// SetActiveRuleset aponta o matchmaking para outra versão publicada
+// (ativação/rollback via admin). Partidas em andamento não são afetadas.
+func (m *Manager) SetActiveRuleset(version string) {
+	if version != "" {
+		m.activeRuleset.Store(version)
+	}
+}
+
+// ActiveRuleset devolve a versão competitiva corrente.
+func (m *Manager) ActiveRuleset() string {
+	return m.activeRuleset.Load().(string)
 }
 
 func (m *Manager) Queue(ctx context.Context, principal domain.Principal, deck domain.Deck) (QueueResult, error) {
-	if deck.UserID != principal.UserID || deck.RulesetVersion != engine.RulesetVersion {
+	if deck.UserID != principal.UserID || deck.RulesetVersion != m.ActiveRuleset() {
 		return QueueResult{}, domain.ErrForbidden
 	}
 	if err := validateStoredDeck(deck); err != nil {
 		return QueueResult{}, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	// Bans emergenciais (Fase 7): deck com carta desativada não entra na fila.
+	bans, err := m.store.ActiveBans(ctx)
+	if err != nil {
+		return QueueResult{}, err
+	}
+	banned := make(map[string]string, len(bans))
+	for _, ban := range bans {
+		banned[ban.CardID] = ban.Reason
+	}
+	for _, card := range deck.Cards {
+		if reason, ok := banned[card.CardID]; ok {
+			return QueueResult{}, fmt.Errorf("%w: %s está temporariamente desativada do competitivo (%s)",
+				domain.ErrInvalid, card.CardID, reason)
+		}
 	}
 	if existing, slot, err := m.store.ActiveMatchForUser(ctx, principal.UserID); err == nil {
 		return QueueResult{Status: "matched", MatchID: existing.ID, Slot: &slot}, nil
@@ -729,7 +761,7 @@ func newMatch(first, second QueuedPlayer, now time.Time) (Match, error) {
 	if err != nil {
 		return Match{}, err
 	}
-	config := engine.Config{RulesetVersion: engine.RulesetVersion, Seed: seed, FirstPlayer: -1,
+	config := engine.Config{RulesetVersion: first.Deck.RulesetVersion, Seed: seed, FirstPlayer: -1,
 		Players: [2]engine.PlayerSetup{
 			{ChampionID: first.Deck.ChampionID, Deck: expandDeck(first.Deck)},
 			{ChampionID: second.Deck.ChampionID, Deck: expandDeck(second.Deck)},

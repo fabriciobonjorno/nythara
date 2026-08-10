@@ -94,6 +94,8 @@ type Store interface {
 	CancelMatch(ctx context.Context, matchID, reason string) error
 	LoadMatch(ctx context.Context, matchID string) (LoadedMatch, error)
 	ActiveMatchForUser(ctx context.Context, userID string) (Match, int, error)
+	// ActiveBans lista cartas desativadas do competitivo (Fase 7).
+	ActiveBans(ctx context.Context) ([]domain.CardBan, error)
 }
 
 type QueueResult struct {

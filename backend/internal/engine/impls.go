@@ -61,28 +61,15 @@ type permImpl struct {
 	activated         *activatedImpl // VR-058/VR-072
 }
 
+// Visões do Ruleset embutido, para testes e pacotes externos (ver ruleset.go).
 var (
-	assaultImpls = map[string]*assaultImpl{}
-	guardImpls   = map[string]*guardImpl{}
-	riteImpls    = map[string]*riteImpl{}
-	permImpls    = map[string]*permImpl{}
+	assaultImpls map[string]*assaultImpl
+	guardImpls   map[string]*guardImpl
+	riteImpls    map[string]*riteImpl
+	permImpls    map[string]*permImpl
 )
 
-func cardImplemented(defID string) bool {
-	return assaultImpls[defID] != nil || guardImpls[defID] != nil ||
-		riteImpls[defID] != nil || permImpls[defID] != nil
-}
 
-// cardDealsDamage informa se a carta causa dano direto (restrição do Arcano).
-func cardDealsDamage(defID string) bool {
-	if assaultImpls[defID] != nil {
-		return true
-	}
-	if r := riteImpls[defID]; r != nil {
-		return r.dealsDamage
-	}
-	return false
-}
 
 // --- Relatório de cobertura ---
 
@@ -97,20 +84,22 @@ type Report struct {
 	EffectsVersion       string            `json:"effects_version"`
 }
 
-func ImplementationReport() Report {
+func ImplementationReport() Report { return builtin.ImplementationReport() }
+
+func (rs *Ruleset) ImplementationReport() Report {
 	r := Report{
 		MissingReasons: map[string]string{},
-		EffectsVersion: Effects.Version,
+		EffectsVersion: rs.Effects.Version,
 	}
-	for _, c := range CardList {
-		if cardImplemented(c.ID) {
+	for _, c := range rs.CardList {
+		if rs.cardImplemented(c.ID) {
 			r.ImplementedCards = append(r.ImplementedCards, c.ID)
 		} else {
 			r.MissingCards = append(r.MissingCards, c.ID)
-			r.MissingReasons[c.ID] = Effects.Unsupported[c.ID]
+			r.MissingReasons[c.ID] = rs.Effects.Unsupported[c.ID]
 		}
 	}
-	for id := range Champions {
+	for id := range rs.Champions {
 		if championImpls[id] != nil {
 			r.ImplementedChampions = append(r.ImplementedChampions, id)
 		} else {
