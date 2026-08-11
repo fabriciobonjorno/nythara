@@ -53,12 +53,15 @@ func (s *Service) ProgressSummary(ctx context.Context, principal domain.Principa
 	}
 	for i := range summary.Mastery {
 		summary.Mastery[i].Level = MasteryLevel(summary.Mastery[i].XP)
+		summary.Mastery[i].Title = domain.MasteryTitle(summary.Mastery[i].Level)
 	}
 	if season, err := s.store.ActiveSeason(ctx); err == nil {
 		standing, err := s.store.RankedStandingFor(ctx, principal.UserID, season.ID)
 		if err != nil {
 			return domain.ProgressSummary{}, err
 		}
+		tier := domain.TierForRating(standing.Rating)
+		standing.Tier = &tier
 		summary.Ranked = &standing
 	}
 	return summary, nil
@@ -78,6 +81,11 @@ func (s *Service) Leaderboard(ctx context.Context, principal domain.Principal,
 	standing, err := s.store.RankedStandingFor(ctx, principal.UserID, season.ID)
 	if err != nil {
 		return nil, nil, err
+	}
+	tier := domain.TierForRating(standing.Rating)
+	standing.Tier = &tier
+	for i := range entries {
+		entries[i].Tier = domain.TierForRating(entries[i].Rating).Name
 	}
 	return entries, &standing, nil
 }

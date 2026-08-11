@@ -459,3 +459,16 @@ func (f *fakeStore) RankedStandingFor(_ context.Context, _, seasonID string) (do
 func (f *fakeStore) Leaderboard(_ context.Context, seasonID string, _ int) ([]domain.LeaderboardEntry, error) {
 	return []domain.LeaderboardEntry{{Position: 1, UserID: "u1", DisplayName: "Alva", Rating: 1210}}, nil
 }
+
+func (f *fakeStore) MatchHistory(_ context.Context, userID string, _ int) ([]domain.MatchSummary, error) {
+	return []domain.MatchSummary{{MatchID: "m1", Mode: "practice", MySlot: 0,
+		MyChampion: "CH-CI-01", Opponent: "Treinador do Véu",
+		OpponentChampion: "CH-VA-02", Won: true, EndReason: "concessao"}}, nil
+}
+
+func (f *fakeStore) MatchReplay(_ context.Context, matchID string) (domain.MatchReplayData, error) {
+	if f.replay != nil {
+		return *f.replay, nil
+	}
+	return domain.MatchReplayData{}, domain.ErrNotFound
+}

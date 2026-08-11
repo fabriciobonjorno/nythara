@@ -187,17 +187,19 @@ type ChampionMastery struct {
 	ChampionID string `json:"champion_id"`
 	XP         int    `json:"xp"`
 	Level      int    `json:"level"`
+	Title      string `json:"title,omitempty"` // derivado de Level (ranks.go)
 	Games      int    `json:"games"`
 	Wins       int    `json:"wins"`
 }
 
 // RankedStanding é o rating do jogador na temporada.
 type RankedStanding struct {
-	SeasonID string `json:"season_id"`
-	Rating   int    `json:"rating"`
-	Games    int    `json:"games"`
-	Wins     int    `json:"wins"`
-	Position int    `json:"position,omitempty"`
+	SeasonID string    `json:"season_id"`
+	Rating   int       `json:"rating"`
+	Games    int       `json:"games"`
+	Wins     int       `json:"wins"`
+	Position int       `json:"position,omitempty"`
+	Tier     *RankTier `json:"tier,omitempty"` // derivado de Rating (ranks.go)
 }
 
 // LeaderboardEntry é uma linha do ranking da temporada.
@@ -208,6 +210,42 @@ type LeaderboardEntry struct {
 	Rating      int    `json:"rating"`
 	Games       int    `json:"games"`
 	Wins        int    `json:"wins"`
+	Tier        string `json:"tier,omitempty"` // nome da patente (ranks.go)
+}
+
+// MatchSummary é uma linha do histórico pessoal de partidas.
+type MatchSummary struct {
+	MatchID          string     `json:"match_id"`
+	Mode             string     `json:"mode"`
+	RulesetVersion   string     `json:"ruleset_version"`
+	MySlot           int        `json:"my_slot"`
+	MyChampion       string     `json:"my_champion"`
+	Opponent         string     `json:"opponent"`
+	OpponentChampion string     `json:"opponent_champion"`
+	Won              bool       `json:"won"`
+	Draw             bool       `json:"draw,omitempty"`
+	EndReason        string     `json:"end_reason,omitempty"`
+	FinishedAt       *time.Time `json:"finished_at,omitempty"`
+}
+
+// ReplayPlayer identifica um assento na crônica de uma partida encerrada.
+type ReplayPlayer struct {
+	UserID      string `json:"user_id"`
+	DisplayName string `json:"display_name"`
+	ChampionID  string `json:"champion_id"`
+}
+
+// MatchReplayData é a crônica pós-partida: cabeçalho + log de eventos
+// authoritative (a engine é determinística; o log É a partida).
+type MatchReplayData struct {
+	MatchID        string            `json:"match_id"`
+	Mode           string            `json:"mode"`
+	RulesetVersion string            `json:"ruleset_version"`
+	Status         string            `json:"status"`
+	Players        [2]ReplayPlayer   `json:"players"`
+	Winner         *int              `json:"winner,omitempty"`
+	EndReason      string            `json:"end_reason,omitempty"`
+	Events         []json.RawMessage `json:"events"`
 }
 
 // ProgressSummary alimenta a Home: rituais do dia, carteira, maestria, rating.
@@ -350,4 +388,8 @@ type Store interface {
 	MasteryFor(ctx context.Context, userID string) ([]ChampionMastery, error)
 	RankedStandingFor(ctx context.Context, userID, seasonID string) (RankedStanding, error)
 	Leaderboard(ctx context.Context, seasonID string, limit int) ([]LeaderboardEntry, error)
+
+	// Arena: histórico pessoal e crônica de partidas encerradas.
+	MatchHistory(ctx context.Context, userID string, limit int) ([]MatchSummary, error)
+	MatchReplay(ctx context.Context, matchID string) (MatchReplayData, error)
 }

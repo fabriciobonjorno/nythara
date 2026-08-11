@@ -67,6 +67,10 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 	mux.Handle("GET /v1/rewards", api.auth(http.HandlerFunc(api.rewards)))
 	mux.Handle("GET /v1/progress", api.auth(http.HandlerFunc(api.progress)))
 	mux.Handle("GET /v1/ranked/leaderboard", api.auth(http.HandlerFunc(api.leaderboard)))
+	mux.Handle("GET /v1/decks/{id}/code", api.auth(http.HandlerFunc(api.deckCode)))
+	mux.Handle("POST /v1/decks/import", api.auth(http.HandlerFunc(api.importDeck)))
+	mux.Handle("GET /v1/matches", api.auth(http.HandlerFunc(api.matchHistory)))
+	mux.Handle("GET /v1/matches/{id}/replay", api.auth(http.HandlerFunc(api.matchReplay)))
 	mux.Handle("POST /v1/admin/rewards/grant", api.auth(api.requireRole(domain.RoleAdmin,
 		http.HandlerFunc(api.grantReward))))
 	api.adminRoutes(mux)
@@ -143,6 +147,55 @@ func (a *API) progress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, summary)
+}
+
+func (a *API) deckCode(w http.ResponseWriter, r *http.Request) {
+	code, err := a.service.DeckCode(r.Context(), principal(r), r.PathValue("id"))
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"code": code})
+}
+
+func (a *API) importDeck(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Code string `json:"code"`
+		Name string `json:"name"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	deck, created, err := a.service.ImportDeck(r.Context(), principal(r), input.Code,
+		input.Name, r.Header.Get("Idempotency-Key"))
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	writeJSON(w, status, deck)
+}
+
+func (a *API) matchHistory(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	matches, err := a.service.MatchHistory(r.Context(), principal(r), limit)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"matches": matches})
+}
+
+func (a *API) matchReplay(w http.ResponseWriter, r *http.Request) {
+	replay, err := a.service.MatchReplay(r.Context(), principal(r), r.PathValue("id"))
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, replay)
 }
 
 func (a *API) leaderboard(w http.ResponseWriter, r *http.Request) {

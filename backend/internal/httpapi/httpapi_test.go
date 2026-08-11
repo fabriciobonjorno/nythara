@@ -174,6 +174,7 @@ type fakeStore struct {
 	saveDeckCalls int
 	grantCalls    int
 	liveops       *liveopsState
+	replay        *domain.MatchReplayData
 }
 
 func (*fakeStore) CreateUser(context.Context, domain.User, string) (domain.User, error) {
