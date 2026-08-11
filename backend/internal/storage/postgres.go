@@ -49,6 +49,42 @@ var migration5Up string
 //go:embed migrations/000005_progression.down.sql
 var migration5Down string
 
+//go:embed migrations/000006_identity.up.sql
+var migration6Up string
+
+//go:embed migrations/000006_identity.down.sql
+var migration6Down string
+
+//go:embed migrations/000007_confront.up.sql
+var migration7Up string
+
+//go:embed migrations/000007_confront.down.sql
+var migration7Down string
+
+//go:embed migrations/000008_ruleset_mode.up.sql
+var migration8Up string
+
+//go:embed migrations/000008_ruleset_mode.down.sql
+var migration8Down string
+
+//go:embed migrations/000009_confront_composition.up.sql
+var migration9Up string
+
+//go:embed migrations/000009_confront_composition.down.sql
+var migration9Down string
+
+//go:embed migrations/000010_confront_single_deck.up.sql
+var migration10Up string
+
+//go:embed migrations/000010_confront_single_deck.down.sql
+var migration10Down string
+
+//go:embed migrations/000011_feedback.up.sql
+var migration11Up string
+
+//go:embed migrations/000011_feedback.down.sql
+var migration11Down string
+
 type migration struct {
 	version int64
 	up      string
@@ -61,6 +97,12 @@ var migrations = []migration{
 	{version: 3, up: migration3Up, down: migration3Down},
 	{version: 4, up: migration4Up, down: migration4Down},
 	{version: 5, up: migration5Up, down: migration5Down},
+	{version: 6, up: migration6Up, down: migration6Down},
+	{version: 7, up: migration7Up, down: migration7Down},
+	{version: 8, up: migration8Up, down: migration8Down},
+	{version: 9, up: migration9Up, down: migration9Down},
+	{version: 10, up: migration10Up, down: migration10Down},
+	{version: 11, up: migration11Up, down: migration11Down},
 }
 
 type Postgres struct {
@@ -163,6 +205,8 @@ func (p *Postgres) MigrateDown(ctx context.Context) error {
 }
 
 func (p *Postgres) SyncCatalog(ctx context.Context) error {
+	activeRS := engine.CompetitiveRuleset()
+	activeVersion := engine.CompetitiveRulesetVersion
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -171,11 +215,11 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE rulesets SET active=false WHERE active`); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO rulesets(version,active) VALUES($1,true)
-		ON CONFLICT(version) DO UPDATE SET active=true`, engine.RulesetVersion); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO rulesets(version,active,mode) VALUES($1,true,$2)
+		ON CONFLICT(version) DO UPDATE SET active=true,mode=EXCLUDED.mode`, activeVersion, activeRS.Mode); err != nil {
 		return err
 	}
-	for _, c := range engine.CardList {
+	for _, c := range activeRS.CardList {
 		raw, err := json.Marshal(c)
 		if err != nil {
 			return err
@@ -187,7 +231,7 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 			card_type=EXCLUDED.card_type,rarity=EXCLUDED.rarity,cost=EXCLUDED.cost,
 			eclipse_shift=EXCLUDED.eclipse_shift,sigil=EXCLUDED.sigil,rules_text=EXCLUDED.rules_text,
 			definition=EXCLUDED.definition WHERE card_definitions.definition=EXCLUDED.definition`,
-			c.ID, engine.RulesetVersion, c.Name, c.Faction, string(c.Type), string(c.Rarity), c.Cost,
+			c.ID, activeVersion, c.Name, c.Faction, string(c.Type), string(c.Rarity), c.Cost,
 			c.EclipseShift, string(c.Sigil), c.RulesText, raw)
 		if err != nil {
 			return fmt.Errorf("sincronizar carta %s: %w", c.ID, err)
@@ -196,7 +240,7 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 			return fmt.Errorf("carta %s mudou sem novo RulesetVersion", c.ID)
 		}
 	}
-	for id, champion := range engine.Champions {
+	for id, champion := range activeRS.Champions {
 		raw, err := json.Marshal(champion)
 		if err != nil {
 			return err
@@ -205,7 +249,7 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 			(id,ruleset_version,name,faction,vitality,definition) VALUES($1,$2,$3,$4,$5,$6)
 			ON CONFLICT(id,ruleset_version) DO UPDATE SET name=EXCLUDED.name,faction=EXCLUDED.faction,
 			vitality=EXCLUDED.vitality,definition=EXCLUDED.definition
-			WHERE champions.definition=EXCLUDED.definition`, id, engine.RulesetVersion,
+			WHERE champions.definition=EXCLUDED.definition`, id, activeVersion,
 			champion.Name, champion.Faction, champion.Vitality, raw)
 		if err != nil {
 			return fmt.Errorf("sincronizar campeão %s: %w", id, err)
@@ -214,94 +258,142 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 			return fmt.Errorf("campeão %s mudou sem novo RulesetVersion", id)
 		}
 	}
-	cardsPayload, err := json.Marshal(engine.CardList)
+	cardsPayload, err := json.Marshal(activeRS.CardList)
 	if err != nil {
 		return err
 	}
-	championIDs := make([]string, 0, len(engine.Champions))
-	for id := range engine.Champions {
+	championIDs := make([]string, 0, len(activeRS.Champions))
+	for id := range activeRS.Champions {
 		championIDs = append(championIDs, id)
 	}
 	sort.Strings(championIDs)
 	champList := make([]*engine.ChampionDef, 0, len(championIDs))
 	for _, id := range championIDs {
-		champList = append(champList, engine.Champions[id])
+		champList = append(champList, activeRS.Champions[id])
 	}
 	champsPayload, err := json.Marshal(champList)
 	if err != nil {
 		return err
 	}
-	effectsPayload, err := json.Marshal(engine.Effects)
+	effectsPayload, err := json.Marshal(activeRS.Effects)
 	if err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO ruleset_payloads(version,cards,champions,effects)
 		VALUES($1,$2,$3,$4) ON CONFLICT(version) DO NOTHING`,
-		engine.RulesetVersion, cardsPayload, champsPayload, effectsPayload); err != nil {
+		activeVersion, cardsPayload, champsPayload, effectsPayload); err != nil {
 		return fmt.Errorf("snapshot do ruleset embutido: %w", err)
+	}
+	// Migração de metadado: snapshots alpha-0.9 gravados antes de o modo se
+	// tornar explícito já têm o mesmo conteúdo executável. Preenche somente a
+	// chave ausente, sem substituir cartas/efeitos de uma versão imutável.
+	if _, err := tx.ExecContext(ctx, `UPDATE ruleset_payloads
+		SET effects=jsonb_set(effects,'{mode}',to_jsonb($2::text),true)
+		WHERE version=$1 AND COALESCE(effects->>'mode','')=''`, activeVersion, activeRS.Mode); err != nil {
+		return fmt.Errorf("metadado do snapshot embutido: %w", err)
+	}
+
+	// O grant de registro "alpha_complete" é uma autorização contínua durante
+	// o Alpha, não um snapshot de um ruleset antigo. Propaga apenas para contas
+	// que já receberam esse grant auditado e só insere os itens ausentes.
+	if _, err := tx.ExecContext(ctx, `WITH entitled AS (
+			SELECT DISTINCT user_id FROM economy_transactions
+			WHERE kind='collection_grant' AND payload->>'grant'='alpha_complete'
+		)
+		INSERT INTO player_champions(user_id,champion_id,ruleset_version)
+		SELECT entitled.user_id,champions.id,champions.ruleset_version
+		FROM entitled CROSS JOIN champions
+		WHERE champions.ruleset_version=$1
+		ON CONFLICT DO NOTHING`, activeVersion); err != nil {
+		return fmt.Errorf("propagar campeões do grant alpha completo: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `WITH entitled AS (
+			SELECT DISTINCT user_id FROM economy_transactions
+			WHERE kind='collection_grant' AND payload->>'grant'='alpha_complete'
+		)
+		INSERT INTO player_cards(user_id,card_id,ruleset_version,quantity)
+		SELECT entitled.user_id,card_definitions.id,card_definitions.ruleset_version,
+			CASE WHEN card_definitions.rarity='Lendária' THEN 1 ELSE 2 END
+		FROM entitled CROSS JOIN card_definitions
+		WHERE card_definitions.ruleset_version=$1
+		ON CONFLICT DO NOTHING`, activeVersion); err != nil {
+		return fmt.Errorf("propagar cartas do grant alpha completo: %w", err)
 	}
 
 	// O bot precisa possuir a coleção para os decks dele passarem nas
 	// constraints de posse (mesma regra dos jogadores).
 	if _, err := tx.ExecContext(ctx, `INSERT INTO player_champions(user_id,champion_id,ruleset_version)
 		SELECT $1,id,ruleset_version FROM champions WHERE ruleset_version=$2
-		ON CONFLICT DO NOTHING`, domain.BotUserID, engine.RulesetVersion); err != nil {
+		ON CONFLICT DO NOTHING`, domain.BotUserID, activeVersion); err != nil {
 		return fmt.Errorf("campeões do bot: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO player_cards(user_id,card_id,ruleset_version,quantity)
 		SELECT $1,id,ruleset_version,CASE WHEN rarity='Lendária' THEN 1 ELSE 2 END
 		FROM card_definitions WHERE ruleset_version=$2
-		ON CONFLICT DO NOTHING`, domain.BotUserID, engine.RulesetVersion); err != nil {
+		ON CONFLICT DO NOTHING`, domain.BotUserID, activeVersion); err != nil {
 		return fmt.Errorf("cartas do bot: %w", err)
 	}
-	for _, championID := range championIDs {
-		precon, err := engine.Builtin().PreconstructedDeck(championID)
-		if err != nil {
-			return fmt.Errorf("precon do bot %s: %w", championID, err)
-		}
-		var deckID string
-		err = tx.QueryRowContext(ctx, `INSERT INTO decks(id,user_id,name,champion_id,ruleset_version)
-			VALUES(gen_random_uuid(),$1,$2,$3,$4)
-			ON CONFLICT (user_id, name) DO NOTHING RETURNING id`,
-			domain.BotUserID, "Bot — "+engine.Champions[championID].Name, championID,
-			engine.RulesetVersion).Scan(&deckID)
-		if errors.Is(err, sql.ErrNoRows) {
-			continue // já semeado
-		}
-		if err != nil {
-			return fmt.Errorf("deck do bot %s: %w", championID, err)
-		}
-		counts := map[string]int{}
-		var order []string
-		for _, card := range precon {
-			if counts[card] == 0 {
-				order = append(order, card)
-			}
-			counts[card]++
-		}
-		for _, card := range order {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO deck_cards(deck_id,card_id,ruleset_version,quantity)
-				VALUES($1,$2,$3,$4)`, deckID, card, engine.RulesetVersion, counts[card]); err != nil {
-				return fmt.Errorf("cartas do deck do bot %s: %w", championID, err)
-			}
-		}
+	// Toda conta com coleção do Confronto recebe um único baralho pronto. É
+	// editável imediatamente; a trava começa apenas depois do primeiro save do
+	// jogador. O mesmo caminho semeia o bot, evitando uma exceção de regras.
+	if _, err := tx.ExecContext(ctx, `WITH owners AS (
+			SELECT user_id,min(champion_id) AS avatar_id
+			FROM player_champions WHERE ruleset_version=$1 GROUP BY user_id
+		)
+		INSERT INTO decks(id,user_id,name,champion_id,ruleset_version,active,system_provided)
+		SELECT gen_random_uuid(),owners.user_id,
+			CASE WHEN owners.user_id=$2 THEN 'Bot Confronto · '||$1 ELSE 'Meu Baralho · '||$1 END,
+			owners.avatar_id,$1,true,true FROM owners
+		WHERE NOT EXISTS (
+			SELECT 1 FROM decks existing
+			WHERE existing.user_id=owners.user_id AND existing.ruleset_version=$1
+		)
+		ON CONFLICT DO NOTHING`, activeVersion, domain.BotUserID); err != nil {
+		return fmt.Errorf("baralho inicial do Confronto: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `WITH ranked AS (
+			SELECT id,card_type,row_number() OVER (PARTITION BY card_type ORDER BY cost,id) AS pos
+			FROM card_definitions
+			WHERE ruleset_version=$1 AND card_type IN ('Assalto','Guarda','Rito')
+			  AND rarity<>'Lendária'
+			  AND COALESCE((definition->'confront'->>'legal')::boolean,false)
+		), chosen AS (SELECT id FROM ranked WHERE pos<=5)
+		INSERT INTO deck_cards(deck_id,card_id,ruleset_version,quantity)
+		SELECT d.id,chosen.id,$1,2 FROM decks d CROSS JOIN chosen
+		WHERE d.ruleset_version=$1 AND d.system_provided
+		  AND NOT EXISTS (SELECT 1 FROM deck_cards dc WHERE dc.deck_id=d.id)
+		ON CONFLICT DO NOTHING`, activeVersion); err != nil {
+		return fmt.Errorf("cartas do baralho inicial do Confronto: %w", err)
 	}
 
-	const alphaSeasonStart = "2026-08-10T00:00:00Z"
-	if _, err := tx.ExecContext(ctx, `UPDATE seasons SET ends_at=$2
-		WHERE ends_at IS NULL AND ruleset_version<>$1 AND starts_at<$2`,
-		engine.RulesetVersion, alphaSeasonStart); err != nil {
+	const alphaSeasonStart = "2026-08-11T00:00:00Z"
+	// Fecha no relógio real (ends_at > starts_at garantido para temporadas já
+	// iniciadas); a constante seguia igual ao starts_at e violava o check.
+	if _, err := tx.ExecContext(ctx, `UPDATE seasons SET ends_at=now()
+		WHERE ends_at IS NULL AND ruleset_version<>$1 AND starts_at<now()`,
+		activeVersion); err != nil {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO seasons(id,name,ruleset_version,starts_at)
-		VALUES('00000000-0000-4000-8000-000000000003','Alpha 0.5', $1, $2)
-		ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name
-		WHERE seasons.ruleset_version=EXCLUDED.ruleset_version`, engine.RulesetVersion, alphaSeasonStart)
-	if err != nil {
+	// Garante uma temporada aberta sem reabrir uma temporada já encerrada.
+	// Isso importa depois de uma virada operada pelo admin: o boot seguinte
+	// fecha uma temporada de outro ruleset, mas nunca deve ressuscitar o ID
+	// histórico (nem permitir uma segunda concessão de recompensa).
+	if _, err := tx.ExecContext(ctx, `INSERT INTO seasons(id,name,ruleset_version,starts_at)
+		SELECT CASE
+			WHEN EXISTS (SELECT 1 FROM seasons WHERE id='00000000-0000-4000-8000-000000000012')
+			THEN gen_random_uuid()
+			ELSE '00000000-0000-4000-8000-000000000012'::uuid
+		END,'Alpha 0.10.2 — Selos Táticos',$1,$2::timestamptz
+		WHERE NOT EXISTS (SELECT 1 FROM seasons WHERE ends_at IS NULL)`, activeVersion, alphaSeasonStart); err != nil {
 		return err
 	}
-	if affected, _ := result.RowsAffected(); affected != 1 {
-		return fmt.Errorf("a temporada Alpha exige um novo ID para o novo RulesetVersion")
+	var openRuleset string
+	if err := tx.QueryRowContext(ctx, `SELECT ruleset_version FROM seasons
+		WHERE ends_at IS NULL LIMIT 1`).Scan(&openRuleset); err != nil {
+		return fmt.Errorf("temporada Alpha ausente após sincronização: %w", err)
+	}
+	if openRuleset != activeVersion {
+		return fmt.Errorf("temporada aberta usa %s; esperado %s", openRuleset, activeVersion)
 	}
 	return tx.Commit()
 }
@@ -333,6 +425,46 @@ func (p *Postgres) CreateUser(ctx context.Context, user domain.User, starterRule
 	if _, err := tx.ExecContext(ctx, `INSERT INTO economy_transactions(id,user_id,kind,source,payload)
 		VALUES(gen_random_uuid(),$1,'collection_grant','registration',$2)`, user.ID, payload); err != nil {
 		return domain.User{}, mapError(err)
+	}
+	if engine.IsConfrontVersion(starterRuleset) {
+		rs, err := engine.RulesetByVersion(starterRuleset)
+		if err != nil {
+			return domain.User{}, err
+		}
+		avatarIDs := make([]string, 0, len(rs.Champions))
+		for id := range rs.Champions {
+			avatarIDs = append(avatarIDs, id)
+		}
+		sort.Strings(avatarIDs)
+		if len(avatarIDs) == 0 {
+			return domain.User{}, fmt.Errorf("ruleset Confronto sem avatares")
+		}
+		precon, err := rs.PreconstructedDeck(avatarIDs[0])
+		if err != nil {
+			return domain.User{}, err
+		}
+		var deckID string
+		if err := tx.QueryRowContext(ctx, `INSERT INTO decks
+			(id,user_id,name,champion_id,ruleset_version,active,system_provided)
+			VALUES(gen_random_uuid(),$1,'Meu Baralho',$2,$3,true,true) RETURNING id`,
+			user.ID, avatarIDs[0], starterRuleset).Scan(&deckID); err != nil {
+			return domain.User{}, mapError(err)
+		}
+		counts := map[string]int{}
+		for _, card := range precon {
+			counts[card]++
+		}
+		ids := make([]string, 0, len(counts))
+		for id := range counts {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		for _, id := range ids {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO deck_cards(deck_id,card_id,ruleset_version,quantity)
+				VALUES($1,$2,$3,$4)`, deckID, id, starterRuleset, counts[id]); err != nil {
+				return domain.User{}, mapError(err)
+			}
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return domain.User{}, mapError(err)
@@ -454,13 +586,17 @@ func (p *Postgres) Collection(ctx context.Context, userID, ruleset string) (doma
 
 func scanDeck(row interface{ Scan(...any) error }) (domain.Deck, error) {
 	var d domain.Deck
+	var locked sql.NullTime
 	err := row.Scan(&d.ID, &d.UserID, &d.Name, &d.ChampionID, &d.RulesetVersion,
-		&d.Version, &d.CreatedAt, &d.UpdatedAt)
+		&d.Version, &d.Active, &locked, &d.SystemProvided, &d.CreatedAt, &d.UpdatedAt)
+	if locked.Valid {
+		d.LockedUntil = &locked.Time
+	}
 	return d, mapError(err)
 }
 
 func (p *Postgres) ListDecks(ctx context.Context, userID string) ([]domain.Deck, error) {
-	rows, err := p.db.QueryContext(ctx, `SELECT id,user_id,name,champion_id,ruleset_version,version,created_at,updated_at
+	rows, err := p.db.QueryContext(ctx, `SELECT id,user_id,name,champion_id,ruleset_version,version,active,locked_until,system_provided,created_at,updated_at
 		FROM decks WHERE user_id=$1 ORDER BY updated_at DESC,id`, userID)
 	if err != nil {
 		return nil, err
@@ -481,7 +617,7 @@ func (p *Postgres) ListDecks(ctx context.Context, userID string) ([]domain.Deck,
 }
 
 func (p *Postgres) Deck(ctx context.Context, userID, deckID string) (domain.Deck, error) {
-	d, err := scanDeck(p.db.QueryRowContext(ctx, `SELECT id,user_id,name,champion_id,ruleset_version,version,created_at,updated_at
+	d, err := scanDeck(p.db.QueryRowContext(ctx, `SELECT id,user_id,name,champion_id,ruleset_version,version,active,locked_until,system_provided,created_at,updated_at
 		FROM decks WHERE user_id=$1 AND id=$2`, userID, deckID))
 	if err != nil {
 		return d, err
@@ -523,14 +659,19 @@ func (p *Postgres) SaveDeck(ctx context.Context, d domain.Deck, expected *int64,
 		return d, true, tx.Commit()
 	}
 	if expected == nil {
-		err = tx.QueryRowContext(ctx, `INSERT INTO decks(id,user_id,name,champion_id,ruleset_version)
-			VALUES($1,$2,$3,$4,$5) RETURNING version,created_at,updated_at`, d.ID, d.UserID,
-			d.Name, d.ChampionID, d.RulesetVersion).Scan(&d.Version, &d.CreatedAt, &d.UpdatedAt)
+		err = tx.QueryRowContext(ctx, `INSERT INTO decks(id,user_id,name,champion_id,ruleset_version,active,locked_until,system_provided)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING version,created_at,updated_at`, d.ID, d.UserID,
+			d.Name, d.ChampionID, d.RulesetVersion, d.Active, d.LockedUntil, d.SystemProvided).
+			Scan(&d.Version, &d.CreatedAt, &d.UpdatedAt)
 	} else {
 		err = tx.QueryRowContext(ctx, `UPDATE decks SET name=$1,champion_id=$2,ruleset_version=$3,
-			version=version+1,updated_at=now() WHERE id=$4 AND user_id=$5 AND version=$6
+			active=$4,locked_until=$5,system_provided=$6,version=version+1,updated_at=now()
+			WHERE id=$7 AND user_id=$8 AND version=$9
+			  AND (system_provided OR locked_until IS NULL OR locked_until<=now()
+			       OR NOT EXISTS (SELECT 1 FROM rulesets r WHERE r.version=decks.ruleset_version AND r.mode='confront'))
 			RETURNING version,created_at,updated_at`, d.Name, d.ChampionID, d.RulesetVersion,
-			d.ID, d.UserID, *expected).Scan(&d.Version, &d.CreatedAt, &d.UpdatedAt)
+			d.Active, d.LockedUntil, d.SystemProvided, d.ID, d.UserID, *expected).
+			Scan(&d.Version, &d.CreatedAt, &d.UpdatedAt)
 		if errors.Is(err, sql.ErrNoRows) {
 			return d, false, domain.ErrConflict
 		}
@@ -708,6 +849,12 @@ func mapError(err error) error {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case "23505":
+			switch pgErr.ConstraintName {
+			case "users_email_key":
+				return fmt.Errorf("%w: e-mail já está em uso", domain.ErrConflict)
+			case "player_profiles_username_ci_unique":
+				return fmt.Errorf("%w: nome de usuário já está em uso", domain.ErrConflict)
+			}
 			return fmt.Errorf("%w: %s", domain.ErrConflict, pgErr.ConstraintName)
 		case "23503", "23514", "22P02":
 			return fmt.Errorf("%w: %s", domain.ErrConflict, strings.TrimSpace(pgErr.Message))

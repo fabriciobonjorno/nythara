@@ -176,7 +176,7 @@
     "cost": 1,
     "eclipse_shift": -1,
     "sigil": "Sol",
-    "rules_text": "Cause 2 de dano. Se o Eclipse estiver em -1 ou menor, cause +1.",
+    "rules_text": "Cause 2 de dano. Se o Eclipse estiver em -2 ou menor, cause +1.",
     "flavor": "A manhã também sabe ferir.",
     "design_role": "pressão",
     "set": 1
@@ -190,7 +190,7 @@
     "cost": 2,
     "eclipse_shift": -1,
     "sigil": "Sol",
-    "rules_text": "Previna 4 de dano de um único Assalto.",
+    "rules_text": "Previna 3 de dano de um único Assalto.",
     "flavor": "A luz não precisa vencer; basta permanecer.",
     "design_role": "defesa",
     "set": 1
@@ -274,7 +274,7 @@
     "cost": 3,
     "eclipse_shift": -1,
     "sigil": "Sol",
-    "rules_text": "Cause 4 de dano. Ignora 2 pontos de Ward.",
+    "rules_text": "Cause 3 de dano. Ignora 1 ponto de Ward.",
     "flavor": "Feita para atravessar aquilo que jurou ser intocável.",
     "design_role": "anti-ward",
     "set": 1
@@ -302,7 +302,7 @@
     "cost": 4,
     "eclipse_shift": -1,
     "sigil": "Sol",
-    "rules_text": "Previna 6 de dano de um Assalto. Depois, o oponente compra 1 carta.",
+    "rules_text": "Previna 5 de dano de um Assalto. Depois, o oponente compra 1 carta.",
     "flavor": "Toda proteção cobra algo de alguém.",
     "design_role": "hard defense",
     "set": 1
@@ -316,7 +316,7 @@
     "cost": 4,
     "eclipse_shift": -1,
     "sigil": "Coroa",
-    "rules_text": "Mova o Eclipse 2 passos para a Aurora. Remova Sangramento e uma Maldição de você.",
+    "rules_text": "Mova o Eclipse 1 passo para a Aurora. Remova Sangramento e uma Maldição de você.",
     "flavor": "O dia não pede licença.",
     "design_role": "reset",
     "set": 1
@@ -344,7 +344,7 @@
     "cost": 1,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Cause 2. Se o último Sigilo desta rodada foi Sol ou Presa, cause +1.",
+    "rules_text": "Cause 3. Se o último Sigilo desta rodada foi Sol ou Presa, cause +2.",
     "flavor": "Toda certeza possui um ângulo morto.",
     "design_role": "combo",
     "set": 1
@@ -372,7 +372,7 @@
     "cost": 1,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Previna 2. Se prevenir todo o dano, gere um Sigilo Espelho adicional para Ressonância.",
+    "rules_text": "Previna 4. Se prevenir todo o dano, gere um Sigilo Espelho adicional para Ressonância.",
     "flavor": "Refletir não é copiar. É escolher o que devolver.",
     "design_role": "combo defense",
     "set": 1
@@ -428,7 +428,7 @@
     "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Cause 3. Se você tiver 3 Sigilos diferentes na Ressonância, cause 5 em vez disso.",
+    "rules_text": "Cause 4. Se você tiver 3 Sigilos diferentes na Ressonância, cause 7 em vez disso.",
     "flavor": "O padrão só existe até alguém entender onde quebrá-lo.",
     "design_role": "payoff",
     "set": 1
@@ -456,7 +456,7 @@
     "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Previna 3 e ganhe Véu até o fim da rodada.",
+    "rules_text": "Previna 4 e ganhe Véu até o fim da próxima rodada.",
     "flavor": "Quando o mundo não encontra você, ele erra sozinho.",
     "design_role": "proteção",
     "set": 1
@@ -610,7 +610,7 @@
     "cost": 4,
     "eclipse_shift": 1,
     "sigil": "Garra",
-    "rules_text": "Cause 1 três vezes. Cada instância é resolvida separadamente contra Ward.",
+    "rules_text": "Cause 2 três vezes. Cada instância é resolvida separadamente contra Ward.",
     "flavor": "O alvo ouve três passos. O quarto já é tarde.",
     "design_role": "multi-hit",
     "set": 1
@@ -694,7 +694,7 @@
     "cost": 1,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Cause 2. Se uma carta sua foi exilada nesta rodada, cause +1.",
+    "rules_text": "Cause 2. Se uma carta sua foi exilada nesta rodada, cause +2.",
     "flavor": "O fogo levou o metal. Sobrou a intenção.",
     "design_role": "pressure",
     "set": 1
@@ -736,7 +736,7 @@
     "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Aplique Maldição: no fim da próxima rodada do alvo, ele sofre 2 se tiver 5+ cartas na mão.",
+    "rules_text": "Aplique Maldição: no fim da próxima rodada do alvo, ele sofre 3 se tiver 5+ cartas na mão.",
     "flavor": "Pensar demais também intoxica.",
     "design_role": "curse",
     "set": 1
@@ -764,7 +764,7 @@
     "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Exile uma carta do seu descarte: cause 4. Se era um Rito, desloque o Eclipse 1 na direção que escolher.",
+    "rules_text": "Exile uma carta do seu descarte: cause 5. Se era um Rito, desloque o Eclipse 1 na direção que escolher.",
     "flavor": "A fórmula é simples. O laboratório, descartável.",
     "design_role": "flexible damage",
     "set": 1
@@ -803,10 +803,10 @@
     "faction": "Sínodo Cinéreo",
     "type": "Relíquia",
     "rarity": "Épica",
-    "cost": 4,
+    "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Uma vez por rodada, exile 2 cartas do seu descarte: ganhe 2 Essências temporárias.",
+    "rules_text": "Uma vez por rodada, exile 1 carta do seu descarte: ganhe 2 Essências temporárias.",
     "flavor": "O fogo morreu. A máquina não percebeu.",
     "design_role": "resource engine",
     "set": 1
@@ -817,7 +817,7 @@
     "faction": "Sínodo Cinéreo",
     "type": "Rito",
     "rarity": "Épica",
-    "cost": 4,
+    "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Cinza",
     "rules_text": "Recupere 2 cartas diferentes do descarte; descarte 1 carta para cada carta recuperada.",
@@ -831,10 +831,10 @@
     "faction": "Sínodo Cinéreo",
     "type": "Rito",
     "rarity": "Lendária",
-    "cost": 4,
+    "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Exile seu descarte. Para cada 4 cartas exiladas, escolha um: cause 2, cure 2 ou compre 1 (máx. 3 escolhas). Limite 1 por deck.",
+    "rules_text": "Exile seu descarte. Para cada 3 cartas exiladas, escolha um: cause 2, cure 2 ou compre 1 (máx. 3 escolhas). Limite 1 por deck.",
     "flavor": "No fim, toda ciência é uma escolha sobre o que sacrificar.",
     "design_role": "finisher",
     "set": 1
@@ -1380,7 +1380,7 @@
     "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Previna 2. Se você tiver menos cartas na mão que o oponente, compre 1.",
+    "rules_text": "Previna 3. Se você tiver menos cartas na mão que o oponente, compre 1.",
     "flavor": "O vidro espera. É o rosto que envelhece.",
     "design_role": "defesa com paridade",
     "set": 2

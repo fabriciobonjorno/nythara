@@ -71,6 +71,7 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 	mux.Handle("POST /v1/decks/import", api.auth(http.HandlerFunc(api.importDeck)))
 	mux.Handle("GET /v1/matches", api.auth(http.HandlerFunc(api.matchHistory)))
 	mux.Handle("GET /v1/matches/{id}/replay", api.auth(http.HandlerFunc(api.matchReplay)))
+	mux.Handle("POST /v1/feedback", api.auth(http.HandlerFunc(api.submitFeedback)))
 	mux.Handle("POST /v1/admin/rewards/grant", api.auth(api.requireRole(domain.RoleAdmin,
 		http.HandlerFunc(api.grantReward))))
 	api.adminRoutes(mux)
@@ -196,6 +197,23 @@ func (a *API) matchReplay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, replay)
+}
+
+// O recado do Alpha é opcional: a resposta é um 204 silencioso, sem prêmio,
+// sem contador e sem nada que transforme ajuda voluntária em obrigação.
+func (a *API) submitFeedback(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		MatchID string `json:"match_id,omitempty"`
+		Message string `json:"message"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	if err := a.service.SubmitFeedback(r.Context(), principal(r), input.MatchID, input.Message); err != nil {
+		a.respondError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) leaderboard(w http.ResponseWriter, r *http.Request) {
@@ -435,8 +453,9 @@ func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) version(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ruleset": engine.RulesetVersion,
-		"cards": len(engine.CardList), "champions": len(engine.Champions)})
+	rs := engine.CompetitiveRuleset()
+	writeJSON(w, http.StatusOK, map[string]any{"ruleset": engine.CompetitiveRulesetVersion,
+		"cards": len(rs.CardList), "champions": len(rs.Champions)})
 }
 
 func (a *API) implementationReport(w http.ResponseWriter, _ *http.Request) {
@@ -502,15 +521,20 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) cards(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.RulesetVersion, "cards": engine.CardList})
+	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.CompetitiveRulesetVersion, "cards": engine.CompetitiveRuleset().CardList})
 }
 
 func (a *API) champions(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.RulesetVersion, "champions": app.ChampionsSorted()})
+	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.CompetitiveRulesetVersion, "champions": app.ChampionsSorted()})
 }
 
 func (a *API) ruleset(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"version": engine.RulesetVersion, "active": true})
+	// A Vitalidade inicial viaja com o ruleset: o cliente não deve repetir o
+	// número em texto fixo, sob pena de prometer uma regra que mudou.
+	rules := engine.CompetitiveRuleset().ConfrontRules
+	writeJSON(w, http.StatusOK, map[string]any{"version": engine.CompetitiveRulesetVersion, "active": true,
+		"starting_vitality": rules.StartingVitality, "guard_leak_cap": rules.GuardLeakCap,
+		"pressure_start_turn": rules.PressureStartTurn, "pressure_base_loss": rules.PressureBaseLoss})
 }
 
 func (a *API) season(w http.ResponseWriter, r *http.Request) {

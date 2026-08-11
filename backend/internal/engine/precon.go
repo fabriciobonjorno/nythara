@@ -14,6 +14,9 @@ func (rs *Ruleset) PreconstructedDeck(championID string) ([]string, error) {
 	if champion == nil {
 		return nil, fmt.Errorf("campeão desconhecido: %s", championID)
 	}
+	if rs.IsConfront() {
+		return rs.confrontPreconstructedDeck(championID)
+	}
 	cards := append([]*CardDef{}, rs.CardList...)
 	sort.Slice(cards, func(i, j int) bool {
 		leftCore := cards[i].Faction == champion.Faction
@@ -60,6 +63,38 @@ func (rs *Ruleset) PreconstructedDeck(championID string) ([]string, error) {
 	}
 	if err := rs.ValidateDeck(championID, deck); err != nil {
 		return nil, fmt.Errorf("precon %s: %w", championID, err)
+	}
+	return deck, nil
+}
+
+func (rs *Ruleset) confrontPreconstructedDeck(avatarID string) ([]string, error) {
+	byType := map[CardType][]*CardDef{}
+	for _, card := range rs.CardList {
+		if card.Confront == nil || !card.Confront.Legal || card.Rarity == RarityLendaria {
+			continue
+		}
+		if card.Type == TypeAssalto || card.Type == TypeGuarda || card.Type == TypeRito {
+			byType[card.Type] = append(byType[card.Type], card)
+		}
+	}
+	deck := make([]string, 0, ConfrontDeckSize)
+	for _, cardType := range []CardType{TypeAssalto, TypeGuarda, TypeRito} {
+		cards := byType[cardType]
+		sort.Slice(cards, func(i, j int) bool {
+			if cards[i].Cost != cards[j].Cost {
+				return cards[i].Cost < cards[j].Cost
+			}
+			return cards[i].ID < cards[j].ID
+		})
+		for _, card := range cards {
+			deck = append(deck, card.ID, card.ID)
+			if len(deck)%10 == 0 {
+				break
+			}
+		}
+	}
+	if err := rs.ValidateDeck(avatarID, deck); err != nil {
+		return nil, fmt.Errorf("baralho inicial Confronto: %w", err)
 	}
 	return deck, nil
 }

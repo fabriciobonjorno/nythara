@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -16,8 +18,9 @@ import (
 )
 
 const (
-	AccessTTL  = 15 * time.Minute
-	RefreshTTL = 30 * 24 * time.Hour
+	AccessTTL       = 15 * time.Minute
+	RefreshTTL      = 30 * 24 * time.Hour
+	DefaultDeckLock = 24 * time.Hour
 )
 
 type Clock func() time.Time
@@ -40,17 +43,25 @@ func NewWithClock(store domain.Store, now Clock) *Service {
 type RegisterInput struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
-	DisplayName string `json:"display_name"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name,omitempty"`
 }
+
+var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 func (s *Service) Register(ctx context.Context, input RegisterInput) (domain.User, domain.SessionTokens, error) {
 	email, err := normalizeEmail(input.Email)
 	if err != nil {
 		return domain.User{}, domain.SessionTokens{}, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
 	}
-	displayName := strings.TrimSpace(input.DisplayName)
-	if n := len([]rune(displayName)); n < 2 || n > 32 {
-		return domain.User{}, domain.SessionTokens{}, fmt.Errorf("%w: nome de exibição deve ter entre 2 e 32 caracteres", domain.ErrInvalid)
+	username := input.Username
+	if username == "" {
+		username = input.DisplayName
+	} else if input.DisplayName != "" && input.DisplayName != username {
+		return domain.User{}, domain.SessionTokens{}, fmt.Errorf("%w: username e display_name não podem divergir", domain.ErrInvalid)
+	}
+	if err := validateUsername(username); err != nil {
+		return domain.User{}, domain.SessionTokens{}, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
 	}
 	passwordHash, err := security.HashPassword(input.Password)
 	if err != nil {
@@ -60,13 +71,23 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (domain.Use
 	if err != nil {
 		return domain.User{}, domain.SessionTokens{}, err
 	}
-	user, err := s.store.CreateUser(ctx, domain.User{ID: id, Email: email, DisplayName: displayName,
-		Role: domain.RolePlayer, PasswordHash: passwordHash}, engine.RulesetVersion)
+	user, err := s.store.CreateUser(ctx, domain.User{ID: id, Email: email, DisplayName: username,
+		Role: domain.RolePlayer, PasswordHash: passwordHash}, engine.CompetitiveRulesetVersion)
 	if err != nil {
 		return domain.User{}, domain.SessionTokens{}, err
 	}
 	tokens, err := s.newSession(ctx, user.ID)
 	return user, tokens, err
+}
+
+func validateUsername(username string) error {
+	if n := len(username); n < 2 || n > 32 {
+		return errors.New("nome de usuário deve ter entre 2 e 32 caracteres")
+	}
+	if !usernamePattern.MatchString(username) {
+		return errors.New("nome de usuário aceita apenas letras, números, hífen (-) e sublinhado (_), sem espaços")
+	}
+	return nil
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (domain.User, domain.SessionTokens, error) {
@@ -143,7 +164,7 @@ func (s *Service) Logout(ctx context.Context, refresh string) error {
 }
 
 func (s *Service) Collection(ctx context.Context, principal domain.Principal) (domain.Collection, error) {
-	return s.store.Collection(ctx, principal.UserID, engine.RulesetVersion)
+	return s.store.Collection(ctx, principal.UserID, engine.CompetitiveRulesetVersion)
 }
 
 func (s *Service) ListDecks(ctx context.Context, principal domain.Principal) ([]domain.Deck, error) {
@@ -160,7 +181,11 @@ func (s *Service) SaveDeck(ctx context.Context, principal domain.Principal, deck
 		return domain.Deck{}, false, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
 	}
 	deck.UserID = principal.UserID
-	deck.RulesetVersion = engine.RulesetVersion
+	deck.RulesetVersion = engine.CompetitiveRulesetVersion
+	deck.Active = true
+	deck.SystemProvided = false
+	lockUntil := s.now().UTC().Add(deckLockDuration())
+	deck.LockedUntil = &lockUntil
 	deck.Name = strings.TrimSpace(deck.Name)
 	if len([]rune(deck.Name)) < 1 || len([]rune(deck.Name)) > 64 {
 		return domain.Deck{}, false, fmt.Errorf("%w: nome do deck deve ter entre 1 e 64 caracteres", domain.ErrInvalid)
@@ -175,7 +200,7 @@ func (s *Service) SaveDeck(ctx context.Context, principal domain.Principal, deck
 	if err := ValidateDeck(deck); err != nil {
 		return domain.Deck{}, false, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
 	}
-	collection, err := s.store.Collection(ctx, principal.UserID, engine.RulesetVersion)
+	collection, err := s.store.Collection(ctx, principal.UserID, engine.CompetitiveRulesetVersion)
 	if err != nil {
 		return domain.Deck{}, false, err
 	}
@@ -204,7 +229,7 @@ func (s *Service) SaveDeck(ctx context.Context, principal domain.Principal, deck
 }
 
 func ValidateDeck(deck domain.Deck) error {
-	flat := make([]string, 0, engine.DeckSize)
+	flat := make([]string, 0, engine.DeckSizeForVersion(deck.RulesetVersion))
 	seen := make(map[string]bool, len(deck.Cards))
 	for _, card := range deck.Cards {
 		if seen[card.CardID] {
@@ -218,13 +243,16 @@ func ValidateDeck(deck domain.Deck) error {
 			flat = append(flat, card.CardID)
 		}
 	}
-	return engine.ValidateDeck(deck.ChampionID, flat)
+	return engine.ValidateDeckForVersion(deck.RulesetVersion, deck.ChampionID, flat)
 }
 
 func (s *Service) DeleteDeck(ctx context.Context, principal domain.Principal, deckID string,
 	version int64, key string) (bool, error) {
 	if err := validateIdempotencyKey(key); err != nil {
 		return false, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	if deck, err := s.store.Deck(ctx, principal.UserID, deckID); err == nil && engine.IsConfrontVersion(deck.RulesetVersion) {
+		return false, fmt.Errorf("%w: o baralho ativo do Confronto não pode ser excluído; edite-o quando a trava terminar", domain.ErrInvalid)
 	}
 	hash := sha256.Sum256([]byte(fmt.Sprintf("%s:%d", deckID, version)))
 	return s.store.DeleteDeck(ctx, principal.UserID, deckID, version,
@@ -267,23 +295,33 @@ func (s *Service) GrantReward(ctx context.Context, principal domain.Principal, r
 		return reward, false, err
 	}
 	reward.ID = id
-	reward.RulesetVersion = engine.RulesetVersion
+	reward.RulesetVersion = engine.CompetitiveRulesetVersion
 	hash := sha256.Sum256(rawBody)
 	return s.store.GrantReward(ctx, reward, domain.Mutation{Key: key,
 		Operation: "reward:grant", RequestHash: hash[:], ScopeUserID: principal.UserID})
 }
 
 func ChampionsSorted() []*engine.ChampionDef {
-	ids := make([]string, 0, len(engine.Champions))
-	for id := range engine.Champions {
+	rs := engine.CompetitiveRuleset()
+	ids := make([]string, 0, len(rs.Champions))
+	for id := range rs.Champions {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
 	result := make([]*engine.ChampionDef, 0, len(ids))
 	for _, id := range ids {
-		result = append(result, engine.Champions[id])
+		result = append(result, rs.Champions[id])
 	}
 	return result
+}
+
+func deckLockDuration() time.Duration {
+	if raw := strings.TrimSpace(os.Getenv("NYTHARA_DECK_LOCK_DURATION")); raw != "" {
+		if duration, err := time.ParseDuration(raw); err == nil && duration >= 0 {
+			return duration
+		}
+	}
+	return DefaultDeckLock
 }
 
 func normalizeEmail(value string) (string, error) {

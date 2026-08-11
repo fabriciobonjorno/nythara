@@ -90,7 +90,7 @@ func (g *Game) runOp(op *Op, ctx *opCtx) {
 		}
 	case "remove_veil_expose":
 		opp := s.Players[1-ctx.player]
-		if opp.VeilRound == s.Round {
+		if veilActive(opp, s.Round) {
 			opp.VeilRound = 0
 			g.emit(Event{Kind: EvStatusExpired, P: 1 - ctx.player, S: "Véu", Def: ctx.source})
 			opp.Exposto = true
@@ -166,7 +166,7 @@ func (g *Game) runOp(op *Op, ctx *opCtx) {
 // targets_opponent e já são rejeitadas ao jogar.
 func (g *Game) applyStatusOp(op *Op, tgt int, ctx *opCtx) {
 	s := g.s
-	if tgt != ctx.player && s.Players[tgt].VeilRound == s.Round &&
+	if tgt != ctx.player && veilActive(s.Players[tgt], s.Round) &&
 		g.rs.Cards[ctx.source] != nil && g.rs.Cards[ctx.source].Type == TypeRito {
 		g.emit(Event{Kind: EvStatusFizzled, P: tgt, S: op.Status, Def: ctx.source})
 		return
@@ -177,7 +177,7 @@ func (g *Game) applyStatusOp(op *Op, tgt int, ctx *opCtx) {
 		p.Exposto = true
 		g.emit(Event{Kind: EvStatusApplied, P: tgt, S: "Exposto", Def: ctx.source})
 	case "veu":
-		p.VeilRound = s.Round
+		p.VeilRound = s.Round + 1
 		g.emit(Event{Kind: EvStatusApplied, P: tgt, S: "Véu", Def: ctx.source})
 	case "sangramento":
 		p.Bleeds = append(p.Bleeds, TimedN{N: op.N, Round: s.Round + 1})
@@ -287,7 +287,7 @@ func (g *Game) evalCond(c Cond, ctx *opCtx) bool {
 	case "relic_destroyed_round":
 		return p.RelicDestroyedRound
 	case "opp_veiled":
-		return opp.VeilRound == s.Round
+		return veilActive(opp, s.Round)
 	case "discard_has":
 		for _, id := range p.Discard {
 			def := g.rs.Cards[s.Cards[id].Def]
@@ -546,12 +546,16 @@ func (g *Game) runDecisionOp(op *Op, ctx *opCtx) {
 		d.Options = []string{"noite", "aurora"}
 		d.N = 1
 	case "exile_all_choices":
-		// VR-060: exila o descarte inteiro; 1 escolha por 4 exiladas (máx. 3).
+		// VR-060: exila o descarte inteiro; 1 escolha por lote (máx. 3).
 		count := len(p.Discard)
+		batch := op.N
+		if batch <= 0 {
+			batch = 4
+		}
 		for len(p.Discard) > 0 {
 			g.exileFromDiscard(ctx.player, p.Discard[0])
 		}
-		for i := 0; i < min(count/4, 3); i++ {
+		for i := 0; i < min(count/batch, 3); i++ {
 			g.requestDecision(&Decision{
 				Player: ctx.player, Kind: DecFormulaChoice,
 				Options: []string{"dano_2", "cura_2", "compra_1"}, N: 1, Source: ctx.source,

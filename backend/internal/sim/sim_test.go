@@ -61,6 +61,16 @@ func TestRandomVersusHeuristicHealthAndReports(t *testing.T) {
 	if report.Health.Completed != cfg.Games || len(report.Champions) != len(engine.Champions) {
 		t.Fatalf("cobertura incompleta: health=%+v champions=%d", report.Health, len(report.Champions))
 	}
+	ended := 0
+	for _, reason := range report.EndReasons {
+		if reason.Reason == "" || reason.Games == 0 {
+			t.Fatalf("causa de término inválida: %+v", reason)
+		}
+		ended += reason.Games
+	}
+	if ended != cfg.Games {
+		t.Fatalf("causas de término cobrem %d/%d partidas", ended, cfg.Games)
+	}
 	dir := t.TempDir()
 	jsonPath := filepath.Join(dir, "balance.json")
 	markdownPath := filepath.Join(dir, "balance.md")
@@ -74,7 +84,30 @@ func TestRandomVersusHeuristicHealthAndReports(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), engine.RulesetVersion) || !strings.Contains(string(raw), "Win rate por Campeão") {
+	if !strings.Contains(string(raw), engine.CompetitiveRulesetVersion) || !strings.Contains(string(raw), "Win rate por Campeão") {
 		t.Fatalf("relatório Markdown incompleto: %s", raw)
+	}
+}
+
+func TestVariedGateExercisesEveryCard(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Games = 5000
+	cfg.DeckMode = DeckVaried
+	report, err := Run(cfg)
+	if err != nil {
+		t.Fatalf("gate variado: %v (falhas: %+v)", err, report.Failures)
+	}
+	if len(report.Cards) != len(engine.CardList) {
+		t.Fatalf("relatório cobriu %d/%d cartas", len(report.Cards), len(engine.CardList))
+	}
+	for _, card := range report.Cards {
+		definition := engine.CompetitiveRuleset().Cards[card.ID]
+		if definition.Confront == nil || !definition.Confront.Legal {
+			continue
+		}
+		if card.InclusionGames == 0 || card.DrawnGames == 0 || card.PlayedGames == 0 {
+			t.Errorf("%s não foi exercitada ponta a ponta: inclusão=%d compra=%d uso=%d", card.ID,
+				card.InclusionGames, card.DrawnGames, card.PlayedGames)
+		}
 	}
 }

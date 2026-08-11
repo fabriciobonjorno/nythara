@@ -8,7 +8,8 @@ const (
 	ZoneHand    Zone = "hand"
 	ZoneDiscard Zone = "discard"
 	ZoneExile   Zone = "exile"
-	ZonePlay    Zone = "play" // Relíquias e Manifestações ativas
+	ZonePlay    Zone = "play"  // Relíquias e Manifestações ativas
+	ZoneClash   Zone = "clash" // cartas expostas no centro do Modo Confronto
 )
 
 // Fases visíveis da rodada. Preparação, Compra e a resolução automática do
@@ -22,6 +23,8 @@ const (
 	PhaseRite     Phase = "rito"
 	PhaseConfront Phase = "confronto"
 	PhaseTwilight Phase = "crepusculo"
+	PhaseAssault  Phase = "assalto"
+	PhaseGuard    Phase = "guarda"
 	PhaseOver     Phase = "fim"
 )
 
@@ -44,16 +47,35 @@ const (
 )
 
 const (
-	DeckSize        = 36
-	OpeningHandSize = 5
-	HandLimit       = 7
-	EssenceStart    = 3
-	EssenceMax      = 10 // alpha-0.5.0: teto maior acelera o meio de jogo
-	EclipseMin      = -3
-	EclipseMax      = 3
-	ResonanceCap    = 5
-	maxChainDepth   = 16
+	DeckSize            = 36
+	ConfrontDeckSize    = 30
+	ConfrontMinAssaults = 8
+	ConfrontMinGuards   = 8
+	ConfrontMinRites    = 4
+	OpeningHandSize     = 5
+	HandLimit           = 7
+	EssenceStart        = 3
+	EssenceMax          = 10 // alpha-0.5.0: teto maior acelera o meio de jogo
+	EclipseMin          = -3
+	EclipseMax          = 3
+	ResonanceCap        = 5
+	maxChainDepth       = 16
 )
+
+// ConfrontCtx é o confronto visível do alpha-0.9.x. Ele contém somente dados
+// públicos: a mão continua oculta, mas as cartas colocadas no centro são
+// reveladas para ambos os lados e para espectadores.
+type ConfrontCtx struct {
+	Attacker    int    `json:"attacker"`
+	Defender    int    `json:"defender"`
+	AssaultInst string `json:"assault_inst"`
+	AssaultDef  string `json:"assault_def"`
+	Power       int    `json:"power"`
+	Defendable  bool   `json:"defendable"`
+	GuardInst   string `json:"guard_inst,omitempty"`
+	GuardDef    string `json:"guard_def,omitempty"`
+	Prevention  int    `json:"prevention,omitempty"`
+}
 
 // CardInstance é uma cópia física de uma carta dentro da partida.
 type CardInstance struct {
@@ -108,12 +130,16 @@ type PlayerState struct {
 
 	Fatigue int `json:"fatigue"`
 
-	Trail     []Sigil  `json:"trail"` // Trilha de Ressonância da rodada (própria)
-	Ward      int      `json:"ward"`
-	Exposto   bool     `json:"exposto"`
-	VeilRound int      `json:"veil_round,omitempty"` // Véu ativo enquanto == rodada atual
-	Bleeds    []TimedN `json:"bleeds,omitempty"`
-	Curses    []TimedN `json:"curses,omitempty"`
+	Trail     []Sigil `json:"trail"` // Trilha de Ressonância da rodada (própria)
+	Ward      int     `json:"ward"`
+	Exposto   bool    `json:"exposto"`
+	VeilRound int     `json:"veil_round,omitempty"` // última rodada (inclusive) em que o Véu está ativo
+	// Selos de Fase do alpha-0.10.x. O número é a última rodada global em
+	// que a janela deve ser pulada; zero significa que não há Selo ativo.
+	AssaultSealUntil int      `json:"assault_seal_until,omitempty"`
+	RiteSealUntil    int      `json:"rite_seal_until,omitempty"`
+	Bleeds           []TimedN `json:"bleeds,omitempty"`
+	Curses           []TimedN `json:"curses,omitempty"`
 
 	CostMods []CostMod `json:"cost_mods,omitempty"`
 
@@ -146,6 +172,10 @@ type PlayerState struct {
 	MirrorUsedRound  int      `json:"mirror_used_round,omitempty"`  // 1x/rodada da cópia espelhada
 	LastPlayed       string   `json:"last_played,omitempty"`        // última carta anunciada
 	PrevPlayed       string   `json:"prev_played,omitempty"`        // a anterior (VR-030)
+}
+
+func veilActive(p *PlayerState, round int) bool {
+	return p != nil && p.VeilRound >= round && p.VeilRound > 0
 }
 
 // DecisionKind enumera decisões pendentes tipadas (serializáveis, sem closures).
@@ -276,6 +306,7 @@ type GameState struct {
 	DecQueue     []*Decision    `json:"dec_queue,omitempty"`
 	NextDecID    int            `json:"next_dec_id"`
 	Guard        *GuardCtx      `json:"guard,omitempty"`
+	Confront     *ConfrontCtx   `json:"confront,omitempty"`
 	RiteReact    *RiteReact     `json:"rite_react,omitempty"`
 	PendingRites []RiteFinalize `json:"pending_rites,omitempty"`
 	Extra        *ExtraWindow   `json:"extra,omitempty"`

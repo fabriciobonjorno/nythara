@@ -175,6 +175,7 @@ type fakeStore struct {
 	grantCalls    int
 	liveops       *liveopsState
 	replay        *domain.MatchReplayData
+	feedback      []domain.Feedback
 }
 
 func (*fakeStore) CreateUser(context.Context, domain.User, string) (domain.User, error) {

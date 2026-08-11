@@ -57,6 +57,53 @@ func TestReorderDecisionSurvivesMidChainDraw(t *testing.T) {
 	assertNoZoneDuplicates(t, h.g.State())
 }
 
+// Regressão encontrada pelo gate variado de 100 mil (jogos 62749/97669):
+// Passo Calculado abre uma escolha de descarte, mas um gatilho posterior de
+// Matilha à Espreita derruba Kaedor a 0; Recusa da Morte esvazia a mão. A
+// escolha já apresentada precisa ser encerrada automaticamente, pois não há
+// mais carta legal para selecionar.
+func TestPresentedDecisionClosesWhenLaterTriggerRemovesAllOptions(t *testing.T) {
+	h := newHarness(t, "CH-VA-01", "CH-VH-02",
+		deckWith("VR-108", "VR-105"), deckWith("VR-062"), 0)
+	h.keepAll()
+	h.stances(engine.StanceVigilia, engine.StanceVigilia)
+
+	s := h.g.State()
+	s.Players[0].Essence = 6
+	guard := h.handInst(1, "VR-062")
+	// Deixa Kaedor apenas com a Guarda; ela compra uma carta e abre descarte.
+	for _, id := range append([]string{}, s.Players[1].Hand...) {
+		if id == guard {
+			continue
+		}
+		s.Cards[id].Zone = engine.ZoneDiscard
+		s.Players[1].Discard = append(s.Players[1].Discard, id)
+	}
+	s.Players[1].Hand = []string{guard}
+
+	// A Manifestação entra no Rito e dispara depois do Assalto de custo 2.
+	h.play(0, h.handInst(0, "VR-108"))
+	h.pass(0)
+	h.pass(1)
+	s.Players[1].Vitality = 1
+	h.play(0, h.handInst(0, "VR-105"))
+	h.play(1, guard)
+
+	if s.Over || s.Players[1].Vitality != 1 || !s.Players[1].UltimateUsed {
+		t.Fatalf("Recusa da Morte não resolveu como esperado: over=%v vit=%d ultimate=%v",
+			s.Over, s.Players[1].Vitality, s.Players[1].UltimateUsed)
+	}
+	if s.Pending != nil {
+		t.Fatalf("decisão impossível permaneceu aberta: %+v", s.Pending)
+	}
+	if len(s.Players[1].Hand) != 0 {
+		t.Fatalf("Recusa da Morte deveria esvaziar a mão: %v", s.Players[1].Hand)
+	}
+	if _, ok := engine.RequiredPlayer(h.g); !ok {
+		t.Fatal("partida ficou sem ator depois de encerrar a decisão inválida")
+	}
+}
+
 // assertNoZoneDuplicates confere que cada instância aparece em exatamente uma
 // zona (a mesma invariante do verificador do simulador).
 func assertNoZoneDuplicates(t *testing.T, s *engine.GameState) {

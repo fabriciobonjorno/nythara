@@ -26,7 +26,7 @@ type PreconDeck struct {
 
 // Precons lista os 10 decks oficiais do Alpha, ordenados por Campeão.
 func Precons() ([]PreconDeck, error) {
-	rs := engine.Builtin()
+	rs := engine.CompetitiveRuleset()
 	ids := make([]string, 0, len(rs.Champions))
 	for id := range rs.Champions {
 		ids = append(ids, id)
@@ -68,7 +68,7 @@ func collapseDeck(cards []string) []domain.DeckCard {
 // jogador, passando pela validação normal de SaveDeck.
 func (s *Service) CreatePreconDeck(ctx context.Context, principal domain.Principal,
 	championID, key string, rawBody []byte) (domain.Deck, bool, error) {
-	rs := engine.Builtin()
+	rs := engine.CompetitiveRuleset()
 	champion := rs.Champions[championID]
 	if champion == nil {
 		return domain.Deck{}, false, fmt.Errorf("%w: campeão desconhecido %q", domain.ErrInvalid, championID)
@@ -82,7 +82,20 @@ func (s *Service) CreatePreconDeck(ctx context.Context, principal domain.Princip
 		ChampionID: championID,
 		Cards:      collapseDeck(cards),
 	}
-	return s.SaveDeck(ctx, principal, deck, nil, key, rawBody)
+	var expected *int64
+	decks, err := s.store.ListDecks(ctx, principal.UserID)
+	if err != nil {
+		return domain.Deck{}, false, err
+	}
+	for _, existing := range decks {
+		if existing.RulesetVersion == engine.CompetitiveRulesetVersion {
+			deck.ID = existing.ID
+			version := existing.Version
+			expected = &version
+			break
+		}
+	}
+	return s.SaveDeck(ctx, principal, deck, expected, key, rawBody)
 }
 
 // BotDeck localiza o deck oficial do bot para o Campeão pedido (vazio =
@@ -97,7 +110,8 @@ func (s *Service) BotDeck(ctx context.Context, championID, rulesetVersion string
 		if deck.RulesetVersion != rulesetVersion {
 			continue
 		}
-		if championID != "" && deck.ChampionID != championID {
+		ruleset, _ := engine.RulesetByVersion(rulesetVersion)
+		if (ruleset == nil || !ruleset.IsConfront()) && championID != "" && deck.ChampionID != championID {
 			continue
 		}
 		candidates = append(candidates, deck)

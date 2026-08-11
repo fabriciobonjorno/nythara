@@ -1,81 +1,131 @@
-﻿id,name,faction,type,rarity,cost,eclipse_shift,sigil,rules_text,flavor,design_role
-VR-001,Corte Rubro,Casa Vhal,Assalto,Comum,1,1,Presa,"Cause 2 de dano. Se você sacrificou Vitalidade nesta rodada, cause +1.",A elegância termina onde a fome começa.,pressão
-VR-002,Dívida de Sangue,Casa Vhal,Rito,Comum,1,1,Coroa,"Sacrifique 2 de Vitalidade: compre 2 cartas, depois descarte 1.",Todo favor da Casa vence com juros.,seleção de mão
-VR-003,Manto Hemático,Casa Vhal,Guarda,Comum,1,1,Presa,"Previna 3 de dano. Se prevenir todo o dano, cure 1.",O sangue derramado também pode ser muralha.,defesa/dreno
-VR-004,Taça de Orivane,Casa Vhal,Relíquia,Rara,2,1,Coroa,"A primeira vez por rodada que você curar, desloque o Eclipse 1 passo para a Noite.",A taça nunca esvazia; apenas muda de dono.,motor
-VR-005,Fome Educada,Casa Vhal,Assalto,Comum,2,1,Presa,Cause 3 de dano. Ressonância Presa→Coroa: cure 2.,"Sorrisos polidos, intenções antigas.",combo
-VR-006,Convite Irrecusável,Casa Vhal,Rito,Incomum,2,1,Espelho,Olhe 2 cartas aleatórias da mão do oponente. Escolha uma: ela custa +1 até o fim da próxima rodada.,A porta estava aberta antes mesmo de você chegar.,disrupção
-VR-007,Servo de Veludo,Casa Vhal,Manifestação,Incomum,2,1,Coroa,"Enquanto ativo, a primeira carta que exigir sacrifício de Vitalidade a cada rodada sacrifica 1 a menos.","Ele serve vinho, silêncio e álibis.",suporte
-VR-008,Juramento da Cripta,Casa Vhal,Rito,Rara,3,1,Cinza,Recupere um Assalto do descarte. Perca Vitalidade igual ao custo dele.,Algumas promessas sobrevivem aos prometidos.,recursão
-VR-009,Veia Aberta,Casa Vhal,Assalto,Incomum,2,1,Presa,Cause 2 de dano e aplique Sangramento 2.,"O golpe é curto; a consequência, paciente.",dano contínuo
-VR-010,Salão sem Espelhos,Casa Vhal,Relíquia,Épica,3,1,Espelho,"Ritos adversários que olhariam ou revelariam sua mão falham. Uma vez por rodada, quando isso ocorrer, desloque 1 para Noite.","Na Casa Vhal, reflexos são considerados testemunhas.",anti-controle
-VR-011,Noite de Herança,Casa Vhal,Rito,Épica,4,2,Coroa,"Só pode ser jogada com Eclipse em +2 ou mais. Compre 3; até o fim da rodada, seus Assaltos custam 1 a menos.",Os antigos não deixam bens. Deixam apetites.,explosão
-VR-012,Soberania Carmesim,Casa Vhal,Assalto,Lendária,5,2,Presa,"Cause 5 de dano. Eclipse Noturno: em vez disso, cause 7 e cure 3. Limite de 1 por deck.",O trono reconhece apenas quem sobrevive ao banquete.,finalizador
-VR-013,Golpe da Alvorada,Ordem Solara,Assalto,Comum,1,-1,Sol,"Cause 2 de dano. Se o Eclipse estiver em 0 ou menor, cause +1.",A manhã também sabe ferir.,pressão
-VR-014,Égide de Lumen,Ordem Solara,Guarda,Comum,1,-1,Sol,Previna 4 de dano de um único Assalto.,A luz não precisa vencer; basta permanecer.,defesa
-VR-015,Marca do Caçador,Ordem Solara,Rito,Comum,1,-1,Coroa,"Aplique Exposto. O próximo dano que o alvo sofrer recebe +2, então remova Exposto.",Ninguém foge duas vezes do mesmo olhar.,setup
-VR-016,Rosário de Ferro Branco,Ordem Solara,Relíquia,Incomum,2,-1,Sol,A primeira Maldição que receber em cada rodada dura 1 rodada a menos.,"Fé, aqui, é engenharia.",anti-maldição
-VR-017,Passo entre Sombras,Ordem Solara,Guarda,Incomum,1,-1,Espelho,"Previna 2. Se o Assalto tinha bônus de Ressonância, previna +2.",Conhecer o truque é metade da defesa.,anti-combo
-VR-018,Interrogatório ao Amanhecer,Ordem Solara,Rito,Incomum,2,-1,Espelho,Revele a mão do oponente. Escolha um Assalto; ele não pode ser jogado nesta rodada.,A verdade fica menos convincente sob a primeira luz.,controle
-VR-019,Sentinela de Solenne,Ordem Solara,Manifestação,Rara,3,-1,Sol,"Enquanto ativa, a primeira vez por rodada que você usar Guarda, ganhe Ward 1.",Ela nunca dorme antes do sino.,suporte
-VR-020,Flecha de Vidro Solar,Ordem Solara,Assalto,Rara,3,-1,Sol,Cause 4 de dano. Ignora 2 pontos de Ward.,Feita para atravessar aquilo que jurou ser intocável.,anti-ward
-VR-021,Círculo de Sal Dourado,Ordem Solara,Rito,Rara,2,-1,Coroa,"Até sua próxima rodada, Manifestações adversárias perdem seus textos passivos.",Há monstros que respeitam fronteiras.,silêncio
-VR-022,Segundo Horizonte,Ordem Solara,Guarda,Épica,3,-2,Sol,"Previna todo o dano de um Assalto. Depois, o oponente compra 1 carta.",Toda proteção cobra algo de alguém.,hard defense
-VR-023,Mandato da Aurora,Ordem Solara,Rito,Épica,4,-2,Coroa,Mova o Eclipse diretamente para -2. Remova Sangramento e uma Maldição de você.,O dia não pede licença.,reset
-VR-024,Sentença do Meio-Dia,Ordem Solara,Assalto,Lendária,5,-2,Sol,Cause 5. Aurora Total: cause 7 e o oponente não pode usar Guarda contra este Assalto. Limite 1 por deck.,"Ao meio-dia, não há sombra onde esconder um juramento.",finalizador
-VR-025,Refração Dolorosa,Conclave Mirr,Assalto,Comum,1,0,Espelho,"Cause 2. Se o último Sigilo desta rodada foi Sol ou Presa, cause +1.",Toda certeza possui um ângulo morto.,combo
-VR-026,Carta que Não Existia,Conclave Mirr,Rito,Comum,1,0,Espelho,Olhe as 2 do topo; coloque uma na mão e outra no fundo.,O papel lembra futuros que ninguém escreveu.,consistência
-VR-027,Vidro de Retorno,Conclave Mirr,Guarda,Comum,1,0,Espelho,"Previna 2. Se prevenir todo o dano, gere um Sigilo Espelho adicional para Ressonância.",Refletir não é copiar. É escolher o que devolver.,combo defense
-VR-028,Sala dos Ângulos Falsos,Conclave Mirr,Relíquia,Incomum,2,0,Espelho,"Uma vez por rodada, ao jogar seu terceiro Sigilo diferente, compre 1 e descarte 1.",Nenhuma porta leva ao mesmo corredor duas vezes.,engine
-VR-029,Hipótese Cruel,Conclave Mirr,Rito,Incomum,2,0,Coroa,"Declare Assalto, Guarda ou Rito. Revele o topo do deck rival; se acertar, compre 1 e ela custa +1 ao rival neste ciclo.",A previsão é só memória olhando para frente.,informação
-VR-030,Duplo de Mercúrio,Conclave Mirr,Manifestação,Rara,3,0,Espelho,"Ao entrar, copie o Sigilo da última carta que você jogou. Enquanto ativo, conta como ambos para Ressonância.",Ele não imita seu rosto. Imita sua intenção.,combo engine
-VR-031,Quebra de Simetria,Conclave Mirr,Assalto,Rara,3,0,Espelho,"Cause 3. Se você tiver 3 Sigilos diferentes na Ressonância, cause 5 em vez disso.",O padrão só existe até alguém entender onde quebrá-lo.,payoff
-VR-032,Roubo de Reflexo,Conclave Mirr,Rito,Rara,3,0,Espelho,Copie o texto base de uma Relíquia adversária até o início da sua próxima rodada; não copia nomes nem raridade.,Possuir é apenas uma forma lenta de copiar.,cópia
-VR-033,Véu de Prata,Conclave Mirr,Guarda,Incomum,2,0,Espelho,Previna 3 e ganhe Véu até o fim da rodada.,"Quando o mundo não encontra você, ele erra sozinho.",proteção
-VR-034,Espelho Partido em Sete,Conclave Mirr,Rito,Épica,4,0,Espelho,Escolha até 3 Sigilos diferentes já jogados nesta rodada; gere-os novamente para fins de Ressonância. Não dispara o mesmo combo duas vezes.,Sete fragmentos; nenhuma versão inocente.,combo extender
-VR-035,Paradoxo de Mirr,Conclave Mirr,Guarda,Épica,3,0,Coroa,"Anule um Rito que teria você como alvo. O oponente recupera metade do custo, arredondado para baixo.","Se aconteceu, não era esta realidade.",counter
-VR-036,Oitavo Reflexo,Conclave Mirr,Rito,Lendária,5,0,Espelho,Copie qualquer carta não-Lendária jogada nesta rodada e resolva a cópia. Limite 1 por deck.,Os sete espelhos mostram você. O oitavo mostra o que você poderia ter feito.,swing
-VR-037,Rasgo de Presa,Matilha Varka,Assalto,Comum,1,1,Garra,"Cause 2. Se este for seu segundo Assalto na rodada, cause +2.",A primeira ferida mede distância. A segunda encerra a discussão.,aggro
-VR-038,Instinto de Recuo,Matilha Varka,Guarda,Comum,1,0,Garra,Previna 2. Seu próximo Assalto nesta rodada custa 1 a menos.,Sobreviver é preparar o próximo salto.,tempo
-VR-039,Cheiro de Medo,Matilha Varka,Rito,Comum,1,1,Garra,"Se o oponente tiver 15 ou menos de Vitalidade, compre 1. Caso contrário, aplique Exposto.",A floresta sente antes de você admitir.,setup
-VR-040,Totem de Osso Lunar,Matilha Varka,Relíquia,Incomum,2,1,Coroa,Seu segundo Sigilo Garra por rodada gera +1 Ressonância.,As marcas não pedem tradução.,engine
-VR-041,Salto sobre a Fogueira,Matilha Varka,Assalto,Incomum,2,0,Garra,"Cause 3. Se o Eclipse estiver em -1 ou menor, mova 1 para Noite após resolver.",A Matilha chama de noite aquilo que ainda não escureceu.,shift
-VR-042,Pele Grossa,Matilha Varka,Guarda,Incomum,2,0,Garra,"Previna 3. Se você sofreu dano nesta rodada, previna 5 em vez disso.",Cicatrizes são armaduras que aprenderam seu nome.,defesa
-VR-043,Corredora do Vale Oco,Matilha Varka,Manifestação,Rara,2,1,Garra,"Uma vez por rodada, depois de você jogar um Assalto de custo 1, ele deixa um Sigilo Garra extra.",Ela chega antes do eco.,combo
-VR-044,Frenesi de Três Batidas,Matilha Varka,Assalto,Rara,3,1,Garra,Cause 1 três vezes. Cada instância é resolvida separadamente contra Ward.,O alvo ouve três passos. O quarto já é tarde.,multi-hit
-VR-045,Lua no Sangue,Matilha Varka,Rito,Rara,3,2,Coroa,"Até o fim da rodada, Assaltos custam 1 a menos, mas você sofre 1 após cada Assalto.",Toda força emprestada cobra no corpo.,burst
-VR-046,Uivo que Rasga Selos,Matilha Varka,Rito,Épica,3,1,Garra,"Destrua uma Relíquia. Se ela custava 3 ou mais, cause 2 de dano ao controlador.",Algumas portas devem aprender a ter medo.,removal
-VR-047,Caçada em Espiral,Matilha Varka,Assalto,Épica,4,1,Garra,Cause 4. Ressonância Garra→Garra→qualquer: abra uma janela extra de Assalto que aceita apenas custo 2 ou menos.,"A presa corre em linha reta. O predador, não.",combo payoff
-VR-048,Coração da Lua Feral,Matilha Varka,Relíquia,Lendária,5,2,Garra,"No Eclipse Noturno, uma vez por rodada, seu primeiro Assalto resolvido retorna à mão no fim da rodada e custa +1 na próxima vez. Limite 1 por deck.",A lua não ordena. Ela lembra.,engine finisher
-VR-049,Ampola de Fuligem,Sínodo Cinéreo,Rito,Comum,1,0,Cinza,Descarte 1 carta; compre 2.,Conhecimento bom deixa resíduos.,loot
-VR-050,Lâmina Carbonizada,Sínodo Cinéreo,Assalto,Comum,1,0,Cinza,"Cause 2. Se uma carta sua foi exilada nesta rodada, cause +1.",O fogo levou o metal. Sobrou a intenção.,pressure
-VR-051,Costura de Cinzas,Sínodo Cinéreo,Guarda,Comum,1,0,Cinza,"Previna 3. Depois, você pode exilar esta carta do descarte para curar 1.",Não é cura. É adiamento.,value
-VR-052,Arquivo Morto,Sínodo Cinéreo,Relíquia,Incomum,2,0,Cinza,"A primeira vez por rodada que uma carta sua for exilada, olhe a carta do topo; pode colocá-la no descarte.",Nada some. Apenas muda de prateleira.,engine
-VR-053,Febre de Mercúrio,Sínodo Cinéreo,Rito,Incomum,2,0,Cinza,"Aplique Maldição: no fim da próxima rodada do alvo, ele sofre 2 se tiver 5+ cartas na mão.",Pensar demais também intoxica.,curse
-VR-054,Coletor de Restos,Sínodo Cinéreo,Manifestação,Incomum,2,0,Cinza,"Quando entrar, Recupere uma carta de custo 1 do descarte.",Ele chama de matéria-prima aquilo que todos chamam de ruína.,recursion
-VR-055,Reação Exotérmica,Sínodo Cinéreo,Assalto,Rara,3,0,Cinza,"Exile uma carta do seu descarte: cause 4. Se era um Rito, desloque o Eclipse 1 na direção que escolher.","A fórmula é simples. O laboratório, descartável.",flexible damage
-VR-056,Selo de Conservação,Sínodo Cinéreo,Guarda,Rara,2,0,Coroa,Previna 3. A carta de Guarda vai para sua mão em vez do descarte; ela custa +1 até ser jogada.,Nada se perde; tudo fica mais caro.,recurring defense
-VR-057,Anatomia do Erro,Sínodo Cinéreo,Rito,Rara,3,0,Espelho,"Escolha uma carta no descarte rival. Até o fim da rodada, cartas com o mesmo tipo custam +1 para ele.",O fracasso é mais útil quando catalogado.,tax
-VR-058,Forno de Ossos Frios,Sínodo Cinéreo,Relíquia,Épica,4,0,Cinza,"Uma vez por rodada, exile 2 cartas do seu descarte: ganhe 2 Essências temporárias.",O fogo morreu. A máquina não percebeu.,resource engine
-VR-059,Cinzas que Respondem,Sínodo Cinéreo,Rito,Épica,4,0,Cinza,Recupere 2 cartas diferentes do descarte; descarte 1 carta para cada carta recuperada.,O morto responde quando a pergunta é cara o bastante.,recursion
-VR-060,Última Fórmula de Edda,Sínodo Cinéreo,Rito,Lendária,5,0,Cinza,"Exile seu descarte. Para cada 4 cartas exiladas, escolha um: cause 2, cure 2 ou compre 1 (máx. 3 escolhas). Limite 1 por deck.","No fim, toda ciência é uma escolha sobre o que sacrificar.",finisher
-VR-061,Faca de Prata Fosca,Errantes,Assalto,Comum,1,0,Coroa,"Cause 2. Contra Manifestação ativa, cause +1 ao controlador.",Nem toda lenda precisa estar correta para ser útil.,utility
-VR-062,Passo Calculado,Errantes,Guarda,Comum,1,0,Coroa,"Previna 2. Se você tiver menos cartas na mão que o oponente, compre 1 e depois descarte 1.",O sobrevivente não corre; escolhe a distância.,filter
-VR-063,Mapa das Ruas Mortas,Errantes,Rito,Comum,1,0,Espelho,Olhe as 3 do topo e reordene-as.,A cidade muda. O mapa registra as cicatrizes.,consistency
-VR-064,Lanterna de Sal,Errantes,Relíquia,Comum,1,-1,Sol,"Uma vez por rodada, quando uma Maldição for aplicada a você, desloque 1 para Aurora.",A chama é pequena porque a noite é grande.,tech
-VR-065,Moeda de Duas Luas,Errantes,Relíquia,Incomum,2,0,Coroa,"No início da rodada, se o Eclipse estiver em 0, ganhe 1 Essência temporária.","Cara, coroa ou algo entre as duas.",resource
-VR-066,Contrato sem Nome,Errantes,Rito,Incomum,2,0,Coroa,Compre 2 e revele-as. O oponente escolhe uma para você descartar.,Todo acordo revela quem realmente tinha escolha.,card advantage
-VR-067,Pó de Vidro,Errantes,Rito,Incomum,1,0,Espelho,Remova Véu de um alvo; ele fica Exposto.,O invisível ainda deixa pegadas.,tech
-VR-068,Vela do Último Quarto,Errantes,Rito,Incomum,2,1,Coroa,Mova o Eclipse 1 para Noite. Compre 1 se isso cruzar o ponto 0.,Toda mudança de noite começa parecendo pequena.,shift
-VR-069,Sino do Primeiro Quarto,Errantes,Rito,Incomum,2,-1,Coroa,Mova o Eclipse 1 para Aurora. Ganhe Ward 1 se isso cruzar o ponto 0.,O som chega antes da luz.,shift
-VR-070,Caixa de Dentes Antigos,Errantes,Relíquia,Rara,2,1,Presa,"A primeira vez por rodada que você causar exatamente 2 de dano, cause +1.",Ninguém sabe de quem eram. Todos sabem para que servem.,damage engine
-VR-071,Escudo de Madeira Negra,Errantes,Guarda,Rara,2,0,Coroa,"Previna 4. Se uma Relíquia sua foi destruída nesta rodada, previna 6.",Árvores também aprendem a guardar rancor.,defense
-VR-072,Mercador do Crepúsculo,Errantes,Manifestação,Rara,3,0,Coroa,"Uma vez por rodada, descarte 1: sua próxima carta neutra custa 1 a menos.",Ele vende aquilo que ainda não decidiu roubar.,neutral engine
-VR-073,Cão sem Sombra,Errantes,Manifestação,Rara,2,1,Garra,"Quando o oponente comprar sua segunda carta numa rodada, cause 1 de dano.",Ele rosna para possibilidades.,punisher
-VR-074,Escrivã do Sino Quebrado,Errantes,Manifestação,Rara,3,-1,Sol,"Ao entrar, remova uma Maldição de qualquer jogador. Se removeu do oponente, compre 1.",Alguns registros absolvem; outros condenam.,utility
-VR-075,Ponte de Névoa,Errantes,Guarda,Rara,2,0,Espelho,"Previna 3. Depois, você pode trocar a posição do Eclipse com seu oposto (+2 vira -2 etc.).",Atravessar muda mais do que o lado do rio.,eclipse trick
-VR-076,Relógio do Eclipse,Errantes,Relíquia,Épica,4,0,Coroa,"No fim de cada rodada em que o Eclipse não se moveu, mova 1 na direção escolhida pelo jogador com menos Vitalidade.",Ele não mede tempo. Mede vantagem.,catch-up
-VR-077,Juramento do Errante,Errantes,Rito,Épica,3,0,Coroa,"Escolha um Sigilo. Até o fim da rodada, suas cartas neutras também geram esse Sigilo.",Quem não tem casa aprende todos os sotaques.,combo
-VR-078,Armadilha de Corrente Fria,Errantes,Guarda,Épica,3,0,Cinza,"Previna 4. Se o ataque foi o segundo Assalto da rodada, encerre a janela de Assalto atual.",A fera percebe a corrente depois do salto.,anti-burst
-VR-079,O Homem do Campanário,Errantes,Manifestação,Lendária,5,0,Coroa,"No início de cada rodada, se o Eclipse estiver em +2 ou -2, mova-o para 0 e cada jogador compra 1. Limite 1 por deck.",Ele toca o sino quando ambos os lados acreditam ter vencido.,reset engine
-VR-080,Eclipse sem Testemunhas,Errantes,Rito,Lendária,6,0,Coroa,"Se o Medidor estiver em +2 ou -2, avance para o Eclipse Total correspondente. Após o evento, seu oponente compra 2. Limite 1 por deck.","Quando ninguém viu o céu escurecer, todos inventaram uma causa.",eclipse finisher
+id,name,faction,type,rarity,cost,eclipse_shift,sigil,rules_text,flavor,design_role,set
+VR-001,Corte Rubro,Casa Vhal,Assalto,Comum,1,1,Presa,"Cause 2 de dano. Se você sacrificou Vitalidade nesta rodada, cause +1.",A elegância termina onde a fome começa.,pressão,1
+VR-002,Dívida de Sangue,Casa Vhal,Rito,Comum,1,1,Coroa,"Sacrifique 2 de Vitalidade: compre 2 cartas, depois descarte 1.",Todo favor da Casa vence com juros.,seleção de mão,1
+VR-003,Manto Hemático,Casa Vhal,Guarda,Comum,1,1,Presa,"Previna 3 de dano. Se prevenir todo o dano, cure 1.",O sangue derramado também pode ser muralha.,defesa/dreno,1
+VR-004,Taça de Orivane,Casa Vhal,Relíquia,Rara,2,1,Coroa,"A primeira vez por rodada que você curar, desloque o Eclipse 1 passo para a Noite.",A taça nunca esvazia; apenas muda de dono.,motor,1
+VR-005,Fome Educada,Casa Vhal,Assalto,Comum,2,1,Presa,Cause 3 de dano. Ressonância Presa→Coroa: cure 2.,"Sorrisos polidos, intenções antigas.",combo,1
+VR-006,Convite Irrecusável,Casa Vhal,Rito,Incomum,2,1,Espelho,Olhe 2 cartas aleatórias da mão do oponente. Escolha uma: ela custa +1 até o fim da próxima rodada.,A porta estava aberta antes mesmo de você chegar.,disrupção,1
+VR-007,Servo de Veludo,Casa Vhal,Manifestação,Incomum,2,1,Coroa,"Enquanto ativo, a primeira carta que exigir sacrifício de Vitalidade a cada rodada sacrifica 1 a menos.","Ele serve vinho, silêncio e álibis.",suporte,1
+VR-008,Juramento da Cripta,Casa Vhal,Rito,Rara,3,1,Cinza,Recupere um Assalto do descarte. Perca Vitalidade igual ao custo dele.,Algumas promessas sobrevivem aos prometidos.,recursão,1
+VR-009,Veia Aberta,Casa Vhal,Assalto,Incomum,2,1,Presa,Cause 2 de dano e aplique Sangramento 2.,"O golpe é curto; a consequência, paciente.",dano contínuo,1
+VR-010,Salão sem Espelhos,Casa Vhal,Relíquia,Épica,3,1,Espelho,"Ritos adversários que olhariam ou revelariam sua mão falham. Uma vez por rodada, quando isso ocorrer, desloque 1 para Noite.","Na Casa Vhal, reflexos são considerados testemunhas.",anti-controle,1
+VR-011,Noite de Herança,Casa Vhal,Rito,Épica,4,2,Coroa,"Só pode ser jogada com Eclipse em +2 ou mais. Compre 3; até o fim da rodada, seus Assaltos custam 1 a menos.",Os antigos não deixam bens. Deixam apetites.,explosão,1
+VR-012,Soberania Carmesim,Casa Vhal,Assalto,Lendária,5,2,Presa,"Cause 5 de dano. Eclipse Noturno: em vez disso, cause 7 e cure 3. Limite de 1 por deck.",O trono reconhece apenas quem sobrevive ao banquete.,finalizador,1
+VR-013,Golpe da Alvorada,Ordem Solara,Assalto,Comum,1,-1,Sol,"Cause 2 de dano. Se o Eclipse estiver em -2 ou menor, cause +1.",A manhã também sabe ferir.,pressão,1
+VR-014,Égide de Lumen,Ordem Solara,Guarda,Comum,2,-1,Sol,Previna 3 de dano de um único Assalto.,A luz não precisa vencer; basta permanecer.,defesa,1
+VR-015,Marca do Caçador,Ordem Solara,Rito,Comum,1,0,Coroa,"Aplique Exposto. O próximo dano que o alvo sofrer recebe +2, então remova Exposto.",Ninguém foge duas vezes do mesmo olhar.,setup,1
+VR-016,Rosário de Ferro Branco,Ordem Solara,Relíquia,Incomum,2,-1,Sol,A primeira Maldição que receber em cada rodada dura 1 rodada a menos.,"Fé, aqui, é engenharia.",anti-maldição,1
+VR-017,Passo entre Sombras,Ordem Solara,Guarda,Incomum,2,-1,Espelho,"Previna 2. Se o Assalto tinha bônus de Ressonância, previna +2.",Conhecer o truque é metade da defesa.,anti-combo,1
+VR-018,Interrogatório ao Amanhecer,Ordem Solara,Rito,Incomum,2,0,Espelho,Revele a mão do oponente. Escolha um Assalto; ele não pode ser jogado nesta rodada.,A verdade fica menos convincente sob a primeira luz.,controle,1
+VR-019,Sentinela de Solenne,Ordem Solara,Manifestação,Rara,4,-1,Sol,"Enquanto ativa, a primeira vez por rodada que você usar Guarda, ganhe Ward 1.",Ela nunca dorme antes do sino.,suporte,1
+VR-020,Flecha de Vidro Solar,Ordem Solara,Assalto,Rara,3,-1,Sol,Cause 3 de dano. Ignora 1 ponto de Ward.,Feita para atravessar aquilo que jurou ser intocável.,anti-ward,1
+VR-021,Círculo de Sal Dourado,Ordem Solara,Rito,Rara,2,-1,Coroa,"Até sua próxima rodada, Manifestações adversárias perdem seus textos passivos.",Há monstros que respeitam fronteiras.,silêncio,1
+VR-022,Segundo Horizonte,Ordem Solara,Guarda,Épica,4,-1,Sol,"Previna 5 de dano de um Assalto. Depois, o oponente compra 1 carta.",Toda proteção cobra algo de alguém.,hard defense,1
+VR-023,Mandato da Aurora,Ordem Solara,Rito,Épica,4,-1,Coroa,Mova o Eclipse 1 passo para a Aurora. Remova Sangramento e uma Maldição de você.,O dia não pede licença.,reset,1
+VR-024,Sentença do Meio-Dia,Ordem Solara,Assalto,Lendária,5,-2,Sol,Cause 5. Aurora Total: cause 7 e o oponente não pode usar Guarda contra este Assalto. Limite 1 por deck.,"Ao meio-dia, não há sombra onde esconder um juramento.",finalizador,1
+VR-025,Refração Dolorosa,Conclave Mirr,Assalto,Comum,1,0,Espelho,"Cause 3. Se o último Sigilo desta rodada foi Sol ou Presa, cause +2.",Toda certeza possui um ângulo morto.,combo,1
+VR-026,Carta que Não Existia,Conclave Mirr,Rito,Comum,1,0,Espelho,Olhe as 2 do topo; coloque uma na mão e outra no fundo.,O papel lembra futuros que ninguém escreveu.,consistência,1
+VR-027,Vidro de Retorno,Conclave Mirr,Guarda,Comum,1,0,Espelho,"Previna 4. Se prevenir todo o dano, gere um Sigilo Espelho adicional para Ressonância.",Refletir não é copiar. É escolher o que devolver.,combo defense,1
+VR-028,Sala dos Ângulos Falsos,Conclave Mirr,Relíquia,Incomum,1,0,Espelho,"Uma vez por rodada, ao jogar seu terceiro Sigilo diferente, compre 1 e descarte 1.",Nenhuma porta leva ao mesmo corredor duas vezes.,engine,1
+VR-029,Hipótese Cruel,Conclave Mirr,Rito,Incomum,2,0,Coroa,"Declare Assalto, Guarda ou Rito. Revele o topo do deck rival; se acertar, compre 1 e ela custa +1 ao rival neste ciclo.",A previsão é só memória olhando para frente.,informação,1
+VR-030,Duplo de Mercúrio,Conclave Mirr,Manifestação,Rara,2,0,Espelho,"Ao entrar, copie o Sigilo da última carta que você jogou e compre 1 carta. Enquanto ativo, conta como ambos para Ressonância.",Ele não imita seu rosto. Imita sua intenção.,combo engine,1
+VR-031,Quebra de Simetria,Conclave Mirr,Assalto,Rara,3,0,Espelho,"Cause 4. Se você tiver 3 Sigilos diferentes na Ressonância, cause 7 em vez disso.",O padrão só existe até alguém entender onde quebrá-lo.,payoff,1
+VR-032,Roubo de Reflexo,Conclave Mirr,Rito,Rara,3,0,Espelho,Copie o texto base de uma Relíquia adversária até o início da sua próxima rodada; não copia nomes nem raridade.,Possuir é apenas uma forma lenta de copiar.,cópia,1
+VR-033,Véu de Prata,Conclave Mirr,Guarda,Incomum,2,0,Espelho,Previna 4 e ganhe Véu até o fim da próxima rodada.,"Quando o mundo não encontra você, ele erra sozinho.",proteção,1
+VR-034,Espelho Partido em Sete,Conclave Mirr,Rito,Épica,3,0,Espelho,Escolha até 3 Sigilos diferentes já jogados nesta rodada; gere-os novamente para fins de Ressonância. Não dispara o mesmo combo duas vezes.,Sete fragmentos; nenhuma versão inocente.,combo extender,1
+VR-035,Paradoxo de Mirr,Conclave Mirr,Guarda,Épica,3,0,Coroa,"Anule um Rito que teria você como alvo. O oponente recupera metade do custo, arredondado para baixo.","Se aconteceu, não era esta realidade.",counter,1
+VR-036,Oitavo Reflexo,Conclave Mirr,Rito,Lendária,3,0,Espelho,Copie qualquer carta não-Lendária jogada nesta rodada e resolva a cópia. Limite 1 por deck.,Os sete espelhos mostram você. O oitavo mostra o que você poderia ter feito.,swing,1
+VR-037,Rasgo de Presa,Matilha Varka,Assalto,Comum,1,1,Garra,"Cause 2. Se este for seu segundo Assalto na rodada, cause +2.",A primeira ferida mede distância. A segunda encerra a discussão.,aggro,1
+VR-038,Instinto de Recuo,Matilha Varka,Guarda,Comum,1,0,Garra,Previna 2. Seu próximo Assalto nesta rodada custa 1 a menos.,Sobreviver é preparar o próximo salto.,tempo,1
+VR-039,Cheiro de Medo,Matilha Varka,Rito,Comum,1,1,Garra,"Se o oponente tiver 15 ou menos de Vitalidade, compre 1. Caso contrário, aplique Exposto.",A floresta sente antes de você admitir.,setup,1
+VR-040,Totem de Osso Lunar,Matilha Varka,Relíquia,Incomum,2,1,Coroa,Seu segundo Sigilo Garra por rodada gera +1 Ressonância.,As marcas não pedem tradução.,engine,1
+VR-041,Salto sobre a Fogueira,Matilha Varka,Assalto,Incomum,2,0,Garra,"Cause 3. Se o Eclipse estiver em -1 ou menor, mova 1 para Noite após resolver.",A Matilha chama de noite aquilo que ainda não escureceu.,shift,1
+VR-042,Pele Grossa,Matilha Varka,Guarda,Incomum,2,0,Garra,"Previna 3. Se você sofreu dano nesta rodada, previna 5 em vez disso.",Cicatrizes são armaduras que aprenderam seu nome.,defesa,1
+VR-043,Corredora do Vale Oco,Matilha Varka,Manifestação,Rara,2,1,Garra,"Uma vez por rodada, depois de você jogar um Assalto de custo 1, ele deixa um Sigilo Garra extra.",Ela chega antes do eco.,combo,1
+VR-044,Frenesi de Três Batidas,Matilha Varka,Assalto,Rara,4,1,Garra,Cause 2 três vezes. Cada instância é resolvida separadamente contra Ward.,O alvo ouve três passos. O quarto já é tarde.,multi-hit,1
+VR-045,Lua no Sangue,Matilha Varka,Rito,Rara,3,2,Coroa,"Até o fim da rodada, Assaltos custam 1 a menos, mas você sofre 1 após cada Assalto.",Toda força emprestada cobra no corpo.,burst,1
+VR-046,Uivo que Rasga Selos,Matilha Varka,Rito,Épica,3,1,Garra,"Destrua uma Relíquia. Se ela custava 3 ou mais, cause 2 de dano ao controlador.",Algumas portas devem aprender a ter medo.,removal,1
+VR-047,Caçada em Espiral,Matilha Varka,Assalto,Épica,4,1,Garra,Cause 4. Ressonância Garra→Garra→qualquer: abra uma janela extra de Assalto que aceita apenas custo 2 ou menos.,"A presa corre em linha reta. O predador, não.",combo payoff,1
+VR-048,Coração da Lua Feral,Matilha Varka,Relíquia,Lendária,5,2,Garra,"No Eclipse Noturno, uma vez por rodada, seu primeiro Assalto resolvido retorna à mão no fim da rodada e custa +1 na próxima vez. Limite 1 por deck.",A lua não ordena. Ela lembra.,engine finisher,1
+VR-049,Ampola de Fuligem,Sínodo Cinéreo,Rito,Comum,1,0,Cinza,Descarte 1 carta; compre 2.,Conhecimento bom deixa resíduos.,loot,1
+VR-050,Lâmina Carbonizada,Sínodo Cinéreo,Assalto,Comum,1,0,Cinza,"Cause 2. Se uma carta sua foi exilada nesta rodada, cause +2.",O fogo levou o metal. Sobrou a intenção.,pressure,1
+VR-051,Costura de Cinzas,Sínodo Cinéreo,Guarda,Comum,1,0,Cinza,"Previna 3. Depois, você pode exilar esta carta do descarte para curar 1.",Não é cura. É adiamento.,value,1
+VR-052,Arquivo Morto,Sínodo Cinéreo,Relíquia,Incomum,2,0,Cinza,"A primeira vez por rodada que uma carta sua for exilada, olhe a carta do topo; pode colocá-la no descarte.",Nada some. Apenas muda de prateleira.,engine,1
+VR-053,Febre de Mercúrio,Sínodo Cinéreo,Rito,Incomum,2,0,Cinza,"Aplique Maldição: no fim da próxima rodada do alvo, ele sofre 3 se tiver 5+ cartas na mão.",Pensar demais também intoxica.,curse,1
+VR-054,Coletor de Restos,Sínodo Cinéreo,Manifestação,Incomum,2,0,Cinza,"Quando entrar, Recupere uma carta de custo 1 do descarte.",Ele chama de matéria-prima aquilo que todos chamam de ruína.,recursion,1
+VR-055,Reação Exotérmica,Sínodo Cinéreo,Assalto,Rara,3,0,Cinza,"Exile uma carta do seu descarte: cause 5. Se era um Rito, desloque o Eclipse 1 na direção que escolher.","A fórmula é simples. O laboratório, descartável.",flexible damage,1
+VR-056,Selo de Conservação,Sínodo Cinéreo,Guarda,Rara,2,0,Coroa,Previna 3. A carta de Guarda vai para sua mão em vez do descarte; ela custa +1 até ser jogada.,Nada se perde; tudo fica mais caro.,recurring defense,1
+VR-057,Anatomia do Erro,Sínodo Cinéreo,Rito,Rara,3,0,Espelho,"Escolha uma carta no descarte rival. Até o fim da rodada, cartas com o mesmo tipo custam +1 para ele.",O fracasso é mais útil quando catalogado.,tax,1
+VR-058,Forno de Ossos Frios,Sínodo Cinéreo,Relíquia,Épica,3,0,Cinza,"Uma vez por rodada, exile 1 carta do seu descarte: ganhe 2 Essências temporárias.",O fogo morreu. A máquina não percebeu.,resource engine,1
+VR-059,Cinzas que Respondem,Sínodo Cinéreo,Rito,Épica,2,0,Cinza,Recupere 2 cartas diferentes do descarte; descarte 1 carta para cada carta recuperada.,O morto responde quando a pergunta é cara o bastante.,recursion,1
+VR-060,Última Fórmula de Edda,Sínodo Cinéreo,Rito,Lendária,3,0,Cinza,"Exile seu descarte. Para cada 3 cartas exiladas, escolha um: cause 2, cure 2 ou compre 1 (máx. 3 escolhas). Limite 1 por deck.","No fim, toda ciência é uma escolha sobre o que sacrificar.",finisher,1
+VR-061,Faca de Prata Fosca,Errantes,Assalto,Comum,1,0,Coroa,"Cause 2. Contra Manifestação ativa, cause +1 ao controlador.",Nem toda lenda precisa estar correta para ser útil.,utility,1
+VR-062,Passo Calculado,Errantes,Guarda,Comum,1,0,Coroa,"Previna 2. Se você tiver menos cartas na mão que o oponente, compre 1 e depois descarte 1.",O sobrevivente não corre; escolhe a distância.,filter,1
+VR-063,Mapa das Ruas Mortas,Errantes,Rito,Comum,1,0,Espelho,Olhe as 3 do topo e reordene-as.,A cidade muda. O mapa registra as cicatrizes.,consistency,1
+VR-064,Lanterna de Sal,Errantes,Relíquia,Comum,1,-1,Sol,"Uma vez por rodada, quando uma Maldição for aplicada a você, desloque 1 para Aurora.",A chama é pequena porque a noite é grande.,tech,1
+VR-065,Moeda de Duas Luas,Errantes,Relíquia,Incomum,2,0,Coroa,"No início da rodada, se o Eclipse estiver em 0, ganhe 1 Essência temporária.","Cara, coroa ou algo entre as duas.",resource,1
+VR-066,Contrato sem Nome,Errantes,Rito,Incomum,2,0,Coroa,Compre 2 e revele-as. O oponente escolhe uma para você descartar.,Todo acordo revela quem realmente tinha escolha.,card advantage,1
+VR-067,Pó de Vidro,Errantes,Rito,Incomum,1,0,Espelho,Remova Véu de um alvo; ele fica Exposto.,O invisível ainda deixa pegadas.,tech,1
+VR-068,Vela do Último Quarto,Errantes,Rito,Incomum,2,1,Coroa,Mova o Eclipse 1 para Noite. Compre 1 se isso cruzar o ponto 0.,Toda mudança de noite começa parecendo pequena.,shift,1
+VR-069,Sino do Primeiro Quarto,Errantes,Rito,Incomum,2,-1,Coroa,Mova o Eclipse 1 para Aurora. Ganhe Ward 1 se isso cruzar o ponto 0.,O som chega antes da luz.,shift,1
+VR-070,Caixa de Dentes Antigos,Errantes,Relíquia,Rara,2,1,Presa,"A primeira vez por rodada que você causar exatamente 2 de dano, cause +1.",Ninguém sabe de quem eram. Todos sabem para que servem.,damage engine,1
+VR-071,Escudo de Madeira Negra,Errantes,Guarda,Rara,2,0,Coroa,"Previna 4. Se uma Relíquia sua foi destruída nesta rodada, previna 6.",Árvores também aprendem a guardar rancor.,defense,1
+VR-072,Mercador do Crepúsculo,Errantes,Manifestação,Rara,3,0,Coroa,"Uma vez por rodada, descarte 1: sua próxima carta neutra custa 1 a menos.",Ele vende aquilo que ainda não decidiu roubar.,neutral engine,1
+VR-073,Cão sem Sombra,Errantes,Manifestação,Rara,2,1,Garra,"Quando o oponente comprar sua segunda carta numa rodada, cause 1 de dano.",Ele rosna para possibilidades.,punisher,1
+VR-074,Escrivã do Sino Quebrado,Errantes,Manifestação,Rara,3,-1,Sol,"Ao entrar, remova uma Maldição de qualquer jogador. Se removeu do oponente, compre 1.",Alguns registros absolvem; outros condenam.,utility,1
+VR-075,Ponte de Névoa,Errantes,Guarda,Rara,2,0,Espelho,"Previna 3. Depois, você pode trocar a posição do Eclipse com seu oposto (+2 vira -2 etc.).",Atravessar muda mais do que o lado do rio.,eclipse trick,1
+VR-076,Relógio do Eclipse,Errantes,Relíquia,Épica,4,0,Coroa,"No fim de cada rodada em que o Eclipse não se moveu, mova 1 na direção escolhida pelo jogador com menos Vitalidade.",Ele não mede tempo. Mede vantagem.,catch-up,1
+VR-077,Juramento do Errante,Errantes,Rito,Épica,3,0,Coroa,"Escolha um Sigilo. Até o fim da rodada, suas cartas neutras também geram esse Sigilo.",Quem não tem casa aprende todos os sotaques.,combo,1
+VR-078,Armadilha de Corrente Fria,Errantes,Guarda,Épica,3,0,Cinza,"Previna 4. Se o ataque foi o segundo Assalto da rodada, encerre a janela de Assalto atual.",A fera percebe a corrente depois do salto.,anti-burst,1
+VR-079,O Homem do Campanário,Errantes,Manifestação,Lendária,5,0,Coroa,"No início de cada rodada, se o Eclipse estiver em +2 ou -2, mova-o para 0 e cada jogador compra 1. Limite 1 por deck.",Ele toca o sino quando ambos os lados acreditam ter vencido.,reset engine,1
+VR-080,Eclipse sem Testemunhas,Errantes,Rito,Lendária,6,0,Coroa,"Se o Medidor estiver em +2 ou -2, avance para o Eclipse Total correspondente. Após o evento, seu oponente compra 2. Limite 1 por deck.","Quando ninguém viu o céu escurecer, todos inventaram uma causa.",eclipse finisher,1
+VR-081,Navalha de Vésper,Casa Vhal,Assalto,Comum,1,1,Presa,"Cause 2 de dano. Se você sacrificou Vitalidade nesta rodada, aplique Sangramento 1.",A noite afia o que o dia não ousa segurar.,pressão com sangue,2
+VR-082,Gole da Víspera,Casa Vhal,Rito,Comum,1,1,Coroa,Sacrifique 1 de Vitalidade: cause 2 de dano e cure 1.,"Beber primeiro, perguntar depois — etiqueta da Casa.",troca de vida,2
+VR-083,Muro de Vísceras,Casa Vhal,Guarda,Comum,2,0,Presa,"Previna 3. Se prevenir todo o dano, o oponente perde 1 de Vitalidade.",A muralha também tem fome.,defesa que morde,2
+VR-084,Cripta que Respira,Casa Vhal,Manifestação,Incomum,2,1,Coroa,"Ao entrar: aplique Sangramento 1. No Eclipse Noturno, no início da rodada: cause 1 de dano.",Há pedras que inspiram. Esta expira.,motor noturno,2
+VR-085,Ladainha Rubra,Casa Vhal,Rito,Incomum,2,1,Presa,Sacrifique 2 de Vitalidade: compre 1 e aplique Maldição 2.,Cada verso custa uma gota; o refrão custa o resto.,carta + maldição,2
+VR-086,Presa que Não Erra,Casa Vhal,Assalto,Rara,3,1,Presa,"Cause 3 de dano. Com o Eclipse em +2 ou mais, este Assalto é indefensável.","Sob a lua certa, não existe escudo — existe atraso.",finisher noturno,2
+VR-087,Pacto do Limiar,Casa Vhal,Guarda,Rara,3,0,Coroa,"Previna 4. Depois, perca 1 de Vitalidade e compre 1.",Toda porta da Casa cobra pedágio dos dois lados.,muralha com juros,2
+VR-088,Trono de Espinhos,Casa Vhal,Relíquia,Épica,4,2,Coroa,Ativada (1/rodada) — descarte 1 carta: cause 2 de dano e perca 1 de Vitalidade.,Sentar é fácil. Levantar é que são elas.,canhão ativável,2
+VR-089,Lança do Prisma,Ordem Solara,Assalto,Comum,2,-1,Sol,"Cause 2 de dano. Se o oponente tiver 5 ou mais cartas na mão, cause +2.",A luz pesa mais sobre quem acumula sombras.,punição de acúmulo,2
+VR-090,Édito Matinal,Ordem Solara,Rito,Comum,1,-1,Sol,"Compre 1. Com o Eclipse em -1 ou menos, ganhe Ward 1.",O primeiro decreto do dia dispensa tinta.,fluxo de aurora,2
+VR-091,Véspera Vigiada,Ordem Solara,Guarda,Comum,1,-1,Sol,"Previna 2. Depois, olhe as 2 cartas do topo do seu baralho e reordene-as.",Quem vigia a noite escolhe o amanhã.,defesa com seleção,2
+VR-092,Interdito Dourado,Ordem Solara,Guarda,Incomum,3,-1,Sol,Reação: anule um Rito direcionado a você.,A Ordem não discute heresias. Arquiva.,counter solara,2
+VR-093,Tribunal do Alvor,Ordem Solara,Manifestação,Incomum,3,-1,Sol,"Sempre que você jogar uma Guarda (1/rodada), cure 1.",Cada sentença justa fecha uma ferida.,sustain de muralha,2
+VR-094,Inquérito Solar,Ordem Solara,Rito,Rara,2,-1,Sol,"Ganhe Ward 2. Se o oponente controlar Manifestações, elas perdem seus textos até sua próxima rodada.",Perguntas ao meio-dia não deixam onde se esconder.,escudo + supressão,2
+VR-095,Selo do Meio-Dia,Ordem Solara,Relíquia,Rara,2,-1,Sol,"Sempre que você emitir um Sigilo Sol (1/rodada), ganhe Ward 1.",O sol a pino não projeta dúvida.,motor de ward,2
+VR-096,Juízo do Primeiro Sol,Ordem Solara,Assalto,Épica,5,-2,Sol,"Exile esta carta ao jogá-la. Cause 5 de dano, depois cure 2.",Alguns vereditos só podem ser lidos uma vez.,bomba única,2
+VR-097,Reflexo Emprestado,Conclave Mirr,Rito,Comum,1,0,Espelho,Escolha 1 Sigilo já jogado nesta rodada; gere-o novamente para fins de Ressonância.,Devolva quando lembrar de quem era.,eco barato,2
+VR-098,Estilhaço Gêmeo,Conclave Mirr,Assalto,Comum,2,0,Espelho,"Cause 1 de dano duas vezes. Se o último Sigilo global da rodada for Espelho, a primeira instância causa +2.","Dois cortes, um reflexo, nenhuma desculpa.",multi-hit de trilha,2
+VR-099,Vidro Paciente,Conclave Mirr,Guarda,Comum,2,0,Espelho,"Previna 2. Se você tiver menos cartas na mão que o oponente, compre 1.",O vidro espera. É o rosto que envelhece.,defesa com paridade,2
+VR-100,Câmara de Ecos,Conclave Mirr,Manifestação,Incomum,3,0,Espelho,"Com 3 ou mais Sigilos distintos na sua Trilha, ao emitir um Sigilo (1/rodada): ganhe 1 Essência temporária.",Cada voz que entra sai com juros.,motor de cadeia,2
+VR-101,Espelho Reverso,Conclave Mirr,Rito,Incomum,3,0,Espelho,"Emita 1 Sigilo à sua escolha. Se o Sigilo anterior da sua Trilha for Espelho, compre 1.",Alguns reflexos chegam antes do corpo.,sigilo curinga,2
+VR-102,Quebra-Reflexo,Conclave Mirr,Assalto,Rara,4,0,Espelho,"Cause 4 de dano. Ressonância — se sua Trilha tiver exatamente 2 Espelhos, cause 6 em vez disso.",O espelho não quebra: escolhe um lado.,payoff de trilha,2
+VR-103,Contorno Impossível,Conclave Mirr,Guarda,Rara,3,0,Espelho,Previna 4. A carta volta à sua mão em vez do descarte; ela custa +1 até ser jogada.,Ninguém atravessa o mesmo vidro duas vezes. Quase.,muralha recorrente,2
+VR-104,Sala dos Sete Retratos,Conclave Mirr,Relíquia,Épica,4,0,Espelho,"Ao entrar: escolha até 2 Sigilos já jogados nesta rodada e gere-os novamente. Com 4+ Sigilos distintos na Trilha, ao emitir um Sigilo (1/rodada): compre 1.","Sete molduras, nenhum rosto repetido.",turbina de tríade,2
+VR-105,Mordida Dupla,Matilha Varka,Assalto,Comum,1,1,Garra,Cause 1 de dano duas vezes.,Uma presa avisa. A outra cobra.,flood barato,2
+VR-106,Chamado da Fenda,Matilha Varka,Rito,Comum,2,1,Garra,Abra uma janela extra de Assalto que aceita apenas cartas de custo 2 ou menos.,"Quando a fenda uiva, a matilha responde em coro.",janela extra,2
+VR-107,Pele Fechada,Matilha Varka,Guarda,Comum,1,0,Garra,"Previna 2. Se você já sofreu dano nesta rodada, previna 4 em vez disso.","A segunda mordida encontra couro, não carne.",defesa reativa,2
+VR-108,Matilha à Espreita,Matilha Varka,Manifestação,Incomum,2,1,Garra,Quando um Assalto seu de custo 2 ou menos resolver (1/rodada): cause 1 de dano.,O bote que você viu nunca é o último.,motor de flood,2
+VR-109,Salto Sincronizado,Matilha Varka,Assalto,Incomum,3,1,Garra,"Cause 3 de dano. Se este for o seu 2º Assalto na rodada, cause +2.","Dois corpos, uma sombra.",ritmo de alcateia,2
+VR-110,Uivo de Duas Luas,Matilha Varka,Rito,Rara,3,2,Garra,"Mova o Eclipse 2 para a Noite. Se ele ficar em +2 ou mais, ganhe 1 Essência temporária.","Quando as duas luas respondem, a caçada é lei.",empurrão noturno,2
+VR-111,Contra-Bote,Matilha Varka,Guarda,Rara,2,1,Garra,"Previna 3. Se este for o 2º Assalto do oponente na rodada, encerre a janela de Assalto dele.",Quem ataca duas vezes ensina o caminho de volta.,freio de flood,2
+VR-112,Alcateia Inteira,Matilha Varka,Assalto,Épica,5,2,Garra,Este Assalto ignora 1 de Ward. Cause 2 de dano três vezes.,Não conte as presas. Conte as sombras.,bomba de flood,2
+VR-113,Sopro de Cinza,Sínodo Cinéreo,Rito,Comum,1,0,Cinza,Aplique Maldição 2 ao oponente.,"O que a cinza toca, a cinza lembra.",maldição barata,2
+VR-114,Cortina de Fuligem,Sínodo Cinéreo,Guarda,Comum,2,0,Cinza,"Previna 3. Com 3 ou mais cartas no seu descarte, previna 5 em vez disso.","Quanto mais queimou, mais espessa a cortina.",defesa de cemitério,2
+VR-115,Lâmina Calcinada,Sínodo Cinéreo,Assalto,Comum,2,0,Cinza,"Cause 2 de dano. Se houver um Rito no seu descarte, aplique Maldição 1.",O fio queimado corta fundo e deixa nome.,pressão maldita,2
+VR-116,Urna dos Nomes,Sínodo Cinéreo,Relíquia,Incomum,2,0,Cinza,Ativada (1/rodada) — exile 1 carta do seu descarte: compre 1.,Todo nome guardado paga uma leitura.,motor de exílio,2
+VR-117,Rasura,Sínodo Cinéreo,Rito,Incomum,2,0,Cinza,"Remova uma Maldição — a sua, se houver; senão, a do oponente (e compre 1). Depois, ganhe Ward 1.",Errar é humano. Reescrever é ofício.,limpeza flexível,2
+VR-118,Escriba de Sal,Sínodo Cinéreo,Manifestação,Rara,3,0,Cinza,"Sempre que uma carta sua for exilada (1/rodada), compre 1.",Nada se perde: muda de arquivo.,paga-exílio,2
+VR-119,Sinete da Última Página,Sínodo Cinéreo,Rito,Rara,4,0,Cinza,"Recupere 1 carta do seu descarte para a mão. Depois, aplique Maldição 2.","O livro fecha. A conta, não.",recorrência + maldição,2
+VR-120,Arquivo Ardente,Sínodo Cinéreo,Manifestação,Épica,4,0,Cinza,"Uma vez por rodada, quando uma Maldição for aplicada a você: cause 1 de dano e compre 1.",Queimem o arquivo. Ele responde por escrito.,retaliação épica,2
+VR-121,Aparo de Viela,Errantes,Guarda,Comum,3,0,Coroa,Reação: anule um Rito direcionado a você.,"Nas vielas, a resposta chega antes da pergunta.",counter neutro,2
+VR-122,Golpe Oportuno,Errantes,Assalto,Comum,2,0,Presa,"Cause 2 de dano. Se você sofreu dano nesta rodada, cause +1.",Troco não se pede. Se dá.,vingança barata,2
+VR-123,Mapa Rasgado,Errantes,Rito,Comum,1,0,Sol,Olhe as 2 cartas do topo; coloque uma na mão e a outra no fundo.,Metade de um mapa ainda é uma direção.,seleção neutra,2
+VR-124,Peso de Chumbo,Errantes,Relíquia,Incomum,2,0,Cinza,"A primeira vez por rodada que você causar exatamente 3 de dano, ganhe Ward 1.",Todo golpe certeiro merece âncora.,precisão premiada,2
+VR-125,Passo Trocado,Errantes,Guarda,Incomum,2,0,Espelho,"Previna 2. Depois, ambos os jogadores compram 1.",Dançar com o inimigo ainda é dançar.,defesa simétrica,2
+VR-126,Vendedor de Presságios,Errantes,Manifestação,Incomum,3,0,Garra,Ativada (1/rodada) — descarte 1 carta: olhe e reordene as 3 cartas do topo do seu baralho.,O futuro tem preço de banca e cheiro de chuva.,scry ativável,2
+VR-127,Leilão Silencioso,Errantes,Rito,Rara,3,0,Coroa,Ambos os jogadores compram 1. Seu próximo Rito custa 1 a menos.,Quem não fala primeiro leva o lote.,troca com desconto,2
+VR-128,Cobrador do Limiar,Errantes,Assalto,Rara,4,0,Presa,"Cause 4 de dano. Com o Eclipse em +2 ou -2, este Assalto é indefensável.","No limiar, toda dívida vence junto.",punição de extremos,2
+VR-129,Balança de Duas Sombras,Errantes,Relíquia,Épica,5,0,Sol,"No início da rodada, se o Eclipse estiver em 0: ganhe 1 Essência temporária e Ward 1.",O fiel da balança bebe dos dois pratos.,prêmio de equilíbrio,2
+VR-130,O Peso de Nythara,Errantes,Rito,Lendária,6,0,Coroa,Leve o Eclipse a 0. Cause 4 de dano e cure 4.,"Quando o mundo inteiro pesa, o céu cede ao meio.",bomba de equilíbrio,2

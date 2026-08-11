@@ -3,6 +3,8 @@ package app
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
+	"strings"
 	"time"
 
 	"veurubro/backend/internal/engine"
@@ -28,10 +30,10 @@ var RitualPool = []RitualDef{
 	{ID: "play_matches_2", Title: "Dois duelos", Description: "Complete 2 partidas (treino conta).", Target: 2, Reward: 40},
 	{ID: "play_ritos_5", Title: "Preparação arcana", Description: "Resolva 5 Ritos.", Target: 5, Reward: 40},
 	{ID: "play_guards_3", Title: "Muralha paciente", Description: "Jogue 3 Guardas.", Target: 3, Reward: 40},
-	{ID: "deal_damage_25", Title: "Fome do Eclipse", Description: "Cause 25 de dano.", Target: 25, Reward: 40},
-	{ID: "chain_sigils_2", Title: "Trilha viva", Description: "Alcance 3 Sigilos na Trilha em 2 rodadas.", Target: 2, Reward: 50},
-	{ID: "eclipse_total_1", Title: "Testemunha do Eclipse", Description: "Participe de um Eclipse Total.", Target: 1, Reward: 50},
-	{ID: "play_permanents_2", Title: "Assentamentos", Description: "Baixe 2 Relíquias ou Manifestações.", Target: 2, Reward: 40},
+	{ID: "deal_damage_25", Title: "Golpes decisivos", Description: "Cause 25 de dano.", Target: 25, Reward: 40},
+	{ID: "win_confronts_5", Title: "Domínio do centro", Description: "Vença 5 confrontos entre Assalto e Guarda.", Target: 5, Reward: 50},
+	{ID: "shatter_rival_4", Title: "Estilhaços na mesa", Description: "Estilhace 4 cartas rivais.", Target: 4, Reward: 50},
+	{ID: "play_assaults_6", Title: "Pressão constante", Description: "Jogue 6 Assaltos.", Target: 6, Reward: 40},
 }
 
 const DailyRituals = 3
@@ -67,24 +69,19 @@ func utcDay(now time.Time) string { return now.UTC().Format("2006-01-02") }
 
 // MatchStats agrega, por jogador, o que os eventos da partida comprovam.
 type MatchStats struct {
-	RitosResolved  int
-	GuardsPlayed   int
-	DamageDealt    int
-	SigilChains    int // rodadas em que a trilha alcançou 3 Sigilos
-	Permanents     int
-	EclipseTotals  int
+	RitosResolved       int
+	GuardsPlayed        int
+	AssaultsPlayed      int
+	DamageDealt         int
+	ConfrontsWon        int
+	RivalCardsShattered int
 }
 
 // StatsFromEvents deriva as métricas por assento a partir do log
 // authoritative. rs resolve tipos de carta da versão da partida.
 func StatsFromEvents(rs *engine.Ruleset, events []engine.Event) [2]MatchStats {
 	var stats [2]MatchStats
-	chainCounted := [2]map[int]bool{{}, {}}
-	round := 0
 	for _, event := range events {
-		if event.Round > round {
-			round = event.Round
-		}
 		switch event.Kind {
 		case engine.EvCardPlayed:
 			if event.P != 0 && event.P != 1 {
@@ -99,22 +96,38 @@ func StatsFromEvents(rs *engine.Ruleset, events []engine.Event) [2]MatchStats {
 				stats[event.P].RitosResolved++
 			case engine.TypeGuarda:
 				stats[event.P].GuardsPlayed++
-			case engine.TypeReliquia, engine.TypeManifestacao:
-				stats[event.P].Permanents++
+			case engine.TypeAssalto:
+				stats[event.P].AssaultsPlayed++
+			}
+		case engine.EvConfrontationResolved:
+			if event.P != 0 && event.P != 1 {
+				continue
+			}
+			winner := event.P
+			if event.S == "guard" {
+				winner = 1 - event.P
+			}
+			stats[winner].ConfrontsWon++
+		case engine.EvCardShattered:
+			if event.P == 0 || event.P == 1 {
+				stats[1-event.P].RivalCardsShattered++
 			}
 		case engine.EvDamage:
-			// P é a vítima; em jogo de 2, o dano foi causado pelo outro.
-			if event.P == 0 || event.P == 1 {
-				stats[1-event.P].DamageDealt += event.N
+			// P é a vítima. Só credita o oponente quando o dano tem AUTOR:
+			// perdas de sistema (Fadiga, Ruptura do Véu) não são "dano
+			// causado", e dano de carta do próprio jogador (Trono de
+			// Espinhos, Pacto do Limiar) tampouco — a instância "pN-…"
+			// identifica o dono determinístico (auditoria pós-0.8.1).
+			if event.P != 0 && event.P != 1 {
+				continue
 			}
-		case engine.EvSigilAdded:
-			if (event.P == 0 || event.P == 1) && event.N == 3 && !chainCounted[event.P][event.Round] {
-				chainCounted[event.P][event.Round] = true
-				stats[event.P].SigilChains++
+			if event.S == "Fadiga" || event.S == "Ruptura do Véu" || event.S == "Pressão de Nythara" {
+				continue
 			}
-		case engine.EvEclipseTriggered:
-			stats[0].EclipseTotals++
-			stats[1].EclipseTotals++
+			if strings.HasPrefix(event.Card, fmt.Sprintf("p%d-", event.P)) {
+				continue // auto-infligido por carta própria
+			}
+			stats[1-event.P].DamageDealt += event.N
 		}
 	}
 	return stats
@@ -138,14 +151,12 @@ func ritualProgressFor(def RitualDef, stats MatchStats, won, pvp bool) int {
 		return stats.GuardsPlayed
 	case "deal_damage_25":
 		return stats.DamageDealt
-	case "chain_sigils_2":
-		return stats.SigilChains
-	case "eclipse_total_1":
-		if stats.EclipseTotals > 0 {
-			return 1
-		}
-	case "play_permanents_2":
-		return stats.Permanents
+	case "win_confronts_5":
+		return stats.ConfrontsWon
+	case "shatter_rival_4":
+		return stats.RivalCardsShattered
+	case "play_assaults_6":
+		return stats.AssaultsPlayed
 	}
 	return 0
 }

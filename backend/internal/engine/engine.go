@@ -51,8 +51,12 @@ func NewGame(cfg Config) (*Game, error) {
 		if rs.Champions[p.ChampionID] == nil {
 			return nil, fmt.Errorf("jogador %d: campeão desconhecido %q", i, p.ChampionID)
 		}
-		if len(p.Deck) != DeckSize {
-			return nil, fmt.Errorf("jogador %d: deck com %d cartas (exigido %d)", i, len(p.Deck), DeckSize)
+		deckSize := DeckSize
+		if rs.IsConfront() {
+			deckSize = ConfrontDeckSize
+		}
+		if len(p.Deck) != deckSize {
+			return nil, fmt.Errorf("jogador %d: deck com %d cartas (exigido %d)", i, len(p.Deck), deckSize)
 		}
 		for _, def := range p.Deck {
 			if rs.Cards[def] == nil {
@@ -86,10 +90,14 @@ func NewGame(cfg Config) (*Game, error) {
 
 	for i := 0; i < 2; i++ {
 		champ := g.rs.Champions[cfg.Players[i].ChampionID]
+		vitality := champ.Vitality
+		if rs.IsConfront() {
+			vitality = rs.ConfrontRules.StartingVitality
+		}
 		p := &PlayerState{
 			Champion:    champ.ID,
-			Vitality:    champ.Vitality,
-			MaxVitality: champ.Vitality,
+			Vitality:    vitality,
+			MaxVitality: vitality,
 		}
 		for k, def := range cfg.Players[i].Deck {
 			inst := &CardInstance{
@@ -110,8 +118,24 @@ func NewGame(cfg Config) (*Game, error) {
 	g.emit(Event{Kind: EvMatchStarted, P: s.Initiative, S: cfg.RulesetVersion})
 	for i := 0; i < 2; i++ {
 		for k := 0; k < OpeningHandSize; k++ {
-			g.drawOne(i)
+			if rs.IsConfront() {
+				g.drawConfront(i)
+			} else {
+				g.drawOne(i)
+			}
 		}
+	}
+	if rs.IsConfront() {
+		// Compensação de iniciativa: quem não abre a partida começa com cartas
+		// extras. Em duelos longos a penalidade de Poder do primeiro turno se
+		// dilui, e só a vantagem de cartas segura o first-player perto de 50%.
+		if extra := rs.ConfrontRules.SecondPlayerBonusDraw; extra > 0 {
+			for k := 0; k < extra; k++ {
+				g.drawConfront(1 - s.Initiative)
+			}
+		}
+		g.startConfrontTurn(s.Initiative, true)
+		return g, nil
 	}
 	// Passiva de Oren: vê e reordena as 3 do topo antes do mulligan.
 	for _, i := range []int{s.Initiative, 1 - s.Initiative} {
@@ -130,7 +154,69 @@ func NewGame(cfg Config) (*Game, error) {
 
 // RulesetVersion corrente da engine. Acompanha o version do arquivo de
 // efeitos: mudanças de conteúdo/regra exigem bump + regeneração dos goldens.
-const RulesetVersion = "alpha-0.7.0"
+const (
+	// RulesetVersion é o ruleset histórico embutido. Mantido para replay e
+	// compatibilidade dos testes do motor legado.
+	RulesetVersion                = "alpha-0.8.3"
+	ConfrontInitialRulesetVersion = "alpha-0.9.0"
+	ConfrontRulesetVersion        = "alpha-0.9.1"
+	TacticalInitialRulesetVersion = "alpha-0.10.1"
+	TacticalRulesetVersion        = "alpha-0.10.2"
+	// LongDuelRulesetVersion é o duelo longo: Guarda com bônus simétrico ao
+	// Assalto, Vitalidade maior e relógio de pressão adiado. Ver ADR-035.
+	LongDuelRulesetVersion    = "alpha-0.11.0"
+	CompetitiveRulesetVersion = LongDuelRulesetVersion
+	ConfrontStartingVitality  = 30
+	ConfrontPowerBonus        = 4
+	ConfrontFirstTurnPenalty  = 2
+	ConfrontPressureStartTurn = 25
+	ConfrontPressureBaseLoss  = 2
+)
+
+// Parâmetros do duelo longo (ADR-035). Calibrados por varredura de simulação
+// para levar a partida da faixa de 12 rodadas para a faixa de 40, mantendo a
+// Guarda como jogada viável em vez de carta morta na mão.
+const (
+	LongDuelStartingVitality  = 56
+	LongDuelGuardBonus        = 3
+	LongDuelPressureStartTurn = 58
+	LongDuelPressureBaseLoss  = 2
+	// A compensação de iniciativa fica em zero: nesta calibragem o first-player
+	// já cai em 49,35% sem ela. A alavanca continua disponível e testada para
+	// futuras mudanças de ritmo.
+	LongDuelSecondPlayerDraw = 0
+	// Faixa de duração prometida pelo formato, verificada pelo gate: o teto
+	// impede arrastar, o piso impede voltar ao duelo de 12 rodadas.
+	LongDuelTargetP95Rounds    = 60
+	LongDuelTargetMinP50Rounds = 30
+	// Um terço do baralho responde: é a forma 10/10/10 dos precons, que é a
+	// que foi calibrada. Com o mínimo antigo de 8, baralhos montados livremente
+	// jogavam uma partida bem mais curta que a prometida.
+	LongDuelMinGuards = 10
+	// Uma Guarda comprometida nunca deixa passar mais que isto. Corrige o que
+	// um bônus fixo de Prevenção não alcança: a curva de Poder vai de 6 a 10,
+	// e sem teto a duração da partida passa a depender de quão agressivo é o
+	// baralho do rival em vez das decisões da mesa.
+	LongDuelGuardLeakCap = 1
+)
+
+// DeckSizeForVersion evita reinterpretar snapshots/decks de 36 cartas.
+func DeckSizeForVersion(version string) int {
+	if IsConfrontVersion(version) {
+		return ConfrontDeckSize
+	}
+	return DeckSize
+}
+
+func IsConfrontVersion(version string) bool {
+	rs, err := RulesetByVersion(version)
+	return err == nil && rs.IsConfront()
+}
+
+const (
+	VeilFractureStartRound = 25
+	VeilFractureBaseLoss   = 1
+)
 
 // Apply valida e aplica um comando. Comando ilegal retorna erro e não muta
 // nada. Retorna os eventos gerados por este comando.
@@ -152,6 +238,17 @@ func (g *Game) Apply(cmd Command) ([]Event, error) {
 		start := len(g.Log)
 		g.CommandLog = append(g.CommandLog, cmd)
 		g.endMatch(1-cmd.Player, reason)
+		return g.Log[start:], nil
+	}
+	if g.rs.IsConfront() {
+		start := len(g.Log)
+		if err := g.applyConfront(cmd); err != nil {
+			if len(g.Log) != start {
+				panic(fmt.Sprintf("engine: comando Confronto rejeitado após emitir eventos: %v", err))
+			}
+			return nil, err
+		}
+		g.CommandLog = append(g.CommandLog, cmd)
 		return g.Log[start:], nil
 	}
 	if s.Pending != nil {
@@ -191,9 +288,7 @@ func (g *Game) Apply(cmd Command) ([]Event, error) {
 	// pendente (ex.: retaliação que compra a carta que uma reordenação de
 	// topo segurava — VR-091 × VR-120, ADR-032). Opções apresentadas são
 	// sempre as vivas.
-	if g.s.Pending != nil {
-		g.refreshQueuedDecision(g.s.Pending)
-	}
+	g.settleInvalidPendingDecision()
 	g.CommandLog = append(g.CommandLog, cmd)
 	return g.Log[start:], nil
 }
@@ -367,6 +462,17 @@ func (g *Game) startRound() {
 	s.PlayedRound = s.PlayedRound[:0]
 	s.EclipseMovedRound = false
 
+	if s.Round >= VeilFractureStartRound {
+		loss := VeilFractureBaseLoss + s.Round - VeilFractureStartRound
+		for _, player := range []int{s.Initiative, 1 - s.Initiative} {
+			g.applyVitalityLossWithoutWinCheck(player, loss, "Ruptura do Véu", "", "")
+		}
+		g.checkWin()
+		if s.Over {
+			return
+		}
+	}
+
 	// Gatilhos de início de rodada de permanentes (ordem: iniciativa primeiro,
 	// Relíquias antes de Manifestações, na ordem em que entraram).
 	for _, i := range []int{s.Initiative, 1 - s.Initiative} {
@@ -427,7 +533,7 @@ func (g *Game) startTwilight() {
 		}
 		p.Curses = restC
 
-		if p.VeilRound == s.Round {
+		if p.VeilRound > 0 && p.VeilRound <= s.Round {
 			p.VeilRound = 0
 			g.emit(Event{Kind: EvStatusExpired, P: i, S: "Véu"})
 		}
@@ -500,12 +606,12 @@ func (g *Game) drawOne(player int) *CardInstance {
 	s := g.s
 	p := s.Players[player]
 	if len(p.Deck) == 0 {
-		// alpha-0.6.0: Fadiga em passos de 4 (4, 8, 12…) — a corrida de
+		// alpha-0.8.0: Fadiga em passos de 6 (6, 12, 18…) — a corrida de
 		// atrito era longa o bastante para passivas recorrentes dominarem o
 		// meta, e a rodada de sustain do ADR-029 esticou o fim de jogo;
-		// antes: passos de 2 (ADR-024). Campeões modulam o passo (Oren: -2),
+		// antes: passos de 2 (ADR-024). Campeões modulam o passo (Oren: -1),
 		// nunca abaixo de 1.
-		p.Fatigue += max(1, 4+champFatigueStepDelta(g, player))
+		p.Fatigue += max(1, 6+champFatigueStepDelta(g, player))
 		g.emit(Event{Kind: EvFatigue, P: player, N: p.Fatigue})
 		g.loseVitality(player, p.Fatigue, "Fadiga")
 		if s.Over {
@@ -861,6 +967,22 @@ func (g *Game) refreshQueuedDecision(d *Decision) bool {
 	return d.N > 0
 }
 
+// settleInvalidPendingDecision encerra uma decisão que já foi apresentada,
+// mas perdeu todas as opções durante a MESMA cadeia que a abriu. Exemplo:
+// uma Guarda compra e pede descarte; um gatilho posterior ativa a Recusa da
+// Morte de Kaedor e esvazia a mão. Manter a decisão aberta criaria um comando
+// impossível (escolher 1 entre zero opções) e travaria a partida.
+func (g *Game) settleInvalidPendingDecision() {
+	for !g.s.Over && g.s.Pending != nil && !g.refreshQueuedDecision(g.s.Pending) {
+		stale := g.s.Pending
+		g.s.Pending = nil
+		g.emit(Event{Kind: EvDecisionResolved, P: stale.Player, N: stale.ID, S: string(stale.Kind)})
+		g.runDecisionThen(stale, "")
+		g.promoteQueuedDecision()
+		g.finalizePendingRite()
+	}
+}
+
 func (g *Game) runDecisionThen(d *Decision, picked string) {
 	if len(d.Then) == 0 || g.s.Over {
 		return
@@ -982,6 +1104,7 @@ func (g *Game) discardFromHand(player int, id string) {
 
 func (g *Game) exileFromDiscard(player int, id string) {
 	p := g.s.Players[player]
+	firstExile := !p.ExiledRound
 	var ok bool
 	p.Discard, ok = removeID(p.Discard, id)
 	if !ok {
@@ -996,7 +1119,9 @@ func (g *Game) exileFromDiscard(player int, id string) {
 			pi.onExile(g, inst)
 		}
 	})
-	champOnExileSelf(g, player) // forma de Voren
+	if firstExile {
+		champOnExileSelf(g, player)
+	}
 }
 
 // --- Snapshot determinístico ---
@@ -1026,6 +1151,10 @@ func (g *Game) SnapshotJSON() ([]byte, error) {
 // Eventos e comandos devem representar exatamente o prefixo persistido junto
 // ao snapshot; o catch-up posterior continua passando por Apply.
 func RestoreSnapshot(cfg Config, snapshot []byte, events []Event, commands []Command) (*Game, error) {
+	rs, err := RulesetByVersion(cfg.RulesetVersion)
+	if err != nil {
+		return nil, err
+	}
 	type snap struct {
 		State *GameState      `json:"state"`
 		Cards []*CardInstance `json:"cards_sorted"`
@@ -1052,12 +1181,14 @@ func RestoreSnapshot(cfg Config, snapshot []byte, events []Event, commands []Com
 		}
 		cards[card.ID] = card
 	}
-	if len(cards) != DeckSize*2 {
-		return nil, fmt.Errorf("snapshot contém %d cartas; esperado %d", len(cards), DeckSize*2)
+	expectedCards := DeckSizeForVersion(cfg.RulesetVersion) * 2
+	if len(cards) != expectedCards {
+		return nil, fmt.Errorf("snapshot contém %d cartas; esperado %d", len(cards), expectedCards)
 	}
 	decoded.State.Cards = cards
 	return &Game{
 		Cfg:        cfg,
+		rs:         rs,
 		s:          decoded.State,
 		Log:        append([]Event{}, events...),
 		CommandLog: append([]Command{}, commands...),

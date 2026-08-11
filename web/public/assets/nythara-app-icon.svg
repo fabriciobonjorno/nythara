@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Ícone apocalíptico de Nythara</title>
+  <desc id="desc">Um eclipse de pedra fraturado por uma estrela incandescente.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="46%" r="70%"><stop offset="0" stop-color="#211614"/><stop offset=".54" stop-color="#0d0909"/><stop offset="1" stop-color="#040304"/></radialGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#555252"/><stop offset=".45" stop-color="#252425"/><stop offset="1" stop-color="#111011"/></linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="512" height="512" rx="90" fill="url(#bg)"/>
+  <g transform="translate(64 64) scale(6)">
+    <g fill="url(#stone)" stroke="#c8beb0" stroke-width="1.1" stroke-linejoin="bevel">
+      <path d="M29 4A28 28 0 0 0 5 27l15 2 8-11Z"/><path d="M35 4a28 28 0 0 1 24 23l-15 2-8-11Z"/>
+      <path d="M5 37a28 28 0 0 0 24 23l-1-14-8-11Z"/><path d="M59 37a28 28 0 0 1-24 23l1-14 8-11Z"/>
+    </g>
+    <path d="m11 18 10 4-4 6M45 10l-4 11 8 5M11 46l10-3 3 11M44 38l7 6-8 6" fill="none" stroke="#c64d18" stroke-width="1.25"/>
+    <path d="M32 10v17M32 37v17M21 32h8M35 32h8" fill="none" stroke="#ff6b1c" stroke-width="1.3" stroke-linecap="round" filter="url(#glow)"/>
+    <path d="m32 24 2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z" fill="#ff7b24" filter="url(#glow)"/>
+    <circle cx="32" cy="32" r="2.45" fill="#fff1cc"/>
+  </g>
+</svg>

@@ -10,7 +10,8 @@
     "sigil": "Presa",
     "rules_text": "Cause 2 de dano. Se você sacrificou Vitalidade nesta rodada, cause +1.",
     "flavor": "A elegância termina onde a fome começa.",
-    "design_role": "pressão"
+    "design_role": "pressão",
+    "set": 1
   },
   {
     "id": "VR-002",
@@ -23,7 +24,8 @@
     "sigil": "Coroa",
     "rules_text": "Sacrifique 2 de Vitalidade: compre 2 cartas, depois descarte 1.",
     "flavor": "Todo favor da Casa vence com juros.",
-    "design_role": "seleção de mão"
+    "design_role": "seleção de mão",
+    "set": 1
   },
   {
     "id": "VR-003",
@@ -36,7 +38,8 @@
     "sigil": "Presa",
     "rules_text": "Previna 3 de dano. Se prevenir todo o dano, cure 1.",
     "flavor": "O sangue derramado também pode ser muralha.",
-    "design_role": "defesa/dreno"
+    "design_role": "defesa/dreno",
+    "set": 1
   },
   {
     "id": "VR-004",
@@ -49,7 +52,8 @@
     "sigil": "Coroa",
     "rules_text": "A primeira vez por rodada que você curar, desloque o Eclipse 1 passo para a Noite.",
     "flavor": "A taça nunca esvazia; apenas muda de dono.",
-    "design_role": "motor"
+    "design_role": "motor",
+    "set": 1
   },
   {
     "id": "VR-005",
@@ -62,7 +66,8 @@
     "sigil": "Presa",
     "rules_text": "Cause 3 de dano. Ressonância Presa→Coroa: cure 2.",
     "flavor": "Sorrisos polidos, intenções antigas.",
-    "design_role": "combo"
+    "design_role": "combo",
+    "set": 1
   },
   {
     "id": "VR-006",
@@ -75,7 +80,8 @@
     "sigil": "Espelho",
     "rules_text": "Olhe 2 cartas aleatórias da mão do oponente. Escolha uma: ela custa +1 até o fim da próxima rodada.",
     "flavor": "A porta estava aberta antes mesmo de você chegar.",
-    "design_role": "disrupção"
+    "design_role": "disrupção",
+    "set": 1
   },
   {
     "id": "VR-007",
@@ -88,7 +94,8 @@
     "sigil": "Coroa",
     "rules_text": "Enquanto ativo, a primeira carta que exigir sacrifício de Vitalidade a cada rodada sacrifica 1 a menos.",
     "flavor": "Ele serve vinho, silêncio e álibis.",
-    "design_role": "suporte"
+    "design_role": "suporte",
+    "set": 1
   },
   {
     "id": "VR-008",
@@ -101,7 +108,8 @@
     "sigil": "Cinza",
     "rules_text": "Recupere um Assalto do descarte. Perca Vitalidade igual ao custo dele.",
     "flavor": "Algumas promessas sobrevivem aos prometidos.",
-    "design_role": "recursão"
+    "design_role": "recursão",
+    "set": 1
   },
   {
     "id": "VR-009",
@@ -114,7 +122,8 @@
     "sigil": "Presa",
     "rules_text": "Cause 2 de dano e aplique Sangramento 2.",
     "flavor": "O golpe é curto; a consequência, paciente.",
-    "design_role": "dano contínuo"
+    "design_role": "dano contínuo",
+    "set": 1
   },
   {
     "id": "VR-010",
@@ -127,7 +136,8 @@
     "sigil": "Espelho",
     "rules_text": "Ritos adversários que olhariam ou revelariam sua mão falham. Uma vez por rodada, quando isso ocorrer, desloque 1 para Noite.",
     "flavor": "Na Casa Vhal, reflexos são considerados testemunhas.",
-    "design_role": "anti-controle"
+    "design_role": "anti-controle",
+    "set": 1
   },
   {
     "id": "VR-011",
@@ -140,7 +150,8 @@
     "sigil": "Coroa",
     "rules_text": "Só pode ser jogada com Eclipse em +2 ou mais. Compre 3; até o fim da rodada, seus Assaltos custam 1 a menos.",
     "flavor": "Os antigos não deixam bens. Deixam apetites.",
-    "design_role": "explosão"
+    "design_role": "explosão",
+    "set": 1
   },
   {
     "id": "VR-012",
@@ -153,7 +164,8 @@
     "sigil": "Presa",
     "rules_text": "Cause 5 de dano. Eclipse Noturno: em vez disso, cause 7 e cure 3. Limite de 1 por deck.",
     "flavor": "O trono reconhece apenas quem sobrevive ao banquete.",
-    "design_role": "finalizador"
+    "design_role": "finalizador",
+    "set": 1
   },
   {
     "id": "VR-013",
@@ -164,9 +176,10 @@
     "cost": 1,
     "eclipse_shift": -1,
     "sigil": "Sol",
-    "rules_text": "Cause 2 de dano. Se o Eclipse estiver em 0 ou menor, cause +1.",
+    "rules_text": "Cause 2 de dano. Se o Eclipse estiver em -2 ou menor, cause +1.",
     "flavor": "A manhã também sabe ferir.",
-    "design_role": "pressão"
+    "design_role": "pressão",
+    "set": 1
   },
   {
     "id": "VR-014",
@@ -174,12 +187,13 @@
     "faction": "Ordem Solara",
     "type": "Guarda",
     "rarity": "Comum",
-    "cost": 1,
+    "cost": 2,
     "eclipse_shift": -1,
     "sigil": "Sol",
-    "rules_text": "Previna 4 de dano de um único Assalto.",
+    "rules_text": "Previna 3 de dano de um único Assalto.",
     "flavor": "A luz não precisa vencer; basta permanecer.",
-    "design_role": "defesa"
+    "design_role": "defesa",
+    "set": 1
   },
   {
     "id": "VR-015",
@@ -188,11 +202,12 @@
     "type": "Rito",
     "rarity": "Comum",
     "cost": 1,
-    "eclipse_shift": -1,
+    "eclipse_shift": 0,
     "sigil": "Coroa",
     "rules_text": "Aplique Exposto. O próximo dano que o alvo sofrer recebe +2, então remova Exposto.",
     "flavor": "Ninguém foge duas vezes do mesmo olhar.",
-    "design_role": "setup"
+    "design_role": "setup",
+    "set": 1
   },
   {
     "id": "VR-016",
@@ -205,7 +220,8 @@
     "sigil": "Sol",
     "rules_text": "A primeira Maldição que receber em cada rodada dura 1 rodada a menos.",
     "flavor": "Fé, aqui, é engenharia.",
-    "design_role": "anti-maldição"
+    "design_role": "anti-maldição",
+    "set": 1
   },
   {
     "id": "VR-017",
@@ -213,12 +229,13 @@
     "faction": "Ordem Solara",
     "type": "Guarda",
     "rarity": "Incomum",
-    "cost": 1,
+    "cost": 2,
     "eclipse_shift": -1,
     "sigil": "Espelho",
     "rules_text": "Previna 2. Se o Assalto tinha bônus de Ressonância, previna +2.",
     "flavor": "Conhecer o truque é metade da defesa.",
-    "design_role": "anti-combo"
+    "design_role": "anti-combo",
+    "set": 1
   },
   {
     "id": "VR-018",
@@ -227,11 +244,12 @@
     "type": "Rito",
     "rarity": "Incomum",
     "cost": 2,
-    "eclipse_shift": -1,
+    "eclipse_shift": 0,
     "sigil": "Espelho",
     "rules_text": "Revele a mão do oponente. Escolha um Assalto; ele não pode ser jogado nesta rodada.",
     "flavor": "A verdade fica menos convincente sob a primeira luz.",
-    "design_role": "controle"
+    "design_role": "controle",
+    "set": 1
   },
   {
     "id": "VR-019",
@@ -239,12 +257,13 @@
     "faction": "Ordem Solara",
     "type": "Manifestação",
     "rarity": "Rara",
-    "cost": 3,
+    "cost": 4,
     "eclipse_shift": -1,
     "sigil": "Sol",
     "rules_text": "Enquanto ativa, a primeira vez por rodada que você usar Guarda, ganhe Ward 1.",
     "flavor": "Ela nunca dorme antes do sino.",
-    "design_role": "suporte"
+    "design_role": "suporte",
+    "set": 1
   },
   {
     "id": "VR-020",
@@ -255,9 +274,10 @@
     "cost": 3,
     "eclipse_shift": -1,
     "sigil": "Sol",
-    "rules_text": "Cause 4 de dano. Ignora 2 pontos de Ward.",
+    "rules_text": "Cause 3 de dano. Ignora 1 ponto de Ward.",
     "flavor": "Feita para atravessar aquilo que jurou ser intocável.",
-    "design_role": "anti-ward"
+    "design_role": "anti-ward",
+    "set": 1
   },
   {
     "id": "VR-021",
@@ -270,7 +290,8 @@
     "sigil": "Coroa",
     "rules_text": "Até sua próxima rodada, Manifestações adversárias perdem seus textos passivos.",
     "flavor": "Há monstros que respeitam fronteiras.",
-    "design_role": "silêncio"
+    "design_role": "silêncio",
+    "set": 1
   },
   {
     "id": "VR-022",
@@ -278,12 +299,13 @@
     "faction": "Ordem Solara",
     "type": "Guarda",
     "rarity": "Épica",
-    "cost": 3,
-    "eclipse_shift": -2,
+    "cost": 4,
+    "eclipse_shift": -1,
     "sigil": "Sol",
-    "rules_text": "Previna todo o dano de um Assalto. Depois, o oponente compra 1 carta.",
+    "rules_text": "Previna 5 de dano de um Assalto. Depois, o oponente compra 1 carta.",
     "flavor": "Toda proteção cobra algo de alguém.",
-    "design_role": "hard defense"
+    "design_role": "hard defense",
+    "set": 1
   },
   {
     "id": "VR-023",
@@ -292,11 +314,12 @@
     "type": "Rito",
     "rarity": "Épica",
     "cost": 4,
-    "eclipse_shift": -2,
+    "eclipse_shift": -1,
     "sigil": "Coroa",
-    "rules_text": "Mova o Eclipse diretamente para -2. Remova Sangramento e uma Maldição de você.",
+    "rules_text": "Mova o Eclipse 1 passo para a Aurora. Remova Sangramento e uma Maldição de você.",
     "flavor": "O dia não pede licença.",
-    "design_role": "reset"
+    "design_role": "reset",
+    "set": 1
   },
   {
     "id": "VR-024",
@@ -309,7 +332,8 @@
     "sigil": "Sol",
     "rules_text": "Cause 5. Aurora Total: cause 7 e o oponente não pode usar Guarda contra este Assalto. Limite 1 por deck.",
     "flavor": "Ao meio-dia, não há sombra onde esconder um juramento.",
-    "design_role": "finalizador"
+    "design_role": "finalizador",
+    "set": 1
   },
   {
     "id": "VR-025",
@@ -320,9 +344,10 @@
     "cost": 1,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Cause 2. Se o último Sigilo desta rodada foi Sol ou Presa, cause +1.",
+    "rules_text": "Cause 3. Se o último Sigilo desta rodada foi Sol ou Presa, cause +2.",
     "flavor": "Toda certeza possui um ângulo morto.",
-    "design_role": "combo"
+    "design_role": "combo",
+    "set": 1
   },
   {
     "id": "VR-026",
@@ -335,7 +360,8 @@
     "sigil": "Espelho",
     "rules_text": "Olhe as 2 do topo; coloque uma na mão e outra no fundo.",
     "flavor": "O papel lembra futuros que ninguém escreveu.",
-    "design_role": "consistência"
+    "design_role": "consistência",
+    "set": 1
   },
   {
     "id": "VR-027",
@@ -346,9 +372,10 @@
     "cost": 1,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Previna 2. Se prevenir todo o dano, gere um Sigilo Espelho adicional para Ressonância.",
+    "rules_text": "Previna 4. Se prevenir todo o dano, gere um Sigilo Espelho adicional para Ressonância.",
     "flavor": "Refletir não é copiar. É escolher o que devolver.",
-    "design_role": "combo defense"
+    "design_role": "combo defense",
+    "set": 1
   },
   {
     "id": "VR-028",
@@ -356,12 +383,13 @@
     "faction": "Conclave Mirr",
     "type": "Relíquia",
     "rarity": "Incomum",
-    "cost": 2,
+    "cost": 1,
     "eclipse_shift": 0,
     "sigil": "Espelho",
     "rules_text": "Uma vez por rodada, ao jogar seu terceiro Sigilo diferente, compre 1 e descarte 1.",
     "flavor": "Nenhuma porta leva ao mesmo corredor duas vezes.",
-    "design_role": "engine"
+    "design_role": "engine",
+    "set": 1
   },
   {
     "id": "VR-029",
@@ -374,7 +402,8 @@
     "sigil": "Coroa",
     "rules_text": "Declare Assalto, Guarda ou Rito. Revele o topo do deck rival; se acertar, compre 1 e ela custa +1 ao rival neste ciclo.",
     "flavor": "A previsão é só memória olhando para frente.",
-    "design_role": "informação"
+    "design_role": "informação",
+    "set": 1
   },
   {
     "id": "VR-030",
@@ -382,12 +411,13 @@
     "faction": "Conclave Mirr",
     "type": "Manifestação",
     "rarity": "Rara",
-    "cost": 3,
+    "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Ao entrar, copie o Sigilo da última carta que você jogou. Enquanto ativo, conta como ambos para Ressonância.",
+    "rules_text": "Ao entrar, copie o Sigilo da última carta que você jogou e compre 1 carta. Enquanto ativo, conta como ambos para Ressonância.",
     "flavor": "Ele não imita seu rosto. Imita sua intenção.",
-    "design_role": "combo engine"
+    "design_role": "combo engine",
+    "set": 1
   },
   {
     "id": "VR-031",
@@ -398,9 +428,10 @@
     "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Cause 3. Se você tiver 3 Sigilos diferentes na Ressonância, cause 5 em vez disso.",
+    "rules_text": "Cause 4. Se você tiver 3 Sigilos diferentes na Ressonância, cause 7 em vez disso.",
     "flavor": "O padrão só existe até alguém entender onde quebrá-lo.",
-    "design_role": "payoff"
+    "design_role": "payoff",
+    "set": 1
   },
   {
     "id": "VR-032",
@@ -413,7 +444,8 @@
     "sigil": "Espelho",
     "rules_text": "Copie o texto base de uma Relíquia adversária até o início da sua próxima rodada; não copia nomes nem raridade.",
     "flavor": "Possuir é apenas uma forma lenta de copiar.",
-    "design_role": "cópia"
+    "design_role": "cópia",
+    "set": 1
   },
   {
     "id": "VR-033",
@@ -424,9 +456,10 @@
     "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Espelho",
-    "rules_text": "Previna 3 e ganhe Véu até o fim da rodada.",
+    "rules_text": "Previna 4 e ganhe Véu até o fim da próxima rodada.",
     "flavor": "Quando o mundo não encontra você, ele erra sozinho.",
-    "design_role": "proteção"
+    "design_role": "proteção",
+    "set": 1
   },
   {
     "id": "VR-034",
@@ -434,12 +467,13 @@
     "faction": "Conclave Mirr",
     "type": "Rito",
     "rarity": "Épica",
-    "cost": 4,
+    "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Espelho",
     "rules_text": "Escolha até 3 Sigilos diferentes já jogados nesta rodada; gere-os novamente para fins de Ressonância. Não dispara o mesmo combo duas vezes.",
     "flavor": "Sete fragmentos; nenhuma versão inocente.",
-    "design_role": "combo extender"
+    "design_role": "combo extender",
+    "set": 1
   },
   {
     "id": "VR-035",
@@ -452,7 +486,8 @@
     "sigil": "Coroa",
     "rules_text": "Anule um Rito que teria você como alvo. O oponente recupera metade do custo, arredondado para baixo.",
     "flavor": "Se aconteceu, não era esta realidade.",
-    "design_role": "counter"
+    "design_role": "counter",
+    "set": 1
   },
   {
     "id": "VR-036",
@@ -460,12 +495,13 @@
     "faction": "Conclave Mirr",
     "type": "Rito",
     "rarity": "Lendária",
-    "cost": 5,
+    "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Espelho",
     "rules_text": "Copie qualquer carta não-Lendária jogada nesta rodada e resolva a cópia. Limite 1 por deck.",
     "flavor": "Os sete espelhos mostram você. O oitavo mostra o que você poderia ter feito.",
-    "design_role": "swing"
+    "design_role": "swing",
+    "set": 1
   },
   {
     "id": "VR-037",
@@ -478,7 +514,8 @@
     "sigil": "Garra",
     "rules_text": "Cause 2. Se este for seu segundo Assalto na rodada, cause +2.",
     "flavor": "A primeira ferida mede distância. A segunda encerra a discussão.",
-    "design_role": "aggro"
+    "design_role": "aggro",
+    "set": 1
   },
   {
     "id": "VR-038",
@@ -491,7 +528,8 @@
     "sigil": "Garra",
     "rules_text": "Previna 2. Seu próximo Assalto nesta rodada custa 1 a menos.",
     "flavor": "Sobreviver é preparar o próximo salto.",
-    "design_role": "tempo"
+    "design_role": "tempo",
+    "set": 1
   },
   {
     "id": "VR-039",
@@ -504,7 +542,8 @@
     "sigil": "Garra",
     "rules_text": "Se o oponente tiver 15 ou menos de Vitalidade, compre 1. Caso contrário, aplique Exposto.",
     "flavor": "A floresta sente antes de você admitir.",
-    "design_role": "setup"
+    "design_role": "setup",
+    "set": 1
   },
   {
     "id": "VR-040",
@@ -517,7 +556,8 @@
     "sigil": "Coroa",
     "rules_text": "Seu segundo Sigilo Garra por rodada gera +1 Ressonância.",
     "flavor": "As marcas não pedem tradução.",
-    "design_role": "engine"
+    "design_role": "engine",
+    "set": 1
   },
   {
     "id": "VR-041",
@@ -530,7 +570,8 @@
     "sigil": "Garra",
     "rules_text": "Cause 3. Se o Eclipse estiver em -1 ou menor, mova 1 para Noite após resolver.",
     "flavor": "A Matilha chama de noite aquilo que ainda não escureceu.",
-    "design_role": "shift"
+    "design_role": "shift",
+    "set": 1
   },
   {
     "id": "VR-042",
@@ -543,7 +584,8 @@
     "sigil": "Garra",
     "rules_text": "Previna 3. Se você sofreu dano nesta rodada, previna 5 em vez disso.",
     "flavor": "Cicatrizes são armaduras que aprenderam seu nome.",
-    "design_role": "defesa"
+    "design_role": "defesa",
+    "set": 1
   },
   {
     "id": "VR-043",
@@ -556,7 +598,8 @@
     "sigil": "Garra",
     "rules_text": "Uma vez por rodada, depois de você jogar um Assalto de custo 1, ele deixa um Sigilo Garra extra.",
     "flavor": "Ela chega antes do eco.",
-    "design_role": "combo"
+    "design_role": "combo",
+    "set": 1
   },
   {
     "id": "VR-044",
@@ -564,12 +607,13 @@
     "faction": "Matilha Varka",
     "type": "Assalto",
     "rarity": "Rara",
-    "cost": 3,
+    "cost": 4,
     "eclipse_shift": 1,
     "sigil": "Garra",
-    "rules_text": "Cause 1 três vezes. Cada instância é resolvida separadamente contra Ward.",
+    "rules_text": "Cause 2 três vezes. Cada instância é resolvida separadamente contra Ward.",
     "flavor": "O alvo ouve três passos. O quarto já é tarde.",
-    "design_role": "multi-hit"
+    "design_role": "multi-hit",
+    "set": 1
   },
   {
     "id": "VR-045",
@@ -582,7 +626,8 @@
     "sigil": "Coroa",
     "rules_text": "Até o fim da rodada, Assaltos custam 1 a menos, mas você sofre 1 após cada Assalto.",
     "flavor": "Toda força emprestada cobra no corpo.",
-    "design_role": "burst"
+    "design_role": "burst",
+    "set": 1
   },
   {
     "id": "VR-046",
@@ -595,7 +640,8 @@
     "sigil": "Garra",
     "rules_text": "Destrua uma Relíquia. Se ela custava 3 ou mais, cause 2 de dano ao controlador.",
     "flavor": "Algumas portas devem aprender a ter medo.",
-    "design_role": "removal"
+    "design_role": "removal",
+    "set": 1
   },
   {
     "id": "VR-047",
@@ -608,7 +654,8 @@
     "sigil": "Garra",
     "rules_text": "Cause 4. Ressonância Garra→Garra→qualquer: abra uma janela extra de Assalto que aceita apenas custo 2 ou menos.",
     "flavor": "A presa corre em linha reta. O predador, não.",
-    "design_role": "combo payoff"
+    "design_role": "combo payoff",
+    "set": 1
   },
   {
     "id": "VR-048",
@@ -621,7 +668,8 @@
     "sigil": "Garra",
     "rules_text": "No Eclipse Noturno, uma vez por rodada, seu primeiro Assalto resolvido retorna à mão no fim da rodada e custa +1 na próxima vez. Limite 1 por deck.",
     "flavor": "A lua não ordena. Ela lembra.",
-    "design_role": "engine finisher"
+    "design_role": "engine finisher",
+    "set": 1
   },
   {
     "id": "VR-049",
@@ -634,7 +682,8 @@
     "sigil": "Cinza",
     "rules_text": "Descarte 1 carta; compre 2.",
     "flavor": "Conhecimento bom deixa resíduos.",
-    "design_role": "loot"
+    "design_role": "loot",
+    "set": 1
   },
   {
     "id": "VR-050",
@@ -645,9 +694,10 @@
     "cost": 1,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Cause 2. Se uma carta sua foi exilada nesta rodada, cause +1.",
+    "rules_text": "Cause 2. Se uma carta sua foi exilada nesta rodada, cause +2.",
     "flavor": "O fogo levou o metal. Sobrou a intenção.",
-    "design_role": "pressure"
+    "design_role": "pressure",
+    "set": 1
   },
   {
     "id": "VR-051",
@@ -660,7 +710,8 @@
     "sigil": "Cinza",
     "rules_text": "Previna 3. Depois, você pode exilar esta carta do descarte para curar 1.",
     "flavor": "Não é cura. É adiamento.",
-    "design_role": "value"
+    "design_role": "value",
+    "set": 1
   },
   {
     "id": "VR-052",
@@ -673,7 +724,8 @@
     "sigil": "Cinza",
     "rules_text": "A primeira vez por rodada que uma carta sua for exilada, olhe a carta do topo; pode colocá-la no descarte.",
     "flavor": "Nada some. Apenas muda de prateleira.",
-    "design_role": "engine"
+    "design_role": "engine",
+    "set": 1
   },
   {
     "id": "VR-053",
@@ -684,9 +736,10 @@
     "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Aplique Maldição: no fim da próxima rodada do alvo, ele sofre 2 se tiver 5+ cartas na mão.",
+    "rules_text": "Aplique Maldição: no fim da próxima rodada do alvo, ele sofre 3 se tiver 5+ cartas na mão.",
     "flavor": "Pensar demais também intoxica.",
-    "design_role": "curse"
+    "design_role": "curse",
+    "set": 1
   },
   {
     "id": "VR-054",
@@ -699,7 +752,8 @@
     "sigil": "Cinza",
     "rules_text": "Quando entrar, Recupere uma carta de custo 1 do descarte.",
     "flavor": "Ele chama de matéria-prima aquilo que todos chamam de ruína.",
-    "design_role": "recursion"
+    "design_role": "recursion",
+    "set": 1
   },
   {
     "id": "VR-055",
@@ -710,9 +764,10 @@
     "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Exile uma carta do seu descarte: cause 4. Se era um Rito, desloque o Eclipse 1 na direção que escolher.",
+    "rules_text": "Exile uma carta do seu descarte: cause 5. Se era um Rito, desloque o Eclipse 1 na direção que escolher.",
     "flavor": "A fórmula é simples. O laboratório, descartável.",
-    "design_role": "flexible damage"
+    "design_role": "flexible damage",
+    "set": 1
   },
   {
     "id": "VR-056",
@@ -725,7 +780,8 @@
     "sigil": "Coroa",
     "rules_text": "Previna 3. A carta de Guarda vai para sua mão em vez do descarte; ela custa +1 até ser jogada.",
     "flavor": "Nada se perde; tudo fica mais caro.",
-    "design_role": "recurring defense"
+    "design_role": "recurring defense",
+    "set": 1
   },
   {
     "id": "VR-057",
@@ -738,7 +794,8 @@
     "sigil": "Espelho",
     "rules_text": "Escolha uma carta no descarte rival. Até o fim da rodada, cartas com o mesmo tipo custam +1 para ele.",
     "flavor": "O fracasso é mais útil quando catalogado.",
-    "design_role": "tax"
+    "design_role": "tax",
+    "set": 1
   },
   {
     "id": "VR-058",
@@ -746,12 +803,13 @@
     "faction": "Sínodo Cinéreo",
     "type": "Relíquia",
     "rarity": "Épica",
-    "cost": 4,
+    "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Uma vez por rodada, exile 2 cartas do seu descarte: ganhe 2 Essências temporárias.",
+    "rules_text": "Uma vez por rodada, exile 1 carta do seu descarte: ganhe 2 Essências temporárias.",
     "flavor": "O fogo morreu. A máquina não percebeu.",
-    "design_role": "resource engine"
+    "design_role": "resource engine",
+    "set": 1
   },
   {
     "id": "VR-059",
@@ -759,12 +817,13 @@
     "faction": "Sínodo Cinéreo",
     "type": "Rito",
     "rarity": "Épica",
-    "cost": 4,
+    "cost": 2,
     "eclipse_shift": 0,
     "sigil": "Cinza",
     "rules_text": "Recupere 2 cartas diferentes do descarte; descarte 1 carta para cada carta recuperada.",
     "flavor": "O morto responde quando a pergunta é cara o bastante.",
-    "design_role": "recursion"
+    "design_role": "recursion",
+    "set": 1
   },
   {
     "id": "VR-060",
@@ -772,12 +831,13 @@
     "faction": "Sínodo Cinéreo",
     "type": "Rito",
     "rarity": "Lendária",
-    "cost": 5,
+    "cost": 3,
     "eclipse_shift": 0,
     "sigil": "Cinza",
-    "rules_text": "Exile seu descarte. Para cada 4 cartas exiladas, escolha um: cause 2, cure 2 ou compre 1 (máx. 3 escolhas). Limite 1 por deck.",
+    "rules_text": "Exile seu descarte. Para cada 3 cartas exiladas, escolha um: cause 2, cure 2 ou compre 1 (máx. 3 escolhas). Limite 1 por deck.",
     "flavor": "No fim, toda ciência é uma escolha sobre o que sacrificar.",
-    "design_role": "finisher"
+    "design_role": "finisher",
+    "set": 1
   },
   {
     "id": "VR-061",
@@ -790,7 +850,8 @@
     "sigil": "Coroa",
     "rules_text": "Cause 2. Contra Manifestação ativa, cause +1 ao controlador.",
     "flavor": "Nem toda lenda precisa estar correta para ser útil.",
-    "design_role": "utility"
+    "design_role": "utility",
+    "set": 1
   },
   {
     "id": "VR-062",
@@ -803,7 +864,8 @@
     "sigil": "Coroa",
     "rules_text": "Previna 2. Se você tiver menos cartas na mão que o oponente, compre 1 e depois descarte 1.",
     "flavor": "O sobrevivente não corre; escolhe a distância.",
-    "design_role": "filter"
+    "design_role": "filter",
+    "set": 1
   },
   {
     "id": "VR-063",
@@ -816,7 +878,8 @@
     "sigil": "Espelho",
     "rules_text": "Olhe as 3 do topo e reordene-as.",
     "flavor": "A cidade muda. O mapa registra as cicatrizes.",
-    "design_role": "consistency"
+    "design_role": "consistency",
+    "set": 1
   },
   {
     "id": "VR-064",
@@ -829,7 +892,8 @@
     "sigil": "Sol",
     "rules_text": "Uma vez por rodada, quando uma Maldição for aplicada a você, desloque 1 para Aurora.",
     "flavor": "A chama é pequena porque a noite é grande.",
-    "design_role": "tech"
+    "design_role": "tech",
+    "set": 1
   },
   {
     "id": "VR-065",
@@ -842,7 +906,8 @@
     "sigil": "Coroa",
     "rules_text": "No início da rodada, se o Eclipse estiver em 0, ganhe 1 Essência temporária.",
     "flavor": "Cara, coroa ou algo entre as duas.",
-    "design_role": "resource"
+    "design_role": "resource",
+    "set": 1
   },
   {
     "id": "VR-066",
@@ -855,7 +920,8 @@
     "sigil": "Coroa",
     "rules_text": "Compre 2 e revele-as. O oponente escolhe uma para você descartar.",
     "flavor": "Todo acordo revela quem realmente tinha escolha.",
-    "design_role": "card advantage"
+    "design_role": "card advantage",
+    "set": 1
   },
   {
     "id": "VR-067",
@@ -868,7 +934,8 @@
     "sigil": "Espelho",
     "rules_text": "Remova Véu de um alvo; ele fica Exposto.",
     "flavor": "O invisível ainda deixa pegadas.",
-    "design_role": "tech"
+    "design_role": "tech",
+    "set": 1
   },
   {
     "id": "VR-068",
@@ -881,7 +948,8 @@
     "sigil": "Coroa",
     "rules_text": "Mova o Eclipse 1 para Noite. Compre 1 se isso cruzar o ponto 0.",
     "flavor": "Toda mudança de noite começa parecendo pequena.",
-    "design_role": "shift"
+    "design_role": "shift",
+    "set": 1
   },
   {
     "id": "VR-069",
@@ -894,7 +962,8 @@
     "sigil": "Coroa",
     "rules_text": "Mova o Eclipse 1 para Aurora. Ganhe Ward 1 se isso cruzar o ponto 0.",
     "flavor": "O som chega antes da luz.",
-    "design_role": "shift"
+    "design_role": "shift",
+    "set": 1
   },
   {
     "id": "VR-070",
@@ -907,7 +976,8 @@
     "sigil": "Presa",
     "rules_text": "A primeira vez por rodada que você causar exatamente 2 de dano, cause +1.",
     "flavor": "Ninguém sabe de quem eram. Todos sabem para que servem.",
-    "design_role": "damage engine"
+    "design_role": "damage engine",
+    "set": 1
   },
   {
     "id": "VR-071",
@@ -920,7 +990,8 @@
     "sigil": "Coroa",
     "rules_text": "Previna 4. Se uma Relíquia sua foi destruída nesta rodada, previna 6.",
     "flavor": "Árvores também aprendem a guardar rancor.",
-    "design_role": "defense"
+    "design_role": "defense",
+    "set": 1
   },
   {
     "id": "VR-072",
@@ -933,7 +1004,8 @@
     "sigil": "Coroa",
     "rules_text": "Uma vez por rodada, descarte 1: sua próxima carta neutra custa 1 a menos.",
     "flavor": "Ele vende aquilo que ainda não decidiu roubar.",
-    "design_role": "neutral engine"
+    "design_role": "neutral engine",
+    "set": 1
   },
   {
     "id": "VR-073",
@@ -946,7 +1018,8 @@
     "sigil": "Garra",
     "rules_text": "Quando o oponente comprar sua segunda carta numa rodada, cause 1 de dano.",
     "flavor": "Ele rosna para possibilidades.",
-    "design_role": "punisher"
+    "design_role": "punisher",
+    "set": 1
   },
   {
     "id": "VR-074",
@@ -959,7 +1032,8 @@
     "sigil": "Sol",
     "rules_text": "Ao entrar, remova uma Maldição de qualquer jogador. Se removeu do oponente, compre 1.",
     "flavor": "Alguns registros absolvem; outros condenam.",
-    "design_role": "utility"
+    "design_role": "utility",
+    "set": 1
   },
   {
     "id": "VR-075",
@@ -972,7 +1046,8 @@
     "sigil": "Espelho",
     "rules_text": "Previna 3. Depois, você pode trocar a posição do Eclipse com seu oposto (+2 vira -2 etc.).",
     "flavor": "Atravessar muda mais do que o lado do rio.",
-    "design_role": "eclipse trick"
+    "design_role": "eclipse trick",
+    "set": 1
   },
   {
     "id": "VR-076",
@@ -985,7 +1060,8 @@
     "sigil": "Coroa",
     "rules_text": "No fim de cada rodada em que o Eclipse não se moveu, mova 1 na direção escolhida pelo jogador com menos Vitalidade.",
     "flavor": "Ele não mede tempo. Mede vantagem.",
-    "design_role": "catch-up"
+    "design_role": "catch-up",
+    "set": 1
   },
   {
     "id": "VR-077",
@@ -998,7 +1074,8 @@
     "sigil": "Coroa",
     "rules_text": "Escolha um Sigilo. Até o fim da rodada, suas cartas neutras também geram esse Sigilo.",
     "flavor": "Quem não tem casa aprende todos os sotaques.",
-    "design_role": "combo"
+    "design_role": "combo",
+    "set": 1
   },
   {
     "id": "VR-078",
@@ -1011,7 +1088,8 @@
     "sigil": "Cinza",
     "rules_text": "Previna 4. Se o ataque foi o segundo Assalto da rodada, encerre a janela de Assalto atual.",
     "flavor": "A fera percebe a corrente depois do salto.",
-    "design_role": "anti-burst"
+    "design_role": "anti-burst",
+    "set": 1
   },
   {
     "id": "VR-079",
@@ -1024,7 +1102,8 @@
     "sigil": "Coroa",
     "rules_text": "No início de cada rodada, se o Eclipse estiver em +2 ou -2, mova-o para 0 e cada jogador compra 1. Limite 1 por deck.",
     "flavor": "Ele toca o sino quando ambos os lados acreditam ter vencido.",
-    "design_role": "reset engine"
+    "design_role": "reset engine",
+    "set": 1
   },
   {
     "id": "VR-080",
@@ -1037,6 +1116,707 @@
     "sigil": "Coroa",
     "rules_text": "Se o Medidor estiver em +2 ou -2, avance para o Eclipse Total correspondente. Após o evento, seu oponente compra 2. Limite 1 por deck.",
     "flavor": "Quando ninguém viu o céu escurecer, todos inventaram uma causa.",
-    "design_role": "eclipse finisher"
+    "design_role": "eclipse finisher",
+    "set": 1
+  },
+  {
+    "id": "VR-081",
+    "name": "Navalha de Vésper",
+    "faction": "Casa Vhal",
+    "type": "Assalto",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": 1,
+    "sigil": "Presa",
+    "rules_text": "Cause 2 de dano. Se você sacrificou Vitalidade nesta rodada, aplique Sangramento 1.",
+    "flavor": "A noite afia o que o dia não ousa segurar.",
+    "design_role": "pressão com sangue",
+    "set": 2
+  },
+  {
+    "id": "VR-082",
+    "name": "Gole da Víspera",
+    "faction": "Casa Vhal",
+    "type": "Rito",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": 1,
+    "sigil": "Coroa",
+    "rules_text": "Sacrifique 1 de Vitalidade: cause 2 de dano e cure 1.",
+    "flavor": "Beber primeiro, perguntar depois — etiqueta da Casa.",
+    "design_role": "troca de vida",
+    "set": 2
+  },
+  {
+    "id": "VR-083",
+    "name": "Muro de Vísceras",
+    "faction": "Casa Vhal",
+    "type": "Guarda",
+    "rarity": "Comum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Presa",
+    "rules_text": "Previna 3. Se prevenir todo o dano, o oponente perde 1 de Vitalidade.",
+    "flavor": "A muralha também tem fome.",
+    "design_role": "defesa que morde",
+    "set": 2
+  },
+  {
+    "id": "VR-084",
+    "name": "Cripta que Respira",
+    "faction": "Casa Vhal",
+    "type": "Manifestação",
+    "rarity": "Incomum",
+    "cost": 2,
+    "eclipse_shift": 1,
+    "sigil": "Coroa",
+    "rules_text": "Ao entrar: aplique Sangramento 1. No Eclipse Noturno, no início da rodada: cause 1 de dano.",
+    "flavor": "Há pedras que inspiram. Esta expira.",
+    "design_role": "motor noturno",
+    "set": 2
+  },
+  {
+    "id": "VR-085",
+    "name": "Ladainha Rubra",
+    "faction": "Casa Vhal",
+    "type": "Rito",
+    "rarity": "Incomum",
+    "cost": 2,
+    "eclipse_shift": 1,
+    "sigil": "Presa",
+    "rules_text": "Sacrifique 2 de Vitalidade: compre 1 e aplique Maldição 2.",
+    "flavor": "Cada verso custa uma gota; o refrão custa o resto.",
+    "design_role": "carta + maldição",
+    "set": 2
+  },
+  {
+    "id": "VR-086",
+    "name": "Presa que Não Erra",
+    "faction": "Casa Vhal",
+    "type": "Assalto",
+    "rarity": "Rara",
+    "cost": 3,
+    "eclipse_shift": 1,
+    "sigil": "Presa",
+    "rules_text": "Cause 3 de dano. Com o Eclipse em +2 ou mais, este Assalto é indefensável.",
+    "flavor": "Sob a lua certa, não existe escudo — existe atraso.",
+    "design_role": "finisher noturno",
+    "set": 2
+  },
+  {
+    "id": "VR-087",
+    "name": "Pacto do Limiar",
+    "faction": "Casa Vhal",
+    "type": "Guarda",
+    "rarity": "Rara",
+    "cost": 3,
+    "eclipse_shift": 0,
+    "sigil": "Coroa",
+    "rules_text": "Previna 4. Depois, perca 1 de Vitalidade e compre 1.",
+    "flavor": "Toda porta da Casa cobra pedágio dos dois lados.",
+    "design_role": "muralha com juros",
+    "set": 2
+  },
+  {
+    "id": "VR-088",
+    "name": "Trono de Espinhos",
+    "faction": "Casa Vhal",
+    "type": "Relíquia",
+    "rarity": "Épica",
+    "cost": 4,
+    "eclipse_shift": 2,
+    "sigil": "Coroa",
+    "rules_text": "Ativada (1/rodada) — descarte 1 carta: cause 2 de dano e perca 1 de Vitalidade.",
+    "flavor": "Sentar é fácil. Levantar é que são elas.",
+    "design_role": "canhão ativável",
+    "set": 2
+  },
+  {
+    "id": "VR-089",
+    "name": "Lança do Prisma",
+    "faction": "Ordem Solara",
+    "type": "Assalto",
+    "rarity": "Comum",
+    "cost": 2,
+    "eclipse_shift": -1,
+    "sigil": "Sol",
+    "rules_text": "Cause 2 de dano. Se o oponente tiver 5 ou mais cartas na mão, cause +2.",
+    "flavor": "A luz pesa mais sobre quem acumula sombras.",
+    "design_role": "punição de acúmulo",
+    "set": 2
+  },
+  {
+    "id": "VR-090",
+    "name": "Édito Matinal",
+    "faction": "Ordem Solara",
+    "type": "Rito",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": -1,
+    "sigil": "Sol",
+    "rules_text": "Compre 1. Com o Eclipse em -1 ou menos, ganhe Ward 1.",
+    "flavor": "O primeiro decreto do dia dispensa tinta.",
+    "design_role": "fluxo de aurora",
+    "set": 2
+  },
+  {
+    "id": "VR-091",
+    "name": "Véspera Vigiada",
+    "faction": "Ordem Solara",
+    "type": "Guarda",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": -1,
+    "sigil": "Sol",
+    "rules_text": "Previna 2. Depois, olhe as 2 cartas do topo do seu baralho e reordene-as.",
+    "flavor": "Quem vigia a noite escolhe o amanhã.",
+    "design_role": "defesa com seleção",
+    "set": 2
+  },
+  {
+    "id": "VR-092",
+    "name": "Interdito Dourado",
+    "faction": "Ordem Solara",
+    "type": "Guarda",
+    "rarity": "Incomum",
+    "cost": 3,
+    "eclipse_shift": -1,
+    "sigil": "Sol",
+    "rules_text": "Reação: anule um Rito direcionado a você.",
+    "flavor": "A Ordem não discute heresias. Arquiva.",
+    "design_role": "counter solara",
+    "set": 2
+  },
+  {
+    "id": "VR-093",
+    "name": "Tribunal do Alvor",
+    "faction": "Ordem Solara",
+    "type": "Manifestação",
+    "rarity": "Incomum",
+    "cost": 3,
+    "eclipse_shift": -1,
+    "sigil": "Sol",
+    "rules_text": "Sempre que você jogar uma Guarda (1/rodada), cure 1.",
+    "flavor": "Cada sentença justa fecha uma ferida.",
+    "design_role": "sustain de muralha",
+    "set": 2
+  },
+  {
+    "id": "VR-094",
+    "name": "Inquérito Solar",
+    "faction": "Ordem Solara",
+    "type": "Rito",
+    "rarity": "Rara",
+    "cost": 2,
+    "eclipse_shift": -1,
+    "sigil": "Sol",
+    "rules_text": "Ganhe Ward 2. Se o oponente controlar Manifestações, elas perdem seus textos até sua próxima rodada.",
+    "flavor": "Perguntas ao meio-dia não deixam onde se esconder.",
+    "design_role": "escudo + supressão",
+    "set": 2
+  },
+  {
+    "id": "VR-095",
+    "name": "Selo do Meio-Dia",
+    "faction": "Ordem Solara",
+    "type": "Relíquia",
+    "rarity": "Rara",
+    "cost": 2,
+    "eclipse_shift": -1,
+    "sigil": "Sol",
+    "rules_text": "Sempre que você emitir um Sigilo Sol (1/rodada), ganhe Ward 1.",
+    "flavor": "O sol a pino não projeta dúvida.",
+    "design_role": "motor de ward",
+    "set": 2
+  },
+  {
+    "id": "VR-096",
+    "name": "Juízo do Primeiro Sol",
+    "faction": "Ordem Solara",
+    "type": "Assalto",
+    "rarity": "Épica",
+    "cost": 5,
+    "eclipse_shift": -2,
+    "sigil": "Sol",
+    "rules_text": "Exile esta carta ao jogá-la. Cause 5 de dano, depois cure 2.",
+    "flavor": "Alguns vereditos só podem ser lidos uma vez.",
+    "design_role": "bomba única",
+    "set": 2
+  },
+  {
+    "id": "VR-097",
+    "name": "Reflexo Emprestado",
+    "faction": "Conclave Mirr",
+    "type": "Rito",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Escolha 1 Sigilo já jogado nesta rodada; gere-o novamente para fins de Ressonância.",
+    "flavor": "Devolva quando lembrar de quem era.",
+    "design_role": "eco barato",
+    "set": 2
+  },
+  {
+    "id": "VR-098",
+    "name": "Estilhaço Gêmeo",
+    "faction": "Conclave Mirr",
+    "type": "Assalto",
+    "rarity": "Comum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Cause 1 de dano duas vezes. Se o último Sigilo global da rodada for Espelho, a primeira instância causa +2.",
+    "flavor": "Dois cortes, um reflexo, nenhuma desculpa.",
+    "design_role": "multi-hit de trilha",
+    "set": 2
+  },
+  {
+    "id": "VR-099",
+    "name": "Vidro Paciente",
+    "faction": "Conclave Mirr",
+    "type": "Guarda",
+    "rarity": "Comum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Previna 2. Se você tiver menos cartas na mão que o oponente, compre 1.",
+    "flavor": "O vidro espera. É o rosto que envelhece.",
+    "design_role": "defesa com paridade",
+    "set": 2
+  },
+  {
+    "id": "VR-100",
+    "name": "Câmara de Ecos",
+    "faction": "Conclave Mirr",
+    "type": "Manifestação",
+    "rarity": "Incomum",
+    "cost": 3,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Com 3 ou mais Sigilos distintos na sua Trilha, ao emitir um Sigilo (1/rodada): ganhe 1 Essência temporária.",
+    "flavor": "Cada voz que entra sai com juros.",
+    "design_role": "motor de cadeia",
+    "set": 2
+  },
+  {
+    "id": "VR-101",
+    "name": "Espelho Reverso",
+    "faction": "Conclave Mirr",
+    "type": "Rito",
+    "rarity": "Incomum",
+    "cost": 3,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Emita 1 Sigilo à sua escolha. Se o Sigilo anterior da sua Trilha for Espelho, compre 1.",
+    "flavor": "Alguns reflexos chegam antes do corpo.",
+    "design_role": "sigilo curinga",
+    "set": 2
+  },
+  {
+    "id": "VR-102",
+    "name": "Quebra-Reflexo",
+    "faction": "Conclave Mirr",
+    "type": "Assalto",
+    "rarity": "Rara",
+    "cost": 4,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Cause 4 de dano. Ressonância — se sua Trilha tiver exatamente 2 Espelhos, cause 6 em vez disso.",
+    "flavor": "O espelho não quebra: escolhe um lado.",
+    "design_role": "payoff de trilha",
+    "set": 2
+  },
+  {
+    "id": "VR-103",
+    "name": "Contorno Impossível",
+    "faction": "Conclave Mirr",
+    "type": "Guarda",
+    "rarity": "Rara",
+    "cost": 3,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Previna 4. A carta volta à sua mão em vez do descarte; ela custa +1 até ser jogada.",
+    "flavor": "Ninguém atravessa o mesmo vidro duas vezes. Quase.",
+    "design_role": "muralha recorrente",
+    "set": 2
+  },
+  {
+    "id": "VR-104",
+    "name": "Sala dos Sete Retratos",
+    "faction": "Conclave Mirr",
+    "type": "Relíquia",
+    "rarity": "Épica",
+    "cost": 4,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Ao entrar: escolha até 2 Sigilos já jogados nesta rodada e gere-os novamente. Com 4+ Sigilos distintos na Trilha, ao emitir um Sigilo (1/rodada): compre 1.",
+    "flavor": "Sete molduras, nenhum rosto repetido.",
+    "design_role": "turbina de tríade",
+    "set": 2
+  },
+  {
+    "id": "VR-105",
+    "name": "Mordida Dupla",
+    "faction": "Matilha Varka",
+    "type": "Assalto",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": 1,
+    "sigil": "Garra",
+    "rules_text": "Cause 1 de dano duas vezes.",
+    "flavor": "Uma presa avisa. A outra cobra.",
+    "design_role": "flood barato",
+    "set": 2
+  },
+  {
+    "id": "VR-106",
+    "name": "Chamado da Fenda",
+    "faction": "Matilha Varka",
+    "type": "Rito",
+    "rarity": "Comum",
+    "cost": 2,
+    "eclipse_shift": 1,
+    "sigil": "Garra",
+    "rules_text": "Abra uma janela extra de Assalto que aceita apenas cartas de custo 2 ou menos.",
+    "flavor": "Quando a fenda uiva, a matilha responde em coro.",
+    "design_role": "janela extra",
+    "set": 2
+  },
+  {
+    "id": "VR-107",
+    "name": "Pele Fechada",
+    "faction": "Matilha Varka",
+    "type": "Guarda",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": 0,
+    "sigil": "Garra",
+    "rules_text": "Previna 2. Se você já sofreu dano nesta rodada, previna 4 em vez disso.",
+    "flavor": "A segunda mordida encontra couro, não carne.",
+    "design_role": "defesa reativa",
+    "set": 2
+  },
+  {
+    "id": "VR-108",
+    "name": "Matilha à Espreita",
+    "faction": "Matilha Varka",
+    "type": "Manifestação",
+    "rarity": "Incomum",
+    "cost": 2,
+    "eclipse_shift": 1,
+    "sigil": "Garra",
+    "rules_text": "Quando um Assalto seu de custo 2 ou menos resolver (1/rodada): cause 1 de dano.",
+    "flavor": "O bote que você viu nunca é o último.",
+    "design_role": "motor de flood",
+    "set": 2
+  },
+  {
+    "id": "VR-109",
+    "name": "Salto Sincronizado",
+    "faction": "Matilha Varka",
+    "type": "Assalto",
+    "rarity": "Incomum",
+    "cost": 3,
+    "eclipse_shift": 1,
+    "sigil": "Garra",
+    "rules_text": "Cause 3 de dano. Se este for o seu 2º Assalto na rodada, cause +2.",
+    "flavor": "Dois corpos, uma sombra.",
+    "design_role": "ritmo de alcateia",
+    "set": 2
+  },
+  {
+    "id": "VR-110",
+    "name": "Uivo de Duas Luas",
+    "faction": "Matilha Varka",
+    "type": "Rito",
+    "rarity": "Rara",
+    "cost": 3,
+    "eclipse_shift": 2,
+    "sigil": "Garra",
+    "rules_text": "Mova o Eclipse 2 para a Noite. Se ele ficar em +2 ou mais, ganhe 1 Essência temporária.",
+    "flavor": "Quando as duas luas respondem, a caçada é lei.",
+    "design_role": "empurrão noturno",
+    "set": 2
+  },
+  {
+    "id": "VR-111",
+    "name": "Contra-Bote",
+    "faction": "Matilha Varka",
+    "type": "Guarda",
+    "rarity": "Rara",
+    "cost": 2,
+    "eclipse_shift": 1,
+    "sigil": "Garra",
+    "rules_text": "Previna 3. Se este for o 2º Assalto do oponente na rodada, encerre a janela de Assalto dele.",
+    "flavor": "Quem ataca duas vezes ensina o caminho de volta.",
+    "design_role": "freio de flood",
+    "set": 2
+  },
+  {
+    "id": "VR-112",
+    "name": "Alcateia Inteira",
+    "faction": "Matilha Varka",
+    "type": "Assalto",
+    "rarity": "Épica",
+    "cost": 5,
+    "eclipse_shift": 2,
+    "sigil": "Garra",
+    "rules_text": "Este Assalto ignora 1 de Ward. Cause 2 de dano três vezes.",
+    "flavor": "Não conte as presas. Conte as sombras.",
+    "design_role": "bomba de flood",
+    "set": 2
+  },
+  {
+    "id": "VR-113",
+    "name": "Sopro de Cinza",
+    "faction": "Sínodo Cinéreo",
+    "type": "Rito",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "Aplique Maldição 2 ao oponente.",
+    "flavor": "O que a cinza toca, a cinza lembra.",
+    "design_role": "maldição barata",
+    "set": 2
+  },
+  {
+    "id": "VR-114",
+    "name": "Cortina de Fuligem",
+    "faction": "Sínodo Cinéreo",
+    "type": "Guarda",
+    "rarity": "Comum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "Previna 3. Com 3 ou mais cartas no seu descarte, previna 5 em vez disso.",
+    "flavor": "Quanto mais queimou, mais espessa a cortina.",
+    "design_role": "defesa de cemitério",
+    "set": 2
+  },
+  {
+    "id": "VR-115",
+    "name": "Lâmina Calcinada",
+    "faction": "Sínodo Cinéreo",
+    "type": "Assalto",
+    "rarity": "Comum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "Cause 2 de dano. Se houver um Rito no seu descarte, aplique Maldição 1.",
+    "flavor": "O fio queimado corta fundo e deixa nome.",
+    "design_role": "pressão maldita",
+    "set": 2
+  },
+  {
+    "id": "VR-116",
+    "name": "Urna dos Nomes",
+    "faction": "Sínodo Cinéreo",
+    "type": "Relíquia",
+    "rarity": "Incomum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "Ativada (1/rodada) — exile 1 carta do seu descarte: compre 1.",
+    "flavor": "Todo nome guardado paga uma leitura.",
+    "design_role": "motor de exílio",
+    "set": 2
+  },
+  {
+    "id": "VR-117",
+    "name": "Rasura",
+    "faction": "Sínodo Cinéreo",
+    "type": "Rito",
+    "rarity": "Incomum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "Remova uma Maldição — a sua, se houver; senão, a do oponente (e compre 1). Depois, ganhe Ward 1.",
+    "flavor": "Errar é humano. Reescrever é ofício.",
+    "design_role": "limpeza flexível",
+    "set": 2
+  },
+  {
+    "id": "VR-118",
+    "name": "Escriba de Sal",
+    "faction": "Sínodo Cinéreo",
+    "type": "Manifestação",
+    "rarity": "Rara",
+    "cost": 3,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "Sempre que uma carta sua for exilada (1/rodada), compre 1.",
+    "flavor": "Nada se perde: muda de arquivo.",
+    "design_role": "paga-exílio",
+    "set": 2
+  },
+  {
+    "id": "VR-119",
+    "name": "Sinete da Última Página",
+    "faction": "Sínodo Cinéreo",
+    "type": "Rito",
+    "rarity": "Rara",
+    "cost": 4,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "Recupere 1 carta do seu descarte para a mão. Depois, aplique Maldição 2.",
+    "flavor": "O livro fecha. A conta, não.",
+    "design_role": "recorrência + maldição",
+    "set": 2
+  },
+  {
+    "id": "VR-120",
+    "name": "Arquivo Ardente",
+    "faction": "Sínodo Cinéreo",
+    "type": "Manifestação",
+    "rarity": "Épica",
+    "cost": 4,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "Uma vez por rodada, quando uma Maldição for aplicada a você: cause 1 de dano e compre 1.",
+    "flavor": "Queimem o arquivo. Ele responde por escrito.",
+    "design_role": "retaliação épica",
+    "set": 2
+  },
+  {
+    "id": "VR-121",
+    "name": "Aparo de Viela",
+    "faction": "Errantes",
+    "type": "Guarda",
+    "rarity": "Comum",
+    "cost": 3,
+    "eclipse_shift": 0,
+    "sigil": "Coroa",
+    "rules_text": "Reação: anule um Rito direcionado a você.",
+    "flavor": "Nas vielas, a resposta chega antes da pergunta.",
+    "design_role": "counter neutro",
+    "set": 2
+  },
+  {
+    "id": "VR-122",
+    "name": "Golpe Oportuno",
+    "faction": "Errantes",
+    "type": "Assalto",
+    "rarity": "Comum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Presa",
+    "rules_text": "Cause 2 de dano. Se você sofreu dano nesta rodada, cause +1.",
+    "flavor": "Troco não se pede. Se dá.",
+    "design_role": "vingança barata",
+    "set": 2
+  },
+  {
+    "id": "VR-123",
+    "name": "Mapa Rasgado",
+    "faction": "Errantes",
+    "type": "Rito",
+    "rarity": "Comum",
+    "cost": 1,
+    "eclipse_shift": 0,
+    "sigil": "Sol",
+    "rules_text": "Olhe as 2 cartas do topo; coloque uma na mão e a outra no fundo.",
+    "flavor": "Metade de um mapa ainda é uma direção.",
+    "design_role": "seleção neutra",
+    "set": 2
+  },
+  {
+    "id": "VR-124",
+    "name": "Peso de Chumbo",
+    "faction": "Errantes",
+    "type": "Relíquia",
+    "rarity": "Incomum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Cinza",
+    "rules_text": "A primeira vez por rodada que você causar exatamente 3 de dano, ganhe Ward 1.",
+    "flavor": "Todo golpe certeiro merece âncora.",
+    "design_role": "precisão premiada",
+    "set": 2
+  },
+  {
+    "id": "VR-125",
+    "name": "Passo Trocado",
+    "faction": "Errantes",
+    "type": "Guarda",
+    "rarity": "Incomum",
+    "cost": 2,
+    "eclipse_shift": 0,
+    "sigil": "Espelho",
+    "rules_text": "Previna 2. Depois, ambos os jogadores compram 1.",
+    "flavor": "Dançar com o inimigo ainda é dançar.",
+    "design_role": "defesa simétrica",
+    "set": 2
+  },
+  {
+    "id": "VR-126",
+    "name": "Vendedor de Presságios",
+    "faction": "Errantes",
+    "type": "Manifestação",
+    "rarity": "Incomum",
+    "cost": 3,
+    "eclipse_shift": 0,
+    "sigil": "Garra",
+    "rules_text": "Ativada (1/rodada) — descarte 1 carta: olhe e reordene as 3 cartas do topo do seu baralho.",
+    "flavor": "O futuro tem preço de banca e cheiro de chuva.",
+    "design_role": "scry ativável",
+    "set": 2
+  },
+  {
+    "id": "VR-127",
+    "name": "Leilão Silencioso",
+    "faction": "Errantes",
+    "type": "Rito",
+    "rarity": "Rara",
+    "cost": 3,
+    "eclipse_shift": 0,
+    "sigil": "Coroa",
+    "rules_text": "Ambos os jogadores compram 1. Seu próximo Rito custa 1 a menos.",
+    "flavor": "Quem não fala primeiro leva o lote.",
+    "design_role": "troca com desconto",
+    "set": 2
+  },
+  {
+    "id": "VR-128",
+    "name": "Cobrador do Limiar",
+    "faction": "Errantes",
+    "type": "Assalto",
+    "rarity": "Rara",
+    "cost": 4,
+    "eclipse_shift": 0,
+    "sigil": "Presa",
+    "rules_text": "Cause 4 de dano. Com o Eclipse em +2 ou -2, este Assalto é indefensável.",
+    "flavor": "No limiar, toda dívida vence junto.",
+    "design_role": "punição de extremos",
+    "set": 2
+  },
+  {
+    "id": "VR-129",
+    "name": "Balança de Duas Sombras",
+    "faction": "Errantes",
+    "type": "Relíquia",
+    "rarity": "Épica",
+    "cost": 5,
+    "eclipse_shift": 0,
+    "sigil": "Sol",
+    "rules_text": "No início da rodada, se o Eclipse estiver em 0: ganhe 1 Essência temporária e Ward 1.",
+    "flavor": "O fiel da balança bebe dos dois pratos.",
+    "design_role": "prêmio de equilíbrio",
+    "set": 2
+  },
+  {
+    "id": "VR-130",
+    "name": "O Peso de Nythara",
+    "faction": "Errantes",
+    "type": "Rito",
+    "rarity": "Lendária",
+    "cost": 6,
+    "eclipse_shift": 0,
+    "sigil": "Coroa",
+    "rules_text": "Leve o Eclipse a 0. Cause 4 de dano e cure 4.",
+    "flavor": "Quando o mundo inteiro pesa, o céu cede ao meio.",
+    "design_role": "bomba de equilíbrio",
+    "set": 2
   }
 ]

@@ -1,5 +1,5 @@
 {
-  "version": "alpha-0.7.0",
+  "version": "alpha-0.8.3",
   "cards": {
     "VR-006": {
       "rite": {
@@ -165,7 +165,7 @@
       "permanent": {
         "activated": {
           "once_per_round": true,
-          "exile_cost": 2,
+          "exile_cost": 1,
           "do": [
             {
               "op": "temp_essence",
@@ -185,7 +185,8 @@
         ],
         "steps": [
           {
-            "op": "exile_all_choices"
+            "op": "exile_all_choices",
+            "n": 3
           }
         ]
       }
@@ -1551,7 +1552,7 @@
     },
     "VR-099": {
       "guard": {
-        "prevent": 2,
+        "prevent": 3,
         "after": [
           {
             "op": "conditional",

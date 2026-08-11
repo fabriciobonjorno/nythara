@@ -1,4 +1,4 @@
-# CLAUDE.md — Projeto Véu Rubro
+# CLAUDE.md — Projeto Nythara
 
 Card game PvP digital. Fonte de verdade de design: `docs/design/GDD.md`.
 Decisões de regra: `DECISIONS.md` (mudou regra → novo ADR + `make golden`).

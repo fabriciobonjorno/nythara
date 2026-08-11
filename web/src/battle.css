@@ -1,0 +1,759 @@
+/* ==========================================================================
+   Mesa de duelo — leitura antes de velocidade.
+   Referência de gênero: as mesas de duelo clássicas, com moldura pesada,
+   painel de leitura fixo, orbes de fase e cartas que ficam onde caíram.
+   Nada aqui decide regra: a engine publica, a mesa desenha.
+   ========================================================================== */
+
+.duel-room {
+  --brass: #c9a35a;
+  --brass-dim: #6d5430;
+  --brass-deep: #43331d;
+  --felt-ink: #120c11;
+  --stamp: #f0dca4;
+  --assault: #b8455c;
+  --guard: #6f9ec0;
+  --rite: #b98fd0;
+  --hand-w: clamp(7.4rem, 9.2vw, 9.1rem);
+
+  position: relative;
+  isolation: isolate;
+  height: 100svh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background:
+    radial-gradient(120% 80% at 50% 8%, #2a1a20 0%, #150e13 42%, #0a070a 100%),
+    var(--ink);
+  color: var(--ivory);
+}
+.duel-room::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 45%, transparent 42%, #00000090 100%);
+}
+
+/* Moldura reutilizável: filete interno + cantoneiras de latão. */
+.ornate { position: relative; border: 1px solid var(--brass-deep); box-shadow: inset 0 0 0 1px #00000099, 0 10px 30px #0007; }
+.ornate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .6;
+  background:
+    linear-gradient(var(--brass), var(--brass)) 0 0 / 1.1rem 2px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 0 0 / 2px 1.1rem no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 100% 0 / 1.1rem 2px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 100% 0 / 2px 1.1rem no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 0 100% / 1.1rem 2px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 0 100% / 2px 1.1rem no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 100% 100% / 1.1rem 2px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 100% 100% / 2px 1.1rem no-repeat;
+}
+
+/* ------------------------------------------------------------- topo */
+
+.duel-topbar {
+  z-index: 8;
+  height: 2.8rem;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto auto;
+  align-items: center;
+  gap: .8rem;
+  padding: 0 .8rem;
+  background: linear-gradient(#1a1216, #100b0f);
+  border-bottom: 1px solid var(--brass-deep);
+  box-shadow: 0 2px 0 #00000066;
+  font-size: .6rem;
+  letter-spacing: .1em;
+}
+.duel-topbar > a { display: grid; place-items: center; color: var(--gold); text-decoration: none; }
+.duel-topbar > a .nythara-mark { width: 1.9rem; height: 1.9rem; }
+.duel-topbar__link { display: inline-flex; align-items: center; gap: .35rem; color: var(--muted); }
+.duel-topbar__turn { justify-self: center; color: var(--gold-bright); font-family: Georgia, serif; font-size: .78rem; letter-spacing: .28em; }
+.duel-topbar button { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .5rem; color: var(--gold); background: transparent; border: 1px solid transparent; cursor: pointer; }
+.duel-topbar button:hover { border-color: var(--brass-dim); }
+.duel-topbar button .ui-icon { width: 1rem; height: 1rem; }
+.connection-dot { width: .45rem; height: .45rem; background: var(--danger); border-radius: 50%; }
+.connection-dot.connected { background: var(--success); }
+.battle-timer { display: inline-flex; align-items: center; gap: .3rem; color: var(--gold-bright); font-weight: 800; font-variant-numeric: tabular-nums; }
+.battle-timer .ui-icon { width: .95rem; height: .95rem; }
+.battle-timer.is-low { color: var(--danger); animation: pulse .6s infinite alternate; }
+
+/* ------------------------------------------------------- mesa + trilho */
+
+.duel-frame {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(14rem, 20vw, 18.5rem);
+  gap: .6rem;
+  padding: .6rem;
+}
+.duel-board { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .5rem; }
+
+/* ------------------------------------------------------------ duelista */
+
+.duelist {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1.1fr) auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(.5rem, 1.4vw, 1.3rem);
+  padding: .45rem .8rem;
+  background: linear-gradient(#1d1418, #130d12);
+  border: 1px solid var(--brass-deep);
+  box-shadow: inset 0 0 0 1px #00000080;
+}
+.duelist.is-active { border-color: var(--brass-dim); background: linear-gradient(#2a1c18, #150f12); box-shadow: inset 0 0 0 1px #00000080, inset 0 0 28px #7d552033; }
+.duelist.is-active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.duelist__identity { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .6rem; }
+.duelist__portrait {
+  width: 2.9rem; height: 2.9rem;
+  display: grid; place-items: center;
+  color: var(--gold);
+  background: radial-gradient(circle at 50% 35%, #3b2a20, #140e11);
+  border: 2px solid var(--brass-dim);
+  border-radius: 50%;
+  box-shadow: inset 0 0 12px #000, 0 4px 12px #0009;
+}
+.duelist.is-active .duelist__portrait { border-color: var(--brass); box-shadow: inset 0 0 12px #000, 0 0 18px #c9a35a4d; }
+.duelist__portrait svg { width: 1.9rem; height: 1.9rem; }
+.duelist__identity > div { min-width: 0; }
+.duelist__identity small, .duelist__identity strong, .duelist__identity em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.duelist__identity small { color: var(--gold); font-size: .46rem; font-weight: 800; letter-spacing: .2em; }
+.duelist__identity strong { font: 400 .92rem Georgia, serif; }
+.duelist__identity em { color: var(--muted); font-size: .48rem; font-style: normal; }
+
+/* Frasco de Vitalidade: número grande, leitura instantânea. */
+.vial { display: grid; grid-template-columns: auto auto; align-items: center; gap: .5rem; }
+.vial__glass {
+  position: relative;
+  width: 1.1rem; height: 2.6rem;
+  display: block;
+  overflow: hidden;
+  background: linear-gradient(#0d0709, #180d11);
+  border: 1px solid var(--brass-dim);
+  border-radius: .5rem .5rem .22rem .22rem;
+  box-shadow: inset 0 0 8px #000;
+}
+.vial__fluid {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: linear-gradient(#d3455f, #7d1730);
+  box-shadow: 0 0 14px #c33a5566;
+  transition: height .5s cubic-bezier(.3, .8, .3, 1);
+}
+.vial__glass::after { content: ""; position: absolute; top: .2rem; left: .18rem; width: .18rem; height: 1rem; background: #ffffff26; border-radius: .2rem; }
+.vial__read b, .vial__read small { display: block; }
+.vial__read b { font: 700 1.55rem/1 Georgia, serif; color: #ffd9dd; text-shadow: 0 0 16px #b0304066; font-variant-numeric: tabular-nums; }
+.vial__read small { color: var(--muted); font-size: .42rem; letter-spacing: .18em; }
+.duelist.is-in-danger .vial__read b { color: #ff8b97; animation: vial-alarm 1s ease-in-out infinite alternate; }
+@keyframes vial-alarm { to { text-shadow: 0 0 26px #ff4f66aa; } }
+
+/* Medalhões de selo: sempre visíveis, apagados quando inativos. São a
+   resposta permanente para "posso atacar? posso defender?". */
+.seals { display: flex; gap: .55rem; padding: .3rem .5rem; border: 1px solid #3a2e2f; background: #0f0b0e80; }
+.seal { display: grid; justify-items: center; gap: .22rem; width: 4.1rem; text-align: center; }
+.seal i {
+  position: relative;
+  width: 2rem; height: 2rem;
+  background: radial-gradient(circle at 40% 32%, #3a2c30, #120c10 72%);
+  border: 2px solid #55433f;
+  border-radius: 50%;
+  box-shadow: inset 0 2px 7px #000, 0 2px 5px #0008;
+}
+.seal i::after {
+  content: "";
+  position: absolute;
+  inset: .38rem;
+  border: 1px solid #6b5550;
+  border-radius: 50%;
+  opacity: .7;
+}
+.seal small { color: #8a7b7f; font-size: .38rem; font-weight: 800; letter-spacing: .04em; line-height: 1.15; }
+.seal.is-on i { background: radial-gradient(circle at 40% 32%, #e2596d, #67101f 72%); border-color: #ff9aa6; box-shadow: 0 0 18px #c2364ecc, inset 0 0 8px #ffb0ba88; animation: seal-lit 1.4s ease-in-out infinite alternate; }
+.seal.is-on i::after { border-color: #ffd2d8; opacity: 1; }
+.seal.is-on small { color: #ffc2c9; }
+@keyframes seal-lit { to { box-shadow: 0 0 22px #e2495fcc, inset 0 0 8px #ffd0d688; } }
+
+/* Pilhas: baralho, descarte, ward e mão oculta do rival. */
+.duelist__piles { justify-self: end; display: flex; align-items: center; gap: .5rem; }
+.pile {
+  position: relative;
+  width: 2.9rem; min-height: 2.7rem;
+  display: grid; place-items: center; align-content: center; gap: .05rem;
+  padding: .25rem;
+  background: linear-gradient(#241a1c, #140d10);
+  border: 1px solid var(--brass-deep);
+  overflow: hidden;
+}
+.pile b { color: var(--gold-bright); font: 700 .78rem Georgia, serif; font-variant-numeric: tabular-nums; }
+.pile small { color: var(--muted); font-size: .32rem; letter-spacing: .1em; }
+.pile .ui-icon { width: .85rem; height: .85rem; color: var(--moon); }
+.pile-deck i { position: absolute; inset: .18rem; border: 1px solid #4a3722; }
+.pile-deck i:last-of-type { inset: .32rem; opacity: .55; }
+.pile-discard img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .5; }
+.pile-discard b, .pile-discard small { position: relative; text-shadow: 0 1px 6px #000; }
+.hidden-hand { display: flex; align-items: center; }
+.hidden-hand i {
+  width: 1.5rem; height: 2.15rem;
+  margin-left: -.85rem;
+  background:
+    radial-gradient(circle at 50% 45%, #a5834b 0 8%, #3a1c24 9% 30%, #161014 31%),
+    linear-gradient(#2a1720, #140c12);
+  border: 1px solid #7b6033;
+  border-radius: .15rem;
+  box-shadow: 0 3px 9px #000a;
+  transform: rotate(calc((var(--card-index) - 3.5) * 2.6deg));
+}
+.hidden-hand i:first-child { margin-left: 0; }
+.hidden-hand b { margin-left: .45rem; color: var(--muted); font-size: .68rem; }
+
+/* --------------------------------------------------------------- arena */
+
+.arena {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: .4rem;
+  padding: .7rem .8rem .5rem;
+  border: 1px solid var(--brass-deep);
+  box-shadow: inset 0 0 0 1px #00000099, inset 0 0 70px #000000aa, 0 14px 40px #0009;
+}
+.arena__felt {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(115% 85% at 50% 42%, #3a2028 0%, #1d1218 46%, var(--felt-ink) 100%),
+    repeating-linear-gradient(45deg, #ffffff06 0 2px, transparent 2px 6px);
+}
+.arena::after {
+  content: "";
+  position: absolute;
+  inset: .4rem;
+  pointer-events: none;
+  border: 1px solid #6d54304d;
+}
+.arena.is-attack, .arena.is-waiting, .arena.is-guard { box-shadow: inset 0 0 0 1px #00000099, inset 0 0 70px #000000aa, 0 0 34px #8a5a2e33; }
+.arena.is-impact .arena__felt { animation: felt-flash .5s ease; }
+@keyframes felt-flash { 30% { filter: brightness(1.5) saturate(1.3); } }
+
+.arena__pressure {
+  justify-self: center;
+  display: flex; align-items: center; gap: .5rem;
+  padding: .3rem .7rem;
+  color: #f0c9a0;
+  background: #2a161499;
+  border: 1px solid #7a4a32;
+}
+.arena__pressure.is-active { color: #ffc3c3; background: #3a121599; border-color: #a8404a; }
+.arena__pressure .ui-icon { width: 1rem; height: 1rem; }
+.arena__pressure strong, .arena__pressure small { display: block; }
+.arena__pressure strong { font-size: .58rem; letter-spacing: .08em; }
+.arena__pressure small { color: var(--muted); font-size: .48rem; }
+
+.arena__lane {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, .85fr) minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
+  gap: clamp(.5rem, 2vw, 1.6rem);
+}
+
+.arena-slot { position: relative; display: grid; justify-items: center; gap: .35rem; }
+.arena-slot__label {
+  color: #8d7a6b;
+  font-size: .42rem;
+  font-weight: 800;
+  letter-spacing: .3em;
+}
+.arena-slot.is-assault .arena-slot__label { color: #c1808e; }
+.arena-slot.is-guard .arena-slot__label { color: #8fadc4; }
+.arena-slot__ghost {
+  width: clamp(7rem, 11vw, 9.6rem);
+  aspect-ratio: 5 / 7;
+  display: grid; place-content: center; justify-items: center; gap: .4rem;
+  padding: .8rem;
+  text-align: center;
+  border: 1px dashed #6b4b4d;
+  background: linear-gradient(160deg, #2a151e4d, #0d090d80);
+}
+.arena-slot.is-guard .arena-slot__ghost { border-color: #4d6675; background: linear-gradient(160deg, #10212b4d, #0d090d80); }
+.arena-slot__ghost .ui-icon { width: 1.8rem; height: 1.8rem; color: #96704f; }
+.arena-slot.is-guard .arena-slot__ghost .ui-icon { color: #7c9bb0; }
+.arena-slot__ghost small { color: #7d6f73; font-size: .45rem; line-height: 1.3; }
+.arena-slot.is-waiting .arena-slot__ghost { border-color: var(--brass); animation: slot-waiting 1.1s ease-in-out infinite alternate; }
+@keyframes slot-waiting { to { box-shadow: inset 0 0 30px #b5813a3d, 0 0 22px #b5813a3d; } }
+
+.arena-slot__card { position: relative; }
+.arena-slot__card .duel-card { width: clamp(7rem, 11vw, 9.6rem); }
+/* Pouso curto e direcional: o deslocamento é pequeno de propósito — se a
+   animação encalhar (aba oculta, motion reduzido), a carta continua dentro
+   da mesa em vez de ficar parada fora dela. */
+.arena-slot.from-own .arena-slot__card { animation: land-own .5s cubic-bezier(.16, .9, .28, 1) backwards; }
+.arena-slot.from-rival .arena-slot__card { animation: land-rival .5s cubic-bezier(.16, .9, .28, 1) backwards; }
+@keyframes land-own { from { opacity: 0; transform: translateY(3rem) rotate(-5deg) scale(.88); } to { opacity: 1; transform: none; } }
+@keyframes land-rival { from { opacity: 0; transform: translateY(-3rem) rotate(5deg) scale(.88); } to { opacity: 1; transform: none; } }
+/* O impacto anima a carta interna: se sobrescrevesse a animação de pouso, a
+   troca de fase reiniciaria o voo e a carta sairia da mesa. */
+.arena.is-impact .arena-slot__card .duel-card { animation: card-hit .42s ease both; }
+@keyframes card-hit { 40% { transform: scale(1.06); filter: brightness(1.45); } }
+
+.arena-slot__stamp {
+  position: absolute;
+  z-index: 3;
+  left: 50%; bottom: -.95rem;
+  padding: .22rem .55rem;
+  color: #1a1013;
+  background: var(--stamp);
+  border: 1px solid #fff0bd;
+  box-shadow: 0 6px 16px #000a;
+  font-size: .46rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  white-space: nowrap;
+  transform: translateX(-50%) rotate(-4deg);
+  animation: stamp-in .32s cubic-bezier(.2, 1.6, .5, 1) both;
+}
+.arena-slot__stamp.is-broken { color: #ffe2e5; background: #8d1e33; border-color: #d9526a; }
+.arena-slot__ghost .arena-slot__stamp { position: static; transform: rotate(-4deg); }
+@keyframes stamp-in { from { opacity: 0; transform: translateX(-50%) rotate(-4deg) scale(1.5); } }
+
+/* Veredito central: a conta que decide o dano, sempre por extenso. */
+.verdict {
+  min-width: 0;
+  display: grid; justify-items: center; gap: .45rem;
+  padding: .9rem .7rem;
+  text-align: center;
+  background: radial-gradient(circle at 50% 40%, #2b1a2199, #0d080c99);
+  border: 1px solid var(--brass-deep);
+  box-shadow: inset 0 0 24px #000;
+}
+.verdict.is-idle { color: #8b7c80; border-style: dashed; }
+.verdict.is-idle .ui-icon { width: 2rem; height: 2rem; color: var(--brass-dim); }
+.verdict strong { font: 400 .8rem Georgia, serif; letter-spacing: .1em; }
+.verdict.is-idle small { color: #6f6367; font-size: .48rem; }
+.verdict__math { display: grid; grid-template-columns: auto auto auto; align-items: center; gap: .5rem; }
+.verdict__math span { min-width: 3.4rem; padding: .35rem .3rem; background: #0c080b; border: 1px solid #4b3a40; }
+.verdict__math small, .verdict__math b { display: block; }
+.verdict__math small { color: var(--muted); font-size: .36rem; letter-spacing: .1em; }
+.verdict__math b { margin-top: .1rem; font: 700 1.3rem Georgia, serif; font-variant-numeric: tabular-nums; }
+.verdict__math span:first-child b { color: #ff9aa6; }
+.verdict__math span:last-child b { color: #a9c9de; }
+.verdict__math i { color: var(--gold); font-size: 1rem; font-style: normal; }
+.verdict__result { width: 100%; padding: .35rem; border: 1px solid #5e4248; background: #1c1216; }
+.verdict__result small { display: block; margin-top: .12rem; color: var(--muted); font-size: .44rem; letter-spacing: .12em; }
+.verdict__result.is-pending { color: var(--gold-bright); }
+.verdict__result.is-damage { color: #ff8390; background: #2e1017; border-color: #a53b4d; animation: verdict-pop .4s cubic-bezier(.2, 1.5, .4, 1) both; }
+.verdict__result.is-blocked { color: #b9dceb; background: #101d25; border-color: #5c899d; animation: verdict-pop .4s cubic-bezier(.2, 1.5, .4, 1) both; }
+@keyframes verdict-pop { from { transform: scale(.72); opacity: 0; } }
+.verdict.is-drop { color: var(--gold-bright); border: 2px dashed var(--brass); background: #2c1e1099; animation: drop-ready .7s ease-in-out infinite alternate; }
+.verdict.is-drop .ui-icon { width: 1.8rem; height: 1.8rem; }
+.verdict.is-drop small { color: #cdb894; font-size: .46rem; }
+@keyframes drop-ready { to { box-shadow: inset 0 0 40px #b5813a4d, 0 0 26px #b5813a4d; } }
+
+/* Crônica no feltro: as três últimas coisas que aconteceram, por extenso. */
+.arena__chronicle { margin: 0; padding: 0; list-style: none; display: grid; gap: .12rem; justify-items: center; }
+.arena__chronicle li { color: #d8a05e; font: italic .55rem/1.4 Georgia, serif; letter-spacing: .02em; text-shadow: 0 1px 6px #000; }
+.arena__chronicle li:last-child { color: #f3cf94; }
+
+/* A troca resolvida vira histórico visível: esmaece, mas não desaparece. */
+.arena__stale { justify-self: center; margin: 0; color: #8a7a6d; font-size: .42rem; font-weight: 800; letter-spacing: .18em; }
+.arena.is-stale .arena-slot__card, .arena.is-stale .arena-slot__ghost { opacity: .62; transition: opacity .5s ease; }
+.arena.is-stale .verdict { opacity: .72; transition: opacity .5s ease; }
+.arena.is-stale .arena-slot__stamp { opacity: .8; }
+
+/* ------------------------------------------------------------- inspetor */
+
+.duel-rail { min-height: 0; display: grid; }
+.inspector {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  padding: .7rem;
+  overflow-y: auto;
+  background: linear-gradient(#1d1519, #120c11);
+  border: 1px solid var(--brass-deep);
+  box-shadow: inset 0 0 0 1px #00000099;
+}
+.inspector > * { flex: 0 0 auto; }
+.inspector__eyebrow { margin: 0; color: var(--gold); font-size: .46rem; font-weight: 800; letter-spacing: .26em; }
+/* Altura limitada com proporção 2:3 preservada: a carta cabe no trilho e a
+   ilustração continua inteira, sem recorte e sem tarjas. */
+.inspector .duel-card { align-self: center; width: auto; height: clamp(9.5rem, 28vh, 14rem); }
+/* No inspetor a ilustração aparece inteira: o texto vai para fora da carta. */
+.size-inspect .duel-card__text { display: none; }
+.inspector__stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3rem; margin: 0; }
+.inspector__stats div { padding: .32rem; background: #0e0a0d; border: 1px solid #3d3034; text-align: center; }
+.inspector__stats dt { color: var(--muted); font-size: .34rem; letter-spacing: .1em; }
+.inspector__stats dd { margin: .12rem 0 0; color: var(--gold-bright); font-size: .55rem; font-weight: 700; }
+.inspector__brief { margin: 0; padding: .45rem .5rem; color: #e6d8c2; background: #0e0a0d; border: 1px solid #3d3034; font: .6rem/1.5 Georgia, serif; }
+.inspector__role { margin: 0; color: #a2948c; font: .54rem/1.45 Georgia, serif; }
+.inspector__keywords { display: flex; flex-wrap: wrap; gap: .25rem; }
+.inspector__keywords span { padding: .16rem .35rem; color: var(--moon); border: 1px solid #46545f; font-size: .38rem; letter-spacing: .1em; }
+.inspector__flavor { margin: 0; padding-left: .55rem; border-left: 2px solid var(--wine); color: #9d9095; font: italic .55rem/1.5 Georgia, serif; }
+.inspector__zoom { padding: .5rem; color: var(--gold-bright); background: transparent; border: 1px solid var(--brass-dim); cursor: pointer; font-size: .52rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.inspector__zoom:hover { background: #2a1e14; }
+.inspector.is-empty { align-content: start; }
+.inspector__blank { display: grid; justify-items: center; gap: .35rem; padding: 2rem .8rem; text-align: center; border: 1px dashed #4a3a3e; }
+.inspector__blank .ui-icon { width: 2.2rem; height: 2.2rem; color: var(--brass-dim); }
+.inspector__blank strong { font: 400 .72rem Georgia, serif; color: #b9a9ac; }
+.inspector__blank small { color: #7d6f73; font-size: .5rem; line-height: 1.4; }
+.inspector__rule { margin: 0; color: var(--muted); font-size: .52rem; line-height: 1.5; }
+.inspector__rule b { color: var(--gold-bright); }
+
+/* ------------------------------------------------------------- a carta */
+
+/* A carta tem a mesma proporção da arte (2:3), então a ilustração preenche a
+   moldura inteira sem recorte. Nome e texto entram como placas sobre ela. */
+.duel-card {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: linear-gradient(#2b1e19, #191114);
+  border: 1px solid #8a6a3f;
+  border-radius: .28rem;
+  box-shadow: inset 0 0 0 1px #00000099, 0 10px 24px #000a;
+  text-align: left;
+}
+.duel-card.kind-assalto { border-color: #9c5a52; }
+.duel-card.kind-guarda { border-color: #5f7f95; }
+.duel-card.kind-rito { border-color: #8a6a9c; }
+.duel-card__head {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .3rem;
+  padding: .26rem .38rem;
+  background: linear-gradient(#241a14f2, #241a14bf);
+  border-bottom: 1px solid #6d5430;
+  backdrop-filter: blur(2px);
+}
+.duel-card.kind-assalto .duel-card__head { background: linear-gradient(#43221ff2, #26161abf); }
+.duel-card.kind-guarda .duel-card__head { background: linear-gradient(#1e2f3af2, #16191fbf); }
+.duel-card.kind-rito .duel-card__head { background: linear-gradient(#2f2038f2, #1b141fbf); }
+.duel-card__head strong { overflow: hidden; color: #f4e6c9; font: 400 .62rem/1.15 Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.duel-card__ratio { color: var(--stamp); font: 800 .62rem/1 sans-serif; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+
+/* Arte: mesma proporção da carta, então "cover" não corta nada. */
+.duel-card__art { position: absolute; z-index: 0; inset: 0; overflow: hidden; background: #0b0709; }
+.duel-card__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.duel-card__fallback { position: absolute; inset: 0; display: grid; place-items: center; color: #4c3d3f; }
+.duel-card__fallback svg { width: 40%; height: 40%; }
+
+.duel-card__body { position: relative; z-index: 2; align-self: end; }
+.duel-card__text {
+  margin: 0;
+  padding: .34rem .4rem;
+  color: #e2d4bf;
+  background: linear-gradient(#0b070900, #0b0709e8 26%, #0b0709f5);
+  font: .48rem/1.35 Georgia, serif;
+  text-shadow: 0 1px 4px #000;
+}
+.duel-card__foot {
+  display: flex; align-items: center; justify-content: space-between; gap: .3rem;
+  padding: .2rem .4rem;
+  background: #0b0709f5;
+  border-top: 1px solid #43331d;
+  color: var(--muted);
+  font-size: .38rem;
+  letter-spacing: .1em;
+}
+.duel-card__stat b { color: var(--gold-bright); font-size: .48rem; }
+.duel-card__banner {
+  position: absolute; z-index: 2; top: .5rem; left: -1.6rem;
+  padding: .1rem 1.6rem;
+  color: #1a1013; background: var(--stamp);
+  font-size: .38rem; font-weight: 900; letter-spacing: .12em;
+  transform: rotate(-38deg);
+}
+.duel-card__crack { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+.duel-card.is-broken { filter: saturate(.45) brightness(.72); border-color: #6b4a4a; }
+.duel-card.is-broken .duel-card__crack {
+  opacity: 1;
+  background:
+    linear-gradient(112deg, transparent 47%, #e9cfa0aa 48%, transparent 50%),
+    linear-gradient(64deg, transparent 58%, #e9cfa088 59%, transparent 61%);
+}
+.duel-card.is-dimmed { filter: saturate(.7) brightness(.74); }
+
+.size-hand { width: var(--hand-w); }
+.size-hand .duel-card__text, .size-table .duel-card__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  height: calc(3 * 1.35em + .6rem);
+  overflow: hidden;
+}
+.size-inspect .duel-card__head strong { font-size: .86rem; white-space: normal; }
+.size-inspect .duel-card__ratio { font-size: .86rem; }
+.size-inspect .duel-card__text { padding: .5rem .55rem; font-size: .62rem; line-height: 1.5; }
+.size-inspect .duel-card__foot { font-size: .44rem; }
+
+/* --------------------------------------------------------------- rodapé */
+
+.duel-base {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: end;
+  gap: .8rem;
+  padding: .5rem .8rem max(.55rem, env(safe-area-inset-bottom));
+  background: linear-gradient(#1b1317, #0d090c);
+  border-top: 1px solid var(--brass-deep);
+  box-shadow: 0 -6px 26px #0009;
+}
+
+.phase-panel { align-self: center; display: grid; justify-items: start; gap: .25rem; padding: .35rem .6rem .3rem; border: 1px solid var(--brass-deep); background: #150f13; }
+.phase-panel__title { margin: 0; color: var(--gold); font-size: .44rem; font-weight: 800; letter-spacing: .3em; }
+.phase-panel__orbs { display: flex; gap: .55rem; }
+.orb { display: grid; justify-items: center; gap: .1rem; width: 3.4rem; text-align: center; }
+.orb i {
+  width: 1.35rem; height: 1.35rem;
+  background: radial-gradient(circle at 38% 30%, #3b2d31, #120c10 72%);
+  border: 1px solid #4d3d40;
+  border-radius: 50%;
+  box-shadow: inset 0 2px 6px #000;
+}
+.orb b { color: #6f6266; font-size: .4rem; font-weight: 800; letter-spacing: .09em; }
+.orb em { color: #5a5054; font-size: .33rem; font-style: normal; }
+.orb.is-done i { background: radial-gradient(circle at 38% 30%, #6f9a76, #1d3323 72%); border-color: #8dbb9b; }
+.orb.is-done b { color: #93bd9e; }
+.orb.is-current i { background: radial-gradient(circle at 38% 30%, #ffd08a, #a03a2a 70%); border-color: #ffd9a1; box-shadow: 0 0 18px #d5813c99, inset 0 0 8px #ffd9a166; animation: orb-live 1.3s ease-in-out infinite alternate; }
+.orb.is-current b { color: #ffe0b0; }
+.orb.is-current em { color: #c6a184; }
+.orb.is-current.is-rival i { background: radial-gradient(circle at 38% 30%, #9fb6d8, #24384f 70%); border-color: #cfe0f2; box-shadow: 0 0 18px #5f87b099, inset 0 0 8px #cfe0f266; }
+.orb.is-current.is-rival b { color: #cfe0f2; }
+.orb.is-current.is-rival em { color: #93a9c0; }
+@keyframes orb-live { to { box-shadow: 0 0 26px #ff9c4ccc, inset 0 0 10px #ffe0b0aa; } }
+.phase-panel__actor { color: var(--muted); font-size: .38rem; font-weight: 800; letter-spacing: .16em; }
+.phase-panel__actor.is-mine { color: var(--gold-bright); }
+
+.duel-base__hand { min-width: 0; }
+.duel-hand { display: flex; align-items: flex-end; justify-content: center; gap: .25rem; margin: 0; padding: 0 .2rem; list-style: none; }
+.duel-hand__empty { color: var(--muted); font-size: .58rem; padding: 2rem 0; }
+
+.hand-slot { position: relative; transition: transform .18s cubic-bezier(.2, .8, .3, 1); }
+.hand-slot__grab { display: block; padding: 0; background: transparent; border: 0; cursor: pointer; }
+.hand-slot.is-idle .hand-slot__grab { cursor: default; }
+.hand-slot__key {
+  position: absolute; z-index: 3; top: -.35rem; left: -.35rem;
+  min-width: 1.1rem; height: 1.1rem;
+  display: grid; place-items: center;
+  color: #1a1013; background: var(--stamp);
+  border: 1px solid #fff0bd; border-radius: 50%;
+  box-shadow: 0 2px 8px #000b;
+  font: 800 .48rem/1 sans-serif;
+}
+.hand-slot.is-playable .duel-card { box-shadow: inset 0 0 0 1px #00000099, 0 0 0 1px #d4af6a, 0 10px 26px #000a, 0 0 18px #c9a35a4d; }
+.hand-slot.is-playable::after {
+  content: "";
+  position: absolute; inset: -.3rem;
+  pointer-events: none;
+  border: 1px solid #d4af6a55;
+  animation: playable-halo 1.4s ease-in-out infinite alternate;
+}
+@keyframes playable-halo { to { border-color: #f0d49aaa; box-shadow: 0 0 20px #c9a35a33; } }
+.hand-slot:hover, .hand-slot:focus-within { transform: translateY(-.7rem); z-index: 5; }
+.hand-slot.is-selected { transform: translateY(-1.5rem) scale(1.04); z-index: 6; }
+.hand-slot.is-selected .duel-card { border-color: var(--stamp); box-shadow: inset 0 0 0 1px #00000099, 0 0 0 2px var(--stamp), 0 16px 34px #000c; }
+.hand-slot.is-new { animation: hand-draw var(--draw-duration) cubic-bezier(.18, .75, .22, 1) both; }
+@keyframes hand-draw { from { opacity: 0; transform: translate(34vw, -12vh) rotate(12deg) scale(.7); } 72% { opacity: 1; transform: translateY(-.6rem) rotate(-2deg) scale(1.03); } to { transform: none; } }
+.hand-slot.is-dragging { z-index: 30; animation: none !important; transform: translate3d(var(--drag-x), var(--drag-y), 0) rotate(var(--drag-tilt)) scale(var(--drag-scale)); transition: none; }
+.hand-slot.is-dragging .duel-card { border-color: #fff0b3; box-shadow: 0 18px 44px #000, 0 0 30px #d8ae635e; }
+.hand-slot.is-armed .duel-card { border-color: #91d29f; box-shadow: 0 0 36px #75c98a8f; }
+.duel-hand.is-dragging .hand-slot:not(.is-dragging) { opacity: .55; }
+
+/* A barra de decisão nasce sobre a própria carta, como nas mesas clássicas:
+   nada de flutuar por cima dos medalhões do duelista. */
+.hand-slot__tools {
+  position: absolute; z-index: 7; left: 50%; top: 45%;
+  display: none; gap: .2rem;
+  padding: .25rem;
+  background: #0b0709e8;
+  border: 1px solid var(--brass-dim);
+  box-shadow: 0 8px 22px #000c;
+  transform: translate(-50%, -50%);
+}
+.hand-slot.is-selected .hand-slot__tools { display: flex; animation: tools-in .16s ease both; }
+@keyframes tools-in { from { opacity: 0; transform: translate(-50%, calc(-50% + .4rem)); } }
+.tool {
+  display: grid; place-items: center; gap: .05rem;
+  min-width: 2.3rem; padding: .26rem .3rem;
+  background: #180f13; border: 1px solid var(--brass-dim); color: var(--gold-bright);
+  cursor: pointer;
+  box-shadow: 0 6px 16px #000a;
+  font-size: .36rem; font-weight: 800; letter-spacing: .12em;
+}
+.tool i { font-size: .78rem; font-style: normal; line-height: 1; }
+.tool .ui-icon { width: .78rem; height: .78rem; }
+.tool:hover { border-color: var(--brass); background: #26160f; }
+.tool-play { color: #1a1013; background: linear-gradient(#f0d49a, #c9a35a); border-color: #fff0bd; }
+.tool-play:hover { background: linear-gradient(#fff0bd, #d9b264); }
+.tool-cancel { color: #d9959d; border-color: #6e3d45; }
+.tool-cancel:hover { color: #ffd0d5; border-color: #b85563; background: #2a1216; }
+
+/* Preview com decisão: usar a carta ou voltar atrás. Fica colado no rodapé
+   do painel para nunca sair de alcance quando a leitura é longa. */
+.inspector__choice {
+  position: sticky;
+  bottom: -.7rem;
+  display: grid;
+  gap: .35rem;
+  margin: 0 -.7rem -.7rem;
+  padding: .5rem .7rem .7rem;
+  background: linear-gradient(#120c1000, #120c10 22%);
+}
+.inspector__use {
+  padding: .7rem;
+  color: #1a1013;
+  background: linear-gradient(#f3d9a4, #c9a35a);
+  border: 1px solid #fff0bd;
+  box-shadow: 0 6px 18px #0008;
+  cursor: pointer;
+  font-size: .6rem; font-weight: 900; letter-spacing: .14em;
+}
+.inspector__use:hover { background: linear-gradient(#fff2c4, #dbb469); }
+.inspector__locked { margin: 0; padding: .5rem; color: #b9959a; background: #1e1215; border: 1px solid #5a3b40; font-size: .52rem; text-align: center; }
+.inspector__choice-minor { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
+.inspector__choice-minor button { padding: .45rem; color: var(--muted); background: transparent; border: 1px solid var(--line); cursor: pointer; font-size: .48rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.inspector__choice-minor button:hover { color: var(--ivory); border-color: var(--brass-dim); }
+
+.action-panel {
+  align-self: center;
+  display: grid; justify-items: start; gap: .12rem;
+  min-width: 12rem; max-width: 17rem;
+  padding: .45rem .65rem;
+  background: #150f13;
+  border: 1px solid var(--brass-deep);
+}
+.action-panel.phase-guarda { border-color: #4a6a7c; box-shadow: 0 0 22px #5389a326; }
+.action-panel strong { font: 400 .74rem Georgia, serif; }
+.action-panel small { color: var(--muted); font-size: .48rem; line-height: 1.35; }
+.action-panel__flag { padding: .12rem .38rem; color: #1a1013; background: var(--stamp); font-size: .36rem; font-weight: 900; letter-spacing: .14em; }
+.action-panel.is-waiting { align-content: center; color: var(--muted); }
+.action-panel.is-waiting strong { color: var(--ivory); }
+.action-panel__pass {
+  width: 100%;
+  margin-top: .3rem;
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  padding: .42rem .6rem;
+  color: #cabdc0; background: transparent; border: 1px solid #4d3c42;
+  cursor: pointer;
+  font-size: .5rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+}
+.action-panel__pass:hover { color: var(--ivory); border-color: var(--brass); }
+.action-panel__pass kbd { color: #8f7e82; font-size: .36rem; }
+.pulse-dot { width: .5rem; height: .5rem; background: var(--gold); border-radius: 50%; animation: pulse .9s infinite alternate; }
+
+.duel-error { position: fixed; z-index: 40; bottom: 1rem; left: 50%; margin: 0; padding: .6rem 1rem; transform: translateX(-50%); background: #2b1219; border-left: 3px solid var(--danger); color: #ffd7d9; font-size: .62rem; }
+
+.duel-room.is-shaking { animation: battle-shake .42s ease; }
+@keyframes battle-shake { 12% { transform: translate(-7px, 3px); } 32% { transform: translate(6px, -4px); } 52% { transform: translate(-4px, 2px); } 72% { transform: translate(3px, -1px); } 100% { transform: none; } }
+.duel-room.phase-guarda.is-my-turn .arena { border-color: #6f9ec0; box-shadow: inset 0 0 0 1px #00000099, inset 0 0 70px #0a1620, 0 0 40px #5c9bb84a; }
+
+/* --------------------------------------------------------- painéis fixos */
+
+.battle-loading { min-height: 100svh; display: grid; place-content: center; justify-items: center; gap: .6rem; padding: 2rem; text-align: center; }
+.battle-loading p { color: var(--muted); max-width: 26rem; }
+
+.battle-log, .battle-help {
+  position: fixed; z-index: 56; top: 0; right: 0; bottom: 0;
+  width: min(24rem, 94vw);
+  padding: 1rem;
+  overflow-y: auto;
+  background: #0d0a0df6;
+  border-left: 1px solid var(--brass-dim);
+  box-shadow: -24px 0 70px #000a;
+  transform: translateX(105%);
+  transition: transform .22s ease;
+}
+.battle-log.is-open, .battle-help.is-open { transform: none; }
+.battle-log header, .battle-help header { display: flex; align-items: start; justify-content: space-between; padding-bottom: .8rem; border-bottom: 1px solid var(--line); }
+.battle-log header button, .battle-help header button { width: 2.4rem; height: 2.4rem; display: grid; place-items: center; padding: .55rem; color: var(--muted); background: transparent; border: 1px solid var(--line); cursor: pointer; }
+.battle-log > div { height: calc(100% - 4rem); overflow-y: auto; }
+.battle-log article { display: grid; grid-template-columns: auto 1fr; gap: .6rem; padding: .55rem 0; border-bottom: 1px solid #30262a; }
+.battle-log article > span { color: var(--gold); font-size: .62rem; }
+.battle-log article strong, .battle-log article small { display: block; }
+.battle-log article strong { font-size: .72rem; }
+.battle-log article small { margin-top: .15rem; color: var(--muted); font-size: .6rem; }
+
+.battle-help ol { display: grid; gap: .55rem; margin: 1rem 0; padding: 0; list-style: none; }
+.battle-help li { display: grid; grid-template-columns: 4.4rem 1fr; align-items: center; gap: .65rem; padding: .6rem; background: #151014; border: 1px solid var(--line); }
+.battle-help kbd { display: grid; place-items: center; min-height: 2.3rem; padding: .25rem; color: #171014; background: var(--gold-bright); border: 1px solid #fff0b7; box-shadow: 0 3px 0 #7f6634; font-size: .58rem; font-weight: 900; }
+.battle-help li strong, .battle-help li small { display: block; }
+.battle-help li small { margin-top: .12rem; color: var(--muted); font-size: .62rem; }
+.battle-help__rule { padding: 1rem; background: #1b1116; border-left: 3px solid var(--wine); }
+.battle-help__rule p { margin-bottom: 0; color: var(--muted); font-size: .72rem; line-height: 1.55; }
+.battle-help__toggle { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1rem 0; padding: .75rem; border: 1px solid var(--line); cursor: pointer; }
+.battle-help__toggle strong, .battle-help__toggle small { display: block; }
+.battle-help__toggle small { color: var(--muted); font-size: .62rem; }
+.battle-help > a { color: var(--gold); font-size: .7rem; }
+.battle-help__concede { width: 100%; margin-top: 1.4rem; padding: .75rem; color: #ef7887; background: transparent; border: 1px solid #6e2d39; cursor: pointer; }
+
+.guided-coach { position: fixed; z-index: 30; left: .8rem; top: 3.6rem; width: min(17rem, 42vw); display: grid; gap: .25rem; padding: .7rem; background: #150f14f2; border: 1px solid var(--brass-dim); box-shadow: 0 16px 40px #000a; }
+.guided-coach header { display: flex; align-items: center; justify-content: space-between; }
+.guided-coach header span { display: inline-flex; align-items: center; gap: .35rem; color: var(--gold); }
+.guided-coach header small { font-size: .44rem; font-weight: 800; letter-spacing: .16em; }
+.guided-coach header button { width: 1.6rem; height: 1.6rem; display: grid; place-items: center; padding: .3rem; color: var(--muted); background: transparent; border: 1px solid var(--line); cursor: pointer; }
+.guided-coach .eyebrow { margin: .2rem 0 0; font-size: .42rem; }
+.guided-coach strong { font: 400 .8rem Georgia, serif; }
+.guided-coach p { margin: 0; color: var(--muted); font-size: .55rem; line-height: 1.45; }
+.guided-coach > div { display: flex; gap: .35rem; margin-top: .3rem; }
+.guided-coach > div span { display: inline-flex; align-items: center; gap: .2rem; color: var(--muted); font-size: .44rem; }
+.guided-coach > div span.is-done { color: var(--success); }
+.guided-coach > div i { width: .75rem; height: .75rem; display: grid; place-items: center; border: 1px solid currentColor; font-size: .4rem; font-style: normal; }
+
+.match-over-overlay { position: fixed; z-index: 60; inset: 0; display: grid; place-content: center; justify-items: center; gap: .5rem; padding: 2rem; text-align: center; background: #07050799; backdrop-filter: blur(6px); }
+.match-over-overlay h2 { font-size: clamp(2rem, 7vw, 3.6rem); }
+.match-over-overlay p { color: var(--muted); }
+.battle-card-zoom { position: relative; width: min(23rem, 92vw); }
+.battle-card-zoom .modal-close { position: absolute; z-index: 2; top: -1rem; right: -1rem; }
+
+/* ------------------------------------------------------------ adaptação */
+
+@media (max-width: 1180px) {
+  .duel-frame { grid-template-columns: minmax(0, 1fr); }
+  .duel-rail { position: fixed; z-index: 20; right: .5rem; bottom: 13rem; width: 13rem; max-height: 60svh; }
+  .duel-rail .inspector { box-shadow: 0 18px 44px #000c; }
+  .size-inspect .duel-card__text { font-size: .55rem; }
+}
+@media (max-width: 860px) {
+  .duel-room { --hand-w: 6.6rem; }
+  .duelist { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id vial" "seals piles"; row-gap: .35rem; }
+  .duelist__identity { grid-area: id; }
+  .vial { grid-area: vial; }
+  .seals { grid-area: seals; }
+  .duelist__piles { grid-area: piles; }
+  .duel-base { grid-template-columns: minmax(0, 1fr); grid-template-areas: "hand" "phase" "action"; justify-items: center; }
+  .duel-base__hand { grid-area: hand; width: 100%; overflow-x: auto; }
+  .duel-hand { justify-content: flex-start; }
+  .phase-panel { grid-area: phase; }
+  .action-panel { grid-area: action; width: 100%; max-width: none; }
+  .duel-rail { bottom: auto; top: 3.4rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .duel-room *, .duel-room *::before, .duel-room *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Teto de vazamento: aparece só quando age, explicando por que a conta na tela
+   não fecha sozinha. */
+.verdict__cap { padding: .1rem .4rem; color: #bfe0ef; background: #10222b; border: 1px solid #4d7a90; font-size: .36rem; font-weight: 800; letter-spacing: .12em; }

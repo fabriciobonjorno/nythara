@@ -49,8 +49,8 @@ func (s *Service) RegisterStoredRulesets(ctx context.Context) ([]string, error) 
 	}
 	var registered []string
 	for _, payload := range payloads {
-		if payload.Version == engine.RulesetVersion {
-			continue // o embutido já está no registro
+		if _, lookupErr := engine.RulesetByVersion(payload.Version); lookupErr == nil {
+			continue // versões embutidas/registradas não são recompiladas em outro ponteiro
 		}
 		rs, err := engine.CompileRuleset(payload.Version, payload.Cards, payload.Champions, payload.Effects)
 		if err != nil {
@@ -124,7 +124,7 @@ func (s *Service) CreateDraft(ctx context.Context, principal domain.Principal,
 		return domain.CardDraft{}, err
 	}
 	draft := domain.CardDraft{
-		ID: id, CardID: input.CardID, BaseVersion: engine.RulesetVersion,
+		ID: id, CardID: input.CardID, BaseVersion: engine.CompetitiveRulesetVersion,
 		Note: input.Note, Card: input.Card, Effects: input.Effects, CreatedBy: principal.UserID,
 	}
 	return s.store.CreateDraft(ctx, draft,
@@ -241,10 +241,10 @@ func (s *Service) candidatePayload(ctx context.Context, draft domain.CardDraft,
 
 // ValidationResult é persistido no draft e devolvido ao painel.
 type ValidationResult struct {
-	OK         bool      `json:"ok"`
-	Error      string    `json:"error,omitempty"`
-	CheckedAt  time.Time `json:"checked_at"`
-	BaseVersion string   `json:"base_version"`
+	OK          bool      `json:"ok"`
+	Error       string    `json:"error,omitempty"`
+	CheckedAt   time.Time `json:"checked_at"`
+	BaseVersion string    `json:"base_version"`
 }
 
 // ValidateDraft roda schema + validador da DSL + compilação completa do
@@ -286,11 +286,11 @@ func (s *Service) ValidateDraft(ctx context.Context, principal domain.Principal,
 
 // DraftSimulation resume a simulação de um draft para o painel.
 type DraftSimulation struct {
-	Games       int                       `json:"games"`
-	Healthy     bool                      `json:"healthy"`
-	Error       string                    `json:"error,omitempty"`
-	FirstPlayer float64                   `json:"first_player_win_rate"`
-	AvgRounds   float64                   `json:"average_rounds"`
+	Games       int                  `json:"games"`
+	Healthy     bool                 `json:"healthy"`
+	Error       string               `json:"error,omitempty"`
+	FirstPlayer float64              `json:"first_player_win_rate"`
+	AvgRounds   float64              `json:"average_rounds"`
 	Champions   []sim.ChampionMetric `json:"champions"`
 }
 
@@ -352,7 +352,7 @@ func (s *Service) PublishDraft(ctx context.Context, principal domain.Principal,
 	if err := requireAdmin(principal); err != nil {
 		return domain.RulesetInfo{}, err
 	}
-	if !versionPattern.MatchString(newVersion) || newVersion == engine.RulesetVersion {
+	if !versionPattern.MatchString(newVersion) || newVersion == engine.CompetitiveRulesetVersion {
 		return domain.RulesetInfo{}, fmt.Errorf("%w: versão inválida %q", domain.ErrInvalid, newVersion)
 	}
 	if strings.HasPrefix(newVersion, "draft:") {
@@ -385,9 +385,9 @@ func (s *Service) PublishDraft(ctx context.Context, principal domain.Principal,
 
 // RotationResult resume a rotação de coleção para uma versão publicada.
 type RotationResult struct {
-	Version     string `json:"version"`
-	CardsGranted int   `json:"cards_granted"`
-	DecksCloned  int   `json:"decks_cloned"`
+	Version      string `json:"version"`
+	CardsGranted int    `json:"cards_granted"`
+	DecksCloned  int    `json:"decks_cloned"`
 }
 
 // RotateRuleset concede a coleção da versão publicada a todos os jogadores e

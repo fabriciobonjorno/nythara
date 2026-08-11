@@ -18,6 +18,7 @@ func TestPracticeMatchFullGameAgainstBot(t *testing.T) {
 	ctx := context.Background()
 	store := newMemoryBattleStore()
 	manager := NewManager(store)
+	manager.SetActiveRuleset(engine.RulesetVersion)
 	human := domain.Principal{UserID: "00000000-0000-4000-8000-000000000042", Role: domain.RolePlayer}
 	deck := testDeck(t, human.UserID, "deck-humano", "CH-VH-01")
 	botDeck := testDeck(t, domain.BotUserID, "deck-bot", "CH-SO-01")
@@ -134,6 +135,7 @@ func TestPracticeSkipsBansButChecksVersion(t *testing.T) {
 	ctx := context.Background()
 	store := newMemoryBattleStore()
 	manager := NewManager(store)
+	manager.SetActiveRuleset(engine.RulesetVersion)
 	human := domain.Principal{UserID: "00000000-0000-4000-8000-000000000043", Role: domain.RolePlayer}
 	deck := testDeck(t, human.UserID, "deck-h2", "CH-VH-01")
 	botDeck := testDeck(t, domain.BotUserID, "deck-b2", "CH-CI-01")
@@ -142,4 +144,98 @@ func TestPracticeSkipsBansButChecksVersion(t *testing.T) {
 	if _, err := manager.StartPractice(ctx, human, deck, botDeck); err != nil {
 		t.Fatalf("treino deveria ignorar bans: %v", err)
 	}
+}
+
+func TestPracticeActionTimeoutPassesInsteadOfConceding(t *testing.T) {
+	ctx := context.Background()
+	store := newMemoryBattleStore()
+	manager := NewManager(store)
+	manager.SetActiveRuleset(engine.CompetitiveRulesetVersion)
+	manager.readyTimeout = time.Hour
+	manager.actionTimeout = time.Hour
+	human := domain.Principal{UserID: "00000000-0000-4000-8000-000000000044", Role: domain.RolePlayer}
+	deck := confrontTestDeck(t, human.UserID, "deck-timeout-human", "CH-VH-01")
+	botDeck := confrontTestDeck(t, domain.BotUserID, "deck-timeout-bot", "CH-SO-01")
+
+	result, err := manager.StartPractice(ctx, human, deck, botDeck)
+	if err != nil {
+		t.Fatalf("StartPractice: %v", err)
+	}
+	ticket, err := manager.IssueTicket(ctx, human, result.MatchID, TicketPlayer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connection, err := manager.Connect(ctx, ticket.Token, result.MatchID, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connection.Close()
+	waitMessage(t, connection.Messages, "sync")
+	if err := connection.Ready(ctx); err != nil {
+		t.Fatal(err)
+	}
+	waitStatus(t, connection.Messages, StatusActive)
+
+	room := manager.rooms[result.MatchID]
+	if actor := expectedActor(room.game.State()); actor != 0 {
+		t.Fatalf("bot deveria devolver a ação ao humano, ator=%d", actor)
+	}
+	room.requests <- timeoutRequest{generation: room.timerGen}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		loaded, loadErr := store.LoadMatch(ctx, result.MatchID)
+		if loadErr != nil {
+			t.Fatal(loadErr)
+		}
+		if len(loaded.Commands) > 0 {
+			var timeoutPass *StoredCommand
+			for index := range loaded.Commands {
+				stored := &loaded.Commands[index]
+				if stored.Origin == "timeout" {
+					timeoutPass = stored
+					break
+				}
+			}
+			if timeoutPass != nil {
+				if timeoutPass.Command.Kind != engine.CmdKindPass || timeoutPass.PlayerSlot != 0 {
+					t.Fatalf("timeout de treino persistiu comando inesperado: %+v", timeoutPass)
+				}
+				if loaded.Match.Status != StatusActive || loaded.Match.EndReason == "timeout" {
+					t.Fatalf("timeout de treino encerrou a partida: status=%s reason=%s",
+						loaded.Match.Status, loaded.Match.EndReason)
+				}
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("passe automático do treino não foi persistido")
+}
+
+func confrontTestDeck(t *testing.T, userID, id, avatarID string) domain.Deck {
+	t.Helper()
+	list, err := engine.CompetitiveRuleset().PreconstructedDeck(avatarID)
+	if err != nil {
+		t.Fatalf("precon competitivo: %v", err)
+	}
+	counts := map[string]int{}
+	for _, cardID := range list {
+		counts[cardID]++
+	}
+	deck := domain.Deck{ID: id, UserID: userID, ChampionID: avatarID,
+		RulesetVersion: engine.CompetitiveRulesetVersion, Name: "Teste Confronto"}
+	added := map[string]bool{}
+	for _, cardID := range list {
+		if added[cardID] {
+			continue
+		}
+		added[cardID] = true
+		quantity := counts[cardID]
+		deck.Cards = append(deck.Cards, domain.DeckCard{CardID: cardID, Quantity: quantity})
+	}
+	if err := validateStoredDeck(deck); err != nil {
+		t.Fatalf("deck competitivo inválido: %v", err)
+	}
+	return deck
 }

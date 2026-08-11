@@ -14,7 +14,7 @@ func main() {
 	defer cancel()
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		databaseURL = "postgres://veurubro:veurubro_dev@localhost:5432/veurubro?sslmode=disable"
+		databaseURL = "postgres://veurubro:veurubro_dev@localhost:55432/veurubro?sslmode=disable"
 	}
 	db, err := storage.Open(ctx, databaseURL)
 	if err != nil {

@@ -81,7 +81,7 @@ func TestCompileAndPlayModifiedRuleset(t *testing.T) {
 		h.bothPassRite()
 		h.play(0, h.handInst(0, "VR-013"))
 		h.pass(1)
-		return g, 30 - g.State().Players[1].Vitality
+		return g, g.State().Players[1].MaxVitality - g.State().Players[1].Vitality
 	}
 
 	gOld, dmgOld := play("") // embutido

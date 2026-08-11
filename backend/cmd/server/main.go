@@ -25,7 +25,7 @@ func main() {
 	defer cancel()
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		databaseURL = "postgres://veurubro:veurubro_dev@localhost:5432/veurubro?sslmode=disable"
+		databaseURL = "postgres://veurubro:veurubro_dev@localhost:55432/veurubro?sslmode=disable"
 	}
 	db, err := storage.Open(ctx, databaseURL)
 	if err != nil {
@@ -37,7 +37,7 @@ func main() {
 		logger.Error("falha ao sincronizar catálogo", "error", err)
 		os.Exit(1)
 	}
-	shutdownTelemetry, err := telemetry.Setup(ctx, "veu-rubro-api", engine.RulesetVersion)
+	shutdownTelemetry, err := telemetry.Setup(ctx, "nythara-api", engine.CompetitiveRulesetVersion)
 	if err != nil {
 		logger.Error("falha ao iniciar telemetria", "error", err)
 		os.Exit(1)
@@ -85,7 +85,7 @@ func main() {
 	handler := otelhttp.NewHandler(httpapi.New(service, battleManager, logger, db.Ping), "http.server")
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "18080"
 	}
 	srv := &http.Server{
 		Addr:              ":" + port,

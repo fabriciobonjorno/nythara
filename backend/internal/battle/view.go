@@ -3,29 +3,31 @@ package battle
 import "veurubro/backend/internal/engine"
 
 type PlayerView struct {
-	Champion        string          `json:"champion"`
-	Vitality        int             `json:"vitality"`
-	MaxVitality     int             `json:"max_vitality"`
-	Essence         int             `json:"essence"`
-	EssenceCap      int             `json:"essence_cap"`
-	TempEssence     int             `json:"temp_essence"`
-	DeckCount       int             `json:"deck_count"`
-	HandCount       int             `json:"hand_count"`
-	Hand            []string        `json:"hand,omitempty"`
-	Discard         []string        `json:"discard"`
-	Exile           []string        `json:"exile"`
-	Relics          []string        `json:"relics"`
-	Manifs          []string        `json:"manifs"`
-	Stance          engine.Stance   `json:"stance,omitempty"`
-	StanceCommitted bool            `json:"stance_committed"`
-	MulliganDone    bool            `json:"mulligan_done"`
-	Fatigue         int             `json:"fatigue"`
-	Trail           []engine.Sigil  `json:"trail"`
-	Ward            int             `json:"ward"`
-	Exposto         bool            `json:"exposto"`
-	Bleeds          []engine.TimedN `json:"bleeds,omitempty"`
-	Curses          []engine.TimedN `json:"curses,omitempty"`
-	UltimateUsed    bool            `json:"ultimate_used"`
+	Champion         string          `json:"champion"`
+	Vitality         int             `json:"vitality"`
+	MaxVitality      int             `json:"max_vitality"`
+	Essence          int             `json:"essence"`
+	EssenceCap       int             `json:"essence_cap"`
+	TempEssence      int             `json:"temp_essence"`
+	DeckCount        int             `json:"deck_count"`
+	HandCount        int             `json:"hand_count"`
+	Hand             []string        `json:"hand,omitempty"`
+	Discard          []string        `json:"discard"`
+	Exile            []string        `json:"exile"`
+	Relics           []string        `json:"relics"`
+	Manifs           []string        `json:"manifs"`
+	Stance           engine.Stance   `json:"stance,omitempty"`
+	StanceCommitted  bool            `json:"stance_committed"`
+	MulliganDone     bool            `json:"mulligan_done"`
+	Fatigue          int             `json:"fatigue"`
+	Trail            []engine.Sigil  `json:"trail"`
+	Ward             int             `json:"ward"`
+	Exposto          bool            `json:"exposto"`
+	AssaultSealUntil int             `json:"assault_seal_until,omitempty"`
+	RiteSealUntil    int             `json:"rite_seal_until,omitempty"`
+	Bleeds           []engine.TimedN `json:"bleeds,omitempty"`
+	Curses           []engine.TimedN `json:"curses,omitempty"`
+	UltimateUsed     bool            `json:"ultimate_used"`
 }
 
 type CardView struct {
@@ -58,14 +60,17 @@ type StateView struct {
 	Cards          map[string]CardView `json:"cards"`
 	Pending        *DecisionView       `json:"pending,omitempty"`
 	Guard          *engine.GuardCtx    `json:"guard,omitempty"`
+	Confront       *engine.ConfrontCtx `json:"confront,omitempty"`
 	RiteReact      *engine.RiteReact   `json:"rite_react,omitempty"`
 	Extra          *engine.ExtraWindow `json:"extra,omitempty"`
+	Playable       []string            `json:"playable,omitempty"`
 	Over           bool                `json:"over"`
 	Winner         int                 `json:"winner"`
 	EndReason      string              `json:"end_reason,omitempty"`
 }
 
-func ViewFor(state *engine.GameState, viewer int, spectator bool) StateView {
+func ViewFor(game *engine.Game, viewer int, spectator bool) StateView {
+	state := game.State()
 	view := StateView{RulesetVersion: state.RulesetVersion, Round: state.Round, Phase: state.Phase,
 		Initiative: state.Initiative, Active: state.Active, Eclipse: state.Eclipse,
 		EclipseState: state.EclipseState, Cards: map[string]CardView{}, Over: state.Over, Winner: state.Winner,
@@ -73,6 +78,10 @@ func ViewFor(state *engine.GameState, viewer int, spectator bool) StateView {
 	if state.Guard != nil {
 		guard := *state.Guard
 		view.Guard = &guard
+	}
+	if state.Confront != nil {
+		confront := *state.Confront
+		view.Confront = &confront
 	}
 	if state.RiteReact != nil {
 		reaction := *state.RiteReact
@@ -90,6 +99,7 @@ func ViewFor(state *engine.GameState, viewer int, spectator bool) StateView {
 			Manifs: append([]string{}, player.Manifs...), Stance: player.Stance,
 			StanceCommitted: player.StanceCommitted, MulliganDone: player.MulliganDone, Fatigue: player.Fatigue,
 			Trail: append([]engine.Sigil{}, player.Trail...), Ward: player.Ward, Exposto: player.Exposto,
+			AssaultSealUntil: player.AssaultSealUntil, RiteSealUntil: player.RiteSealUntil,
 			Bleeds: append([]engine.TimedN{}, player.Bleeds...), Curses: append([]engine.TimedN{}, player.Curses...),
 			UltimateUsed: player.UltimateUsed}
 		if !spectator && slot == viewer {
@@ -102,7 +112,8 @@ func ViewFor(state *engine.GameState, viewer int, spectator bool) StateView {
 		view.Players[slot] = pv
 	}
 	for id, card := range state.Cards {
-		public := card.Zone == engine.ZoneDiscard || card.Zone == engine.ZoneExile || card.Zone == engine.ZonePlay
+		public := card.Zone == engine.ZoneDiscard || card.Zone == engine.ZoneExile ||
+			card.Zone == engine.ZonePlay || card.Zone == engine.ZoneClash
 		ownedPrivate := !spectator && card.Owner == viewer && card.Zone == engine.ZoneHand
 		if public || ownedPrivate {
 			view.Cards[id] = CardView{ID: id, Def: card.Def, Owner: card.Owner, Zone: card.Zone}
@@ -120,6 +131,9 @@ func ViewFor(state *engine.GameState, viewer int, spectator bool) StateView {
 				}
 			}
 		}
+	}
+	if !spectator && viewer >= 0 && viewer < len(state.Players) {
+		view.Playable = game.LegalPlayIDs(viewer)
 	}
 	return view
 }

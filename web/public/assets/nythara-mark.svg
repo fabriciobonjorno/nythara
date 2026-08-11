@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Símbolo apocalíptico de Nythara</title>
+  <desc id="desc">Um eclipse de pedra fraturado ao redor de uma estrela moribunda.</desc>
+  <circle cx="32" cy="32" r="31" fill="#080607"/>
+  <g fill="#282728" stroke="#bcb3a6" stroke-width="1.15" stroke-linejoin="bevel">
+    <path d="M29 4A28 28 0 0 0 5 27l15 2 8-11Z"/><path d="M35 4a28 28 0 0 1 24 23l-15 2-8-11Z"/>
+    <path d="M5 37a28 28 0 0 0 24 23l-1-14-8-11Z"/><path d="M59 37a28 28 0 0 1-24 23l1-14 8-11Z"/>
+  </g>
+  <path d="m11 18 10 4-4 6M45 10l-4 11 8 5M11 46l10-3 3 11M44 38l7 6-8 6" fill="none" stroke="#c9501a" stroke-width="1.15"/>
+  <path d="M32 11v16M32 37v16M22 32h7M35 32h7" fill="none" stroke="#ff7825" stroke-width="1.25" stroke-linecap="round"/>
+  <path d="m32 25 1.8 5.2L39 32l-5.2 1.8L32 39l-1.8-5.2L25 32l5.2-1.8L32 25Z" fill="#ff7b28"/>
+  <circle cx="32" cy="32" r="2.4" fill="#fff0c7"/>
+</svg>

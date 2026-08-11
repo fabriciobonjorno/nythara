@@ -38,7 +38,7 @@ func NewManager(store Store) *Manager {
 	m := &Manager{store: store, queued: map[string]bool{}, rooms: map[string]*room{},
 		tickets: map[string]Ticket{}, readyTimeout: 30 * time.Second, actionTimeout: 45 * time.Second,
 		now: time.Now}
-	m.activeRuleset.Store(engine.RulesetVersion)
+	m.activeRuleset.Store(engine.CompetitiveRulesetVersion)
 	return m
 }
 
@@ -629,6 +629,17 @@ func (r *room) handleTimeout() {
 		return
 	}
 	actor := expectedActor(r.game.State())
+	// Treino é uma mesa de aprendizado, não uma fila competitiva. Expirar uma
+	// janela passa a ação sem escolher carta pelo humano; o comando continua
+	// authoritative, persistido e reproduzível. Rulesets históricos em que o
+	// passe não for legal conservam o fallback de concessão abaixo.
+	if r.match.Mode == ModePractice {
+		command := engine.Command{Player: actor, Kind: engine.CmdKindPass, Reason: "timeout"}
+		if err := r.applyServerCommand(actor, "timeout", command); err == nil {
+			r.pumpBot()
+			return
+		}
+	}
 	previousCommands := append([]engine.Command{}, r.game.CommandLog...)
 	command := engine.Command{Player: actor, Kind: engine.CmdKindConcede, Reason: "timeout"}
 	events, err := r.game.Apply(command)
@@ -699,7 +710,7 @@ func (r *room) sendSync(sub *subscriber, after int) {
 		message.ClientSequence = r.match.Players[slot].LastSequence
 	}
 	if r.game != nil {
-		view := ViewFor(r.game.State(), sub.slot, sub.mode == TicketSpectator)
+		view := ViewFor(r.game, sub.slot, sub.mode == TicketSpectator)
 		message.State = &view
 		if after >= -1 && after < len(r.game.Log)-1 {
 			message.Events = RedactEvents(r.game.Log[after+1:], sub.slot, sub.mode == TicketSpectator)
@@ -713,7 +724,7 @@ func (r *room) broadcastState(kind string) {
 		message := ServerMessage{Type: kind, MatchID: r.match.ID, Status: r.match.Status,
 			Ready: [2]bool{r.match.Players[0].Ready, r.match.Players[1].Ready}, Deadline: r.deadline}
 		if r.game != nil {
-			view := ViewFor(r.game.State(), sub.slot, sub.mode == TicketSpectator)
+			view := ViewFor(r.game, sub.slot, sub.mode == TicketSpectator)
 			message.State = &view
 		}
 		r.send(sub, message)
@@ -728,7 +739,7 @@ func (r *room) broadcastEvents(events []engine.Event, source string, sequence in
 		if sub.id == source {
 			message.ClientSequence = sequence
 		}
-		view := ViewFor(r.game.State(), sub.slot, sub.mode == TicketSpectator)
+		view := ViewFor(r.game, sub.slot, sub.mode == TicketSpectator)
 		message.State = &view
 		r.send(sub, message)
 	}
@@ -839,7 +850,7 @@ func randomSeed() (uint64, error) {
 }
 
 func validateStoredDeck(deck domain.Deck) error {
-	return engine.ValidateDeck(deck.ChampionID, expandDeck(deck))
+	return engine.ValidateDeckForVersion(deck.RulesetVersion, deck.ChampionID, expandDeck(deck))
 }
 
 func expandDeck(deck domain.Deck) []string {

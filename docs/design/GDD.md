@@ -1,316 +1,257 @@
-# Projeto VÉU RUBRO
-## Game Design Document — Alpha 0.1
+# Projeto NYTHARA
+## Game Design Document — Alpha 0.10 ("Selos Táticos")
 
 **Status:** conceito original / pré-produção  
 **Plataforma inicial:** Web/PWA, desktop e mobile browser  
-**Objetivo:** criar um card game competitivo de fantasia sombria que recupere a sensação de partidas rápidas, personagens assimétricos, defesa reativa e combos dos card games brasileiros de navegador dos anos 2000, mas com universo, cartas, nomes, arte, regras de combinação e implementação totalmente novos.
+**Objetivo:** criar um card game competitivo de fantasia sombria que recupere a sensação de partidas rápidas, defesa reativa e duelos diretos dos card games brasileiros de navegador dos anos 2000, mas com universo, cartas, nomes, arte, regras e implementação totalmente novos.
+
+> **Nota de versão.** O Alpha ≤ 0.8.3 usava um ruleset com Campeões, Essência,
+> Posturas, Eclipse e Ressonância. A validação humana mostrou que a partida
+> ficou ilegível (ADR-044). O Alpha 0.9 pivotou para o **Modo Confronto** e o
+> Alpha 0.10 acrescenta os **Selos de Fase** (ADR-051),
+> descrito neste documento. O ruleset legado permanece no motor apenas para
+> replay de partidas históricas; seu design está no histórico do git e nos
+> ADRs 001–043.
 
 ---
 
 ## 1. Princípios de design
 
-1. **Fácil de começar, difícil de dominar.** O jogador entende Assalto, Guarda e Rito em poucos minutos; domínio vem de Ressonância, leitura do adversário e controle do Eclipse.
-2. **Sem tabuleiro lotado.** A partida é focada na mão e nas decisões, com no máximo 2 Manifestações e 2 Relíquias ativas por jogador.
-3. **Defesa é uma decisão real.** Certos Assaltos abrem uma janela de Guarda; o defensor escolhe gastar recurso ou aceitar dano.
-4. **Combos são sequências, não “solitários”.** O sistema de Ressonância recompensa ordenar cartas, mas limita loops infinitos.
-5. **O universo deve ser próprio.** Nenhum nome, personagem, ilustração, texto ou arquivo do jogo histórico é reutilizado.
-6. **PvP justo.** Cartas cosméticas/variantes podem monetizar; poder competitivo não deve depender de gasto.
+1. **Legível em uma partida.** O jogador entende Assalto, Guarda e Rito no primeiro duelo, sem ler manual. Uma decisão por vez, sempre óbvio de quem é a vez.
+2. **O confronto é o palco.** Toda troca acontece no centro da mesa: a carta de ataque voa para lá, a defesa responde, a perdedora se estilhaça. O jogador *vê* o jogo acontecer.
+3. **Defesa é uma decisão real.** Assaltos defensáveis abrem a janela de Guarda; o defensor escolhe sacrificar Vitalidade para bloquear ou aceitar o dano.
+4. **Um recurso só.** Vitalidade é vida **e** custo. Cada carta jogada é sangue vertido — agressividade tem preço, e o preço é legível.
+5. **O universo deve ser próprio.** Nenhum nome, personagem, ilustração, texto ou arquivo de jogos históricos é reutilizado.
+6. **PvP justo.** Cosméticos podem monetizar; poder competitivo não depende de gasto.
 
 ---
 
 ## 2. Fantasia e mundo
 
-O mundo de **Véu Rubro** vive preso entre duas forças físicas reais dentro da ficção: **Aurora** e **Noite**. Séculos atrás, um eclipse permanente abriu o Véu e transformou pactos, memórias e sangue em fontes de poder. As grandes facções não lutam simplesmente entre “bem” e “mal”; todas têm razões para empurrar o mundo para a luz, para a noite ou mantê-lo no crepúsculo.
+O mundo de **Nythara** vive preso entre duas forças físicas reais dentro da ficção: **Aurora** e **Noite**. Séculos atrás, um eclipse permanente abriu o Véu e transformou pactos, memórias e sangue em fontes de poder. As grandes facções não lutam simplesmente entre “bem” e “mal”; todas têm razões para empurrar o mundo para a luz, para a noite ou mantê-lo no crepúsculo.
 
 ### Facções
 
-- **Casa Vhal** — aristocracia predatória. Sacrifício de Vitalidade, Dreno, Sangramento e pressão de Noite.
-- **Ordem Solara** — caçadores e sentinelas. Ward, prevenção, contra-ataque, purificação e Aurora.
-- **Conclave Mirr** — ocultistas do espelho. Informação, manipulação, cópias temporárias e Ressonância.
-- **Matilha Varka** — metamorfos. Ataques em sequência, múltiplas janelas de Assalto e explosões de dano.
+- **Casa Vhal** — aristocracia predatória. Sacrifício de Vitalidade, Dreno, Sangramento.
+- **Ordem Solara** — caçadores e sentinelas. Ward, prevenção, contra-ataque, purificação.
+- **Conclave Mirr** — ocultistas do espelho. Informação, manipulação, cópias temporárias.
+- **Matilha Varka** — metamorfos. Ataques em sequência e explosões de dano.
 - **Sínodo Cinéreo** — alquimistas da morte. Descarte, exílio, Maldições e recursão.
 - **Errantes** — cartas neutras.
+
+No Modo Confronto as facções são **identidade visual e temática** das cartas (moldura, sigilo, vocabulário de efeitos) — não impõem restrição de deck.
 
 ---
 
 ## 3. Condição de vitória
 
-Cada Campeão começa normalmente com **30 de Vitalidade** (alguns têm 29–32 como parte do balanceamento).
+Cada duelista começa com **30 de Vitalidade**.
 
-Você vence quando a Vitalidade do Campeão inimigo chega a **0 ou menos**.
+Você vence quando a Vitalidade inimiga chega a **0 ou menos**. Duplo nocaute segue os critérios determinísticos do ADR-013.
 
-Concessão, timeout competitivo e desconexão prolongada também podem encerrar a partida.
+Concessão, timeout competitivo e desconexão prolongada também encerram a
+partida. No treino contra bot, expirar uma janela apenas passa a fase atual;
+nenhuma carta é escolhida pelo sistema em nome do jogador.
 
 ---
 
 ## 4. Deck
 
-- 1 Campeão.
-- **36 cartas**.
-- Máximo de **2 cópias** de uma carta comum/incomum/rara/épica.
-- Máximo de **1 cópia** de Lendárias.
-- Pelo menos 24 cartas precisam ser da facção do Campeão ou neutras.
-- Até 12 cartas podem pertencer a uma **facção aliada** definida pela temporada.
-- Mão inicial: 5 cartas.
-- Mulligan: qualquer quantidade, uma vez.
-- Limite normal da mão: 7.
-- Quando o deck acaba, o descarte não volta gratuitamente: o jogador sofre **Fadiga crescente** (1, depois 2, 3, 4...) e embaralha o descarte para formar novo deck.
+- **30 cartas**, apenas dos tipos **Assalto, Guarda e Rito** (pool legal do modo).
+- Composição mínima: **8 Assaltos, 8 Guardas e 4 Ritos**; os 10 slots
+  restantes são livres dentro do pool. Isso impede baralhos sem condição real
+  de confronto sem tirar a autoria do jogador.
+- Sem Campeão e sem restrição de facção: qualquer combinação do pool.
+- Máximo de **2 cópias** por carta; Lendárias, **1 cópia**.
+- **Um deck ativo por conta.** Salvar o deck inicia uma **trava de edição de 24h** — o deck é um compromisso, não um ajuste entre partidas. O deck inicial gerado pelo sistema não trava.
+- Mão inicial: 5 cartas. Sem mulligan. A Compra acontece inclusive no
+  primeiro turno, portanto cada duelista toma sua primeira ação com 6.
+- Limite de mão: 7. Compra com a mão cheia **queima** a carta (vai ao descarte).
+- Deck vazio: cada compra vira **Fadiga** crescente (2, depois 4, 6…). O descarte **não** é reembaralhado — o esgotamento pressiona o fim.
 
 ---
 
-## 5. Recurso: Essência
+## 5. Recurso: Vitalidade (sacrifício)
 
-- Rodada 1: 3 de Essência máxima.
-- Aumenta +1 por rodada até máximo 8.
-- Recarrega no início da rodada.
-- “Essência temporária” expira no fim da rodada.
-- Algumas cartas usam Vitalidade, descarte ou exílio como custo adicional.
+Não há mana. **Jogar uma carta custa Vitalidade** — o custo impresso é subtraído da sua vida ao jogar.
 
-Isto cria um jogo mais legível que simplesmente permitir qualquer carta a qualquer momento e dá espaço para custos/balanceamento.
+- Um custo só é pagável se deixar você com **pelo menos 1** de Vitalidade.
+- Cura devolve fôlego e, portanto, recurso; agressão pura encurta sua própria margem.
+- Custos altos são apostas: a carta mais forte do jogo cobra um pedaço de quem a joga.
 
 ---
 
-## 6. Estrutura da rodada
+## 6. Estrutura do turno
 
-1. **Preparação** — efeitos de início, recarga de Essência.
-2. **Compra** — cada jogador compra 1.
-3. **Postura** — cada jogador escolhe secretamente uma postura; revelação simultânea:
-   - **Predação:** primeiro Assalto da rodada causa +1 se acertar.
-   - **Vigília:** primeira Guarda custa 1 a menos.
-   - **Arcano:** primeiro Rito custa 1 a menos, mas não pode causar dano direto.
-4. **Rito** — jogador com iniciativa pode usar Ritos/Relíquias/Manifestações; oponente recebe sua janela.
-5. **Confronto** — janela principal de Assalto. Assaltos elegíveis podem gerar janela de Guarda.
-6. **Crepúsculo** — resolve Sangramento, Maldições, expirações e efeitos de fim.
-7. **Iniciativa alterna**.
+Turnos **alternados** (iniciativa sorteada pelo RNG da partida):
+
+1. **Alvorada** — Sangramentos sobre o jogador ativo resolvem; efeitos de início expiram/ativam.
+2. **Compra** — compra 1 carta (Fadiga se o deck acabou; queima se a mão está cheia).
+3. **Assalto** — pode jogar **até 1 carta de Assalto** (paga o custo em Vitalidade):
+   - o primeiro Assalto da partida recebe **−2 de Poder**. Os dois jogadores
+     compram antes de sua primeira ação; essa compensação preserva a escolha
+     de iniciativa sem entregar o primeiro golpe.
+   - Assalto **defensável** abre a **janela de Guarda**: o defensor pode jogar **até 1 Guarda** (pagando o custo) ou passar.
+   - **Resolução do confronto**: dano final = poder do Assalto − prevenção da Guarda (piso 0), passando por Ward. A carta **perdedora se estilhaça**: dano 0 → o Assalto perde; dano > 0 → a Guarda perde; sem resposta → acerto direto. Efeitos adicionais da Guarda (Selo do Rito, Ward, cura) resolvem conforme o texto.
+   - Assalto **indefensável** não abre janela.
+4. **Rito** — pode jogar **até 1 carta de Rito** (cura, compra, Selos, Sangramento, remoção…).
+5. **Crepúsculo** — durações do jogador ativo decrementam; excessos resolvem; passa a vez.
 
 O servidor é o único árbitro da ordem dos eventos.
 
 ---
 
-## 7. Medidor de Eclipse — mecânica central original
+## 7. Pressão de Nythara — antitrava
 
-O Medidor vai de **-3 a +3**:
-
-`AURORA TOTAL -3 ← -2 ← -1 ← 0 → +1 → +2 → +3 ECLIPSE NOTURNO`
-
-Cartas podem deslocá-lo. Ao chegar a -3 ou +3:
-
-1. dispara um **Evento de Eclipse**;
-2. Campeões e cartas com texto de Eclipse podem despertar;
-3. o estado dura até o fim da rodada;
-4. depois retorna a 0.
-
-Isso cria uma “segunda partida” sobre a mesa: causar dano não é a única disputa; o jogador também decide quando permitir ou negar o pico de poder global.
+No início do turno 25, a névoa fecha a arena e ambos perdem **2 de
+Vitalidade**; a perda cresce para 4, 6, 8… nos turnos seguintes. A interface
+avisa desde o turno 20. Se a pressão derrubar os dois com a mesma Vitalidade,
+vence quem ganhou o confronto mais recente; sem confronto anterior, aplica-se
+o desempate determinístico geral. A regra só alcança a cauda de baralhos
+defensivos e impede que uma partida vire espera por Fadiga.
 
 ---
 
-## 8. Ressonância — sistema de combos
+## 8. Glossário
 
-Toda carta emite um **Sigilo** ao resolver:
-
-- Presa
-- Sol
-- Espelho
-- Garra
-- Cinza
-- Coroa
-
-Os Sigilos resolvidos na rodada formam a **Trilha de Ressonância**.
-
-Exemplo:
-
-`Presa → Coroa → Espelho`
-
-Uma carta pode dizer:
-
-> Ressonância Presa→Coroa: cure 2.
-
-A condição verifica a sequência recente. O limite padrão é **5 Sigilos por jogador por rodada**; efeitos excepcionais podem aumentar temporariamente esse limite.
-
-### Regras anti-loop
-
-- Um mesmo gatilho de Ressonância de uma mesma instância de carta só dispara uma vez por rodada.
-- Cópias não podem copiar “limite 1 por deck”.
-- Cartas geradas não entram no deck/coleção.
-- Cadeias forçadas têm limite de profundidade no motor.
-- Se múltiplos gatilhos surgirem juntos, usa-se uma fila determinística.
+- **Poder:** dano base de um Assalto. No Modo Confronto, a conversão do
+  catálogo legado recebe +4 de escala; bônus condicionais aparecem no placar
+  calculado do confronto.
+- **Prevenção:** quanto uma Guarda subtrai do dano do confronto.
+- **Revide:** dano que uma Guarda devolve ao atacante ao bloquear.
+- **Ward X:** escudo que absorve X de dano e persiste até consumido.
+- **Sangramento X:** na Alvorada do próximo turno do alvo, ele sofre X; depois remove.
+- **Exposto / Selo da Guarda:** o próximo Assalto contra o alvo recebe **+2
+  de Poder** e não abre janela de Guarda; Exposto é consumido ao declarar
+  esse Assalto. É uma preparação forte, pública e respondível antes do turno
+  seguinte.
+- **Selo do Assalto:** a próxima fase de Assalto do alvo é pulada; ele ainda
+  recebe sua Compra e pode usar um Rito.
+- **Selo do Rito:** a fase de Rito do atacante após o confronto atual é
+  pulada.
+- **Véu:** não pode ser alvo de Ritos adversários até o fim da duração.
+- **Recuperar:** mover do descarte para a mão.
+- **Exilar:** remover da partida atual, salvo efeito explícito.
+- **Maldição:** efeito negativo com duração.
+- **Fadiga:** dano crescente ao comprar de deck vazio (2, 4, 6…).
+- **Sigilo:** símbolo de afinidade impresso na carta (Presa, Sol, Espelho, Garra, Cinza, Coroa). No Modo Confronto é identidade visual — sem regra ativa.
 
 ---
 
 ## 9. Tipos de carta
 
 ### Assalto
-Dano direto e pressão. Alguns ataques são “defensáveis”; outros possuem condições especiais.
+Dano direto e pressão. Cada Assalto tem **Poder** e é **defensável** ou **indefensável**. Alguns têm efeitos anexos (Sangramento, compra, Selo…).
 
 ### Guarda
-Reações usadas quando uma janela de defesa é aberta. Prevêm dano, geram Ward ou contra-efeitos.
+Reações jogadas **somente** na janela de Guarda. Têm **Prevenção** e podem ter efeitos anexos (Revide, Ward, cura).
 
 ### Rito
-Manipulação, cura, compra, descarte, Eclipse, Maldições e combos.
+Manipulação jogada no próprio turno: cura, compra, descarte do oponente, Selos, Maldições, recursão.
 
-### Relíquia
-Permanente; máximo de 2 ativas. Uma terceira exige substituir/destruir uma existente.
-
-### Manifestação
-Personagem/entidade de apoio; máximo de 2 ativas. Não possui combate próprio no Alpha: fornece efeitos persistentes e gatilhos.
-
----
-
-## 10. Glossário inicial
-
-- **Ward X:** escudo que absorve X de dano e persiste até consumido ou até indicação em contrário.
-- **Sangramento X:** no Crepúsculo da próxima rodada do alvo, ele sofre X; depois remove.
-- **Exposto:** próximo dano recebido ganha +2; depois remove.
-- **Véu:** não pode ser alvo de Ritos adversários até o fim da duração.
-- **Recuperar:** mover do descarte para a mão.
-- **Exilar:** remover da partida atual, salvo efeito explícito.
-- **Maldição:** efeito negativo com duração.
-- **Eclipse Noturno / Aurora Total:** estados disparados em +3/-3.
-- **Sigilo:** símbolo usado pela Ressonância.
-- **Fadiga:** dano crescente ao tentar reciclar deck vazio.
+> **Fora do modo:** Relíquias e Manifestações (permanentes) não participam do
+> Modo Confronto. Cartas cujo efeito depende de sistemas do ruleset legado
+> (Eclipse, Ressonância, Posturas, permanentes) ficam fora do pool legal —
+> excluídas explicitamente via `ImplementationReport`, nunca ignoradas em
+> silêncio. Assaltos e Guardas podem entrar como adaptações básicas quando
+> Poder/Prevenção são independentes: o texto é substituído, a API marca
+> `adapted=true` e o efeito secundário removido aparece no relatório. Ritos
+> não usam fallback.
 
 ---
 
-## 11. Campeões
+## 10. Avatares
 
-O Alpha possui **10 Campeões originais**, dois por facção. Cada um tem:
-- Vitalidade própria;
-- passiva;
-- habilidade única de uso uma vez por partida;
-- Forma de Eclipse.
+Os 10 personagens do Alpha (Kaedor, Seris, Mara, Ilyan, Nyra, Oren, Rauk, Saela, Voren, Edda) deixam de ser mecânica e viram **Avatares**: retrato, título e presença na arena. Zero efeito de regra. A lore e a arte permanecem; a escolha é cosmética.
 
-Arquivo completo: `champions_alpha.json`.
+Arquivo: `champions_alpha.json` (reinterpretado como catálogo de avatares).
 
 ---
 
-## 12. Set Alpha
+## 11. Set Alpha
 
-O primeiro conjunto possui:
-- **80 cartas jogáveis originais**;
-- 10 Campeões;
-- 5 facções + neutras;
-- 5 tipos de carta;
-- 6 Sigilos;
-- raridades Comum, Incomum, Rara, Épica e Lendária.
+- **130 cartas originais** no catálogo; o pool legal do Modo Confronto é o subconjunto de Assalto/Guarda/Rito cujos efeitos compilam no modo (relatório de implementação lista as exclusões).
+- 5 facções + neutras como identidade visual.
+- Raridades: Comum, Incomum, Rara, Épica, Lendária.
 
-Arquivos:
-- `cards_alpha.json`
-- `cards_alpha.csv`
-
-As cartas foram desenhadas para validar o motor. Antes de qualquer monetização competitiva, precisam passar por simulação, telemetria e testes humanos.
+Arquivos: `cards_alpha.json`, `cards_alpha.csv`.
 
 ---
 
-## 13. Modos
+## 12. Modos
 
 ### Alpha
-- Tutorial PvE
-- Bot treino
+- Treino contra bot
 - Casual 1v1
-- Ranked 1v1
+- Ranked 1v1 (patentes)
 - Duelo por código/convite
 
 ### Pós-MVP
-- História episódica
-- Draft
-- Arena selada
-- Torneios
-- Espectador
-- Replays
-- Guildas
-- eventos cooperativos
-- PvP 2v2 experimental
+- História episódica, Draft, Arena selada, Torneios, Espectador, Guildas, 2v2 experimental.
 
 ---
 
-## 14. Progressão e monetização
+## 13. Progressão e monetização
 
-### Recomendação
-**Não vender vantagem competitiva diretamente.**
-
-Monetizar:
-- passes cosméticos;
-- skins de Campeão;
-- molduras;
-- backs de carta;
-- animações;
-- tabuleiros/arenas;
-- emotes;
-- versões foil/animadas;
-- campanhas PvE;
-- bundles com proteção contra duplicata.
-
-Para ranked, manter caminho realista de aquisição de cartas por jogo e oferecer um modo competitivo de “coleção completa” em torneios oficiais internos quando apropriado.
+**Não vender vantagem competitiva.** Monetizar: cosméticos (avatares, molduras, versos de carta, animações, arenas, emotes, foils), campanhas PvE, bundles com proteção de duplicata. Caminho realista de aquisição de cartas jogando.
 
 ---
 
-## 15. Interface
+## 14. Interface
 
 ### Tela de batalha
-- oponente no topo;
-- Vitalidade + Campeão;
-- Medidor de Eclipse central, sempre visível;
-- área de Relíquias/Manifestações;
-- cartas resolvidas no centro;
-- mão do jogador em leque;
-- Trilha de Ressonância logo acima da mão;
-- botões de janela/tempo claros;
-- histórico de eventos acessível.
+- **Oponente no topo:** avatar, nome, Vitalidade, mão em versos, deck e estados visíveis.
+- **Centro: a zona de confronto.** As cartas jogadas voam para o centro; o choque acontece ali; a perdedora se estilhaça; números de dano voam até a Vitalidade atingida.
+- **Log de partida** acessível (“Fulano comprou uma carta.”) — a mesa conta a própria história.
+- **Jogador na base:** avatar, Vitalidade, indicador de fase (Assalto → Guarda → Rito), mão em leque, passe secundário e timer visível.
+- **Janela de Guarda:** a mesa escurece, as Guardas jogáveis acendem, o defensor decide.
+- Zoom/preview grande de carta em hover ou toque longo.
+- Texto tático derivado da DSL, com papel, palavras-chave e resolução completa
+  da carta; o resultado final continua exclusivo da engine.
+- Controles equivalentes: um clique/toque direto, arraste e teclado (1–7 joga
+  a carta, Espaço passa a fase, H abre ajuda, Esc fecha painéis). Sem carta
+  legal, a janela avança automaticamente depois de uma indicação breve.
+- Barra proporcional de Vitalidade, emblema original do Avatar e anúncio
+  inequívoco de turno; nenhuma informação depende somente de cor.
+- Acessibilidade: movimento reduzido, alto contraste, texto grande — todos os efeitos respeitam as preferências.
 
 ### Direção artística
-Dark fantasy barroco + ocultismo astronômico.
-Evitar reproduzir molduras, fontes, personagens ou composição visual do título histórico.
-Paleta pode explorar carvão, vinho escuro, marfim, ouro envelhecido e azul lunar, mas o layout precisa ser novo.
+Dark fantasy barroco + ocultismo astronômico. Paleta de carvão, vinho escuro, marfim, ouro envelhecido e azul lunar. Nenhuma moldura, fonte, personagem ou composição do título histórico é reproduzida.
 
 ---
 
-## 16. Metas de experiência
+## 15. Metas de experiência
 
-- tutorial até 8 minutos;
-- primeira partida completa até 12 minutos;
+- primeira partida completa em até 12 minutos;
+- treino alcançável em até três decisões após a criação da conta;
+- mesa inteira, inclusive a mão, visível sem rolagem durante o duelo;
 - média ranked desejada: 8–15 minutos;
-- decisões significativas desde a rodada 1;
-- nenhuma partida deve depender de “quem gastou mais dinheiro”;
-- taxa de vitória ideal dos melhores decks após estabilização: evitar extremos; balancear com dados, não sensação.
+- decisões significativas desde o turno 1;
+- término dominante por Assalto (meta ADR-041: ≥ 35% — no Confronto, por construção);
+- nenhuma partida decidida por “quem gastou mais dinheiro”.
 
 ---
 
-## 17. Diferenciação clara
+## 16. Diferenciação clara
 
-O produto não é uma reconstrução 1:1.
+O produto não é uma reconstrução 1:1 de nenhum jogo histórico.
 
-**Inspirado na sensação:**
-- personagem + deck;
-- vida;
-- ataque/defesa/magia como pilares;
-- defesa reativa;
-- combos;
-- partidas online.
+**Inspirado na sensação:** vida única como recurso, ataque/defesa/magia, defesa reativa, confronto central visível, partidas online rápidas.
 
-**Original:**
-- universo e lore;
-- Campeões;
-- todas as cartas;
-- Eclipse global bidirecional;
-- Ressonância por sequência de Sigilos;
-- Posturas simultâneas;
-- Essência;
-- Relíquias/Manifestações limitadas;
-- regras de fadiga;
-- progressão, interface e implementação.
+**Original:** universo e lore de Nythara, todas as 130 cartas, Pressão de
+Nythara, Selos de Fase, Ward, Fadiga sem reembaralhar, trava de
+deck de 24h, patentes/temporadas, interface e implementação.
 
 ---
 
-## 18. Critérios para sair do Alpha
+## 17. Critérios para sair do Alpha
 
 - engine determinística com 100% de replay;
-- nenhuma divergência entre servidor e cliente em 100k partidas simuladas;
+- nenhuma divergência servidor/cliente em partidas simuladas em massa;
 - nenhuma carta com loop infinito;
-- bots capazes de executar todas as regras;
+- bots capazes de executar todas as regras do modo;
 - matchmaking e reconexão;
-- testes de carga WebSocket;
-- coleção/decks persistentes;
+- coleção/deck persistente com trava;
 - telemetria por carta;
-- painel de balanceamento;
 - segurança contra cliente adulterado;
 - regras versionadas por temporada.

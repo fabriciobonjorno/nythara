@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"veurubro/backend/internal/domain"
+	"veurubro/backend/internal/engine"
 )
 
 const playerUserID = "00000000-0000-4000-8000-000000000010"
@@ -30,7 +31,8 @@ func TestMatchReplayAuthorization(t *testing.T) {
 			{UserID: playerUserID, DisplayName: "Jogador", ChampionID: "CH-CI-01"},
 			{UserID: domain.BotUserID, DisplayName: "Treinador do Véu", ChampionID: "CH-VA-02"},
 		},
-		Events: []json.RawMessage{json.RawMessage(`{"seq":0,"kind":"match_started"}`)},
+		RulesetVersion: engine.CompetitiveRulesetVersion,
+		Events:         []json.RawMessage{json.RawMessage(`{"seq":0,"kind":"match_started"}`)},
 	}
 	store.replay = &replay
 
@@ -42,6 +44,12 @@ func TestMatchReplayAuthorization(t *testing.T) {
 	var got domain.MatchReplayData
 	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil || len(got.Events) != 1 {
 		t.Fatalf("crônica truncada: %v %s", err, response.Body.String())
+	}
+
+	// A escala da Vitalidade viaja com a partida: o cliente não pode cair na
+	// Vitalidade legada do Campeão, que o Modo Confronto sobrescreve.
+	if got.StartingVitality != engine.CompetitiveRuleset().ConfrontRules.StartingVitality {
+		t.Fatalf("crônica sem a base de Vitalidade do ruleset: %d", got.StartingVitality)
 	}
 
 	// Partida viva jamais vaza o log, nem para o participante.

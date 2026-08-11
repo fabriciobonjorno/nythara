@@ -79,8 +79,20 @@ func (p *Postgres) PublishRuleset(ctx context.Context, payload domain.RulesetPay
 	}
 	defer tx.Rollback()
 
+	var metadata struct {
+		Mode string `json:"mode"`
+	}
+	if err := json.Unmarshal(payload.Effects, &metadata); err != nil {
+		return fmt.Errorf("%w: metadados do ruleset: %v", domain.ErrInvalid, err)
+	}
+	if metadata.Mode == "" {
+		metadata.Mode = engine.RulesModeLegacy
+	}
+	if metadata.Mode != engine.RulesModeLegacy && metadata.Mode != engine.RulesModeConfront {
+		return fmt.Errorf("%w: modo do ruleset desconhecido %q", domain.ErrInvalid, metadata.Mode)
+	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO rulesets(version,active) VALUES($1,false)`, payload.Version); err != nil {
+		`INSERT INTO rulesets(version,active,mode) VALUES($1,false,$2)`, payload.Version, metadata.Mode); err != nil {
 		return mapError(err)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO ruleset_payloads(version,cards,champions,effects)

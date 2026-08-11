@@ -28,11 +28,11 @@ func TestSecondAssaultBonusVR037(t *testing.T) {
 
 	h.play(0, h.handInst(0, "VR-037"))
 	h.pass(1) // sem guarda
-	h.assertVit(1, 28)
+	h.assertVit(1, 25)
 
 	h.play(0, h.handInst(0, "VR-037"))
 	h.pass(1)
-	h.assertVit(1, 24) // 2 + (2+2)
+	h.assertVit(1, 21) // 2 + (2+2)
 }
 
 func TestRaukSecondAssaultChampionBonus(t *testing.T) {
@@ -44,10 +44,10 @@ func TestRaukSecondAssaultChampionBonus(t *testing.T) {
 
 	h.play(0, h.handInst(0, "VR-037"))
 	h.pass(1)
-	h.assertVit(1, 28)
+	h.assertVit(1, 25)
 	h.play(0, h.handInst(0, "VR-037"))
 	h.pass(1)
-	h.assertVit(1, 23) // 2 + (2+2+1 Rauk)
+	h.assertVit(1, 20) // 2 + (2+2+1 Rauk)
 }
 
 func TestMultiHitVsWardVR044(t *testing.T) {
@@ -65,12 +65,12 @@ func TestMultiHitVsWardVR044(t *testing.T) {
 	h.pass(1)
 	h.pass(0)
 
-	h.pass(1) // confronto de p1
-	h.g.State().Players[0].Essence = 4 // alpha-0.6.0: VR-044 custa 4
+	h.pass(1)                          // confronto de p1
+	h.g.State().Players[0].Essence = 4 // VR-044 custa 4
 	h.play(0, h.handInst(0, "VR-044"))
 	h.pass(1)
 	// 3 instâncias de 2 (alpha-0.6.0): a 1ª perde 1 no Ward; 5 atravessam.
-	h.assertVit(1, 25)
+	h.assertVit(1, 22)
 	if got := h.g.State().Players[1].Ward; got != 0 {
 		t.Fatalf("ward final: %d; esperado 0", got)
 	}
@@ -88,7 +88,7 @@ func TestPierceWardVR020(t *testing.T) {
 	h.play(0, h.handInst(0, "VR-020"))
 	h.pass(1)
 	// Ignora 1 de Ward (alpha-0.6.0): o Ward 1 é contornado; 3 de dano cheio.
-	h.assertVit(1, 27)
+	h.assertVit(1, 24)
 	if got := h.g.State().Players[1].Ward; got != 1 {
 		t.Fatalf("ward deveria permanecer 1 (contornado), tem %d", got)
 	}
@@ -102,14 +102,14 @@ func TestBleedTimingVR009(t *testing.T) {
 	h.bothPassRite()
 	h.play(0, h.handInst(0, "VR-009"))
 	h.pass(1)
-	h.assertVit(1, 28) // dano imediato 2
+	h.assertVit(1, 25) // dano imediato 2
 	h.pass(0)
 	h.pass(1)
 	// Crepúsculo da rodada 1: Sangramento ainda não dispara.
-	h.assertVit(1, 28)
+	h.assertVit(1, 25)
 	h.passRound()
 	// Crepúsculo da rodada 2: dispara Sangramento 2.
-	h.assertVit(1, 26)
+	h.assertVit(1, 23)
 	if got := len(h.g.State().Players[1].Bleeds); got != 0 {
 		t.Fatalf("sangramentos restantes: %d; esperado 0", got)
 	}
@@ -124,10 +124,10 @@ func TestCurseVR053(t *testing.T) {
 	h.pass(0)
 	h.pass(1)
 	h.passConfront()
-	h.assertVit(1, 30) // rodada 1: nada
+	h.assertVit(1, 27) // rodada 1: nada
 	h.passRound()
 	// Crepúsculo da rodada 2: p1 com 7 cartas (≥5) sofre 3 (alpha-0.5.0).
-	h.assertVit(1, 27)
+	h.assertVit(1, 24)
 }
 
 func TestGuardHealVR003(t *testing.T) {
@@ -139,13 +139,13 @@ func TestGuardHealVR003(t *testing.T) {
 
 	h.play(0, h.handInst(0, "VR-013"))
 	h.pass(1)
-	h.assertVit(1, 28) // eclipse 0: sem bônus no alpha-0.5.0 → 2
+	h.assertVit(1, 25) // eclipse 0: sem bônus → 2
 	h.assertEclipse(-1)
 
 	h.play(0, h.handInst(0, "VR-013"))
 	h.play(1, h.handInst(1, "VR-003"))
 	// Eclipse -1 → 3; preveniu os 3 → cura 1.
-	h.assertVit(1, 29)
+	h.assertVit(1, 26)
 }
 
 func TestPeleGrossaVR042(t *testing.T) {
@@ -158,7 +158,7 @@ func TestPeleGrossaVR042(t *testing.T) {
 	// Sem dano prévio na rodada: previne 3 de 3 (alpha-0.6.0) → nada passa.
 	h.play(0, h.handInst(0, "VR-020"))
 	h.play(1, h.handInst(1, "VR-042"))
-	h.assertVit(1, 30)
+	h.assertVit(1, 27)
 	h.pass(0)
 	h.pass(1)
 
@@ -169,10 +169,10 @@ func TestPeleGrossaVR042(t *testing.T) {
 	h.bothPassRite()
 	h.play(0, h.handInst(0, "VR-013"))
 	h.pass(1)
-	h.assertVit(1, 28) // 2 de dano (alpha-0.6.0: o bônus exige Aurora funda)
+	h.assertVit(1, 25) // 2 de dano; o bônus exige Aurora funda
 	h.play(0, h.handInst(0, "VR-020"))
 	h.play(1, h.handInst(1, "VR-042"))
-	h.assertVit(1, 28) // previne 5 de 3 → nada passa
+	h.assertVit(1, 25) // previne 5 de 3 → nada passa
 }
 
 func TestResonanceComboVR005(t *testing.T) {
@@ -184,7 +184,7 @@ func TestResonanceComboVR005(t *testing.T) {
 	h.pass(0) // p0 não ataca na rodada 1
 	h.play(1, h.handInst(1, "VR-013"))
 	h.pass(0)
-	h.assertVit(0, 28) // VR-013 sem bônus a 0 (alpha-0.5.0)
+	h.assertVit(0, 25) // VR-013 sem bônus a 0
 	h.pass(1)
 
 	// Rodada 2: iniciativa de p1; p0 monta Presa→Coroa e fecha com VR-005.
@@ -197,9 +197,9 @@ func TestResonanceComboVR005(t *testing.T) {
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-005"))
 	h.pass(1)
-	// Trilha própria: Presa, Coroa → bônus: cura 2 (teto 30).
-	h.assertVit(0, 30)
-	h.assertVit(1, 30-2-2-3)
+	// Trilha própria: Presa, Coroa → bônus: cura 2 (teto 27).
+	h.assertVit(0, 27)
+	h.assertVit(1, 27-2-2-3)
 }
 
 func TestAntiResonanceGuardVR017(t *testing.T) {
@@ -211,14 +211,14 @@ func TestAntiResonanceGuardVR017(t *testing.T) {
 
 	h.play(0, h.handInst(0, "VR-001")) // Sigilo Presa fica por último na linha global
 	h.pass(1)
-	h.assertVit(1, 28)
+	h.assertVit(1, 25)
 	h.pass(0)
 
 	// VR-025 chega com bônus de Ressonância +2 (alpha-0.6.0): 5 de dano
 	// contra prevenção 2+2 do VR-017 → 1 atravessa.
 	h.play(1, h.handInst(1, "VR-025"))
 	h.play(0, h.handInst(0, "VR-017"))
-	h.assertVit(0, 29)
+	h.assertVit(0, 26)
 	h.pass(1)
 
 	// Rodada 2: trilhas zeradas; VR-020 (sem bônus) contra VR-017 → previne só 2.
@@ -226,7 +226,7 @@ func TestAntiResonanceGuardVR017(t *testing.T) {
 	h.bothPassRite()
 	h.play(1, h.handInst(1, "VR-020"))
 	h.play(0, h.handInst(0, "VR-017"))
-	h.assertVit(0, 28)
+	h.assertVit(0, 25)
 }
 
 func TestVeilBlocksTargetedRite(t *testing.T) {
@@ -234,7 +234,7 @@ func TestVeilBlocksTargetedRite(t *testing.T) {
 		deckWith("VR-015"), deckWith(), 0)
 	h.keepAll()
 	h.stances(engine.StanceVigilia, engine.StanceVigilia)
-	// Cirurgia de estado: p1 sob Véu nesta rodada.
+	// Um Véu concedido na rodada anterior continua ativo nesta rodada.
 	h.g.State().Players[1].VeilRound = h.g.State().Round
 	h.mustFail(engine.Command{Player: 0, Kind: engine.CmdKindPlay, Card: h.handInst(0, "VR-015")},
 		engine.ErrIllegalTarget)
@@ -243,7 +243,7 @@ func TestVeilBlocksTargetedRite(t *testing.T) {
 	}
 }
 
-// Com o set completo (80/80), não existe mais carta não implementada; o
+// Com o set completo (130/130), não existe mais carta não implementada; o
 // teste vira uma trava de cobertura total + a rejeição de jogadas fora de
 // janela (counter fora da reação).
 func TestFullCoverageAndCounterOnlyInReaction(t *testing.T) {
@@ -281,13 +281,13 @@ func TestFatigueOnEmptyDeck(t *testing.T) {
 	}
 	p.Deck = nil
 
-	// Dívida de Sangue: sacrifica 2 e compra 2 → 1ª compra: Fadiga 4 +
+	// Dívida de Sangue: sacrifica 2 e compra 2 → 1ª compra: Fadiga 6 +
 	// reembaralha o descarte; 2ª compra normal.
 	h.play(0, h.handInst(0, "VR-002"))
-	// Seris: 30 - 2 (sacrifício) - 4 (fadiga alpha-0.6.0) = 24.
-	h.assertVit(0, 24)
-	if p.Fatigue != 4 {
-		t.Fatalf("fadiga: %d; esperado 4", p.Fatigue)
+	// Seris: 27 - 2 (sacrifício) - 6 (fadiga alpha-0.8.0) = 19.
+	h.assertVit(0, 19)
+	if p.Fatigue != 6 {
+		t.Fatalf("fadiga: %d; esperado 6", p.Fatigue)
 	}
 	if len(p.Deck) == 0 {
 		t.Fatal("deck deveria ter sido reembaralhado do descarte")
@@ -527,7 +527,7 @@ func TestExileHealVR051AndVR050(t *testing.T) {
 	vr051 := h.handInst(0, "VR-051")
 	h.play(0, vr051)
 	h.choose(0, "yes")
-	h.assertVit(0, 30) // preveniu 3 de 3; cura 1 sem efeito no máximo
+	h.assertVit(0, 27) // preveniu 3 de 3; cura 1 sem efeito no máximo
 	s := h.g.State()
 	if s.Cards[vr051].Zone != engine.ZoneExile {
 		t.Fatalf("VR-051 deveria estar exilada; está em %s", s.Cards[vr051].Zone)
@@ -540,7 +540,7 @@ func TestExileHealVR051AndVR050(t *testing.T) {
 	// Janela de p0: Lâmina Carbonizada com bônus de exílio → 4 (alpha-0.5.0).
 	h.play(0, h.handInst(0, "VR-050"))
 	h.pass(1)
-	h.assertVit(1, 26)
+	h.assertVit(1, 23)
 }
 
 func TestKaedorCostReduction(t *testing.T) {
@@ -687,20 +687,32 @@ func TestVR062DrawFilterWhenBehind(t *testing.T) {
 
 func TestVeilGuardVR033(t *testing.T) {
 	h := newHarness(t, "CH-CI-01", "CH-CI-01",
-		deckWith("VR-020"), deckWith("VR-033"), 0)
+		deckWith("VR-015", "VR-020"), deckWith("VR-033"), 0)
 	h.keepAll()
 	h.stances(engine.StanceArcano, engine.StanceArcano)
 	h.bothPassRite()
 	h.play(0, h.handInst(0, "VR-020"))
 	h.play(1, h.handInst(1, "VR-033"))
-	h.assertVit(1, 30) // 4 - 4 (alpha-0.5.0)
+	h.assertVit(1, 27) // 3 - 4
 	s := h.g.State()
-	if s.Players[1].VeilRound != s.Round {
-		t.Fatal("p1 deveria estar sob Véu")
+	if s.Players[1].VeilRound != s.Round+1 {
+		t.Fatalf("Véu deveria durar até a próxima rodada; fim=%d rodada=%d", s.Players[1].VeilRound, s.Round)
 	}
-	h.pass(0)
+	h.pass(s.Active)
+	h.pass(h.g.State().Active)
+	if s.Round != 2 || s.Players[1].VeilRound != s.Round {
+		t.Fatalf("Véu deveria seguir ativo na rodada 2; fim=%d rodada=%d", s.Players[1].VeilRound, s.Round)
+	}
+	h.stances(engine.StanceArcano, engine.StanceArcano)
+	if s.Active == 1 {
+		h.pass(1)
+	}
+	h.mustFail(engine.Command{Player: 0, Kind: engine.CmdKindPlay, Card: h.handInst(0, "VR-015")},
+		engine.ErrIllegalTarget)
+	h.pass(0) // encerra Ritos
 	h.pass(1)
+	h.pass(0) // encerra Confronto e a rodada 2
 	if s.Players[1].VeilRound != 0 {
-		t.Fatal("Véu deveria expirar no Crepúsculo")
+		t.Fatal("Véu deveria expirar no Crepúsculo da rodada seguinte")
 	}
 }

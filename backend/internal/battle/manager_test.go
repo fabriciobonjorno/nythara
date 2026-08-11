@@ -17,6 +17,7 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 	ctx := context.Background()
 	store := newMemoryBattleStore()
 	manager := NewManager(store)
+	manager.SetActiveRuleset(engine.RulesetVersion)
 	manager.readyTimeout = time.Hour
 	manager.actionTimeout = time.Hour
 	p0 := domain.Principal{UserID: "00000000-0000-4000-8000-000000000101", Role: domain.RolePlayer}
@@ -147,6 +148,7 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 	// Simula restart do processo: nova Manager restaura snapshot inicial e
 	// reaplica os comandos persistidos posteriores.
 	manager2 := NewManager(store)
+	manager2.SetActiveRuleset(engine.RulesetVersion)
 	manager2.readyTimeout = time.Hour
 	manager2.actionTimeout = time.Hour
 	restartTicket, err := manager2.IssueTicket(ctx, p0, matched.MatchID, TicketPlayer)
@@ -190,7 +192,7 @@ func TestViewAndEventsHidePrivateCards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	view := ViewFor(game.State(), 0, false)
+	view := ViewFor(game, 0, false)
 	if len(view.Players[0].Hand) != engine.OpeningHandSize || len(view.Players[1].Hand) != 0 {
 		t.Fatalf("mãos redigidas incorretamente: própria=%d rival=%d", len(view.Players[0].Hand), len(view.Players[1].Hand))
 	}
@@ -288,7 +290,7 @@ func testDeck(t *testing.T, userID, id, championID string) domain.Deck {
 type memoryBattleStore struct {
 	mu      sync.Mutex
 	matches map[string]LoadedMatch
-	bans []domain.CardBan
+	bans    []domain.CardBan
 }
 
 func newMemoryBattleStore() *memoryBattleStore {
@@ -410,6 +412,7 @@ func TestQueueRejectsBannedCards(t *testing.T) {
 	ctx := context.Background()
 	store := newMemoryBattleStore()
 	manager := NewManager(store)
+	manager.SetActiveRuleset(engine.RulesetVersion)
 	p0 := domain.Principal{UserID: "00000000-0000-4000-8000-000000000001", Role: domain.RolePlayer}
 	deck := testDeck(t, p0.UserID, "deck-ban", "CH-VH-01")
 

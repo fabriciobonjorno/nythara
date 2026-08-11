@@ -39,6 +39,11 @@ func WriteMarkdown(path string, report Report) error {
 	fmt.Fprintf(&out, "- Comandos: média **%.2f**, p50 **%d**, p95 **%d**, máximo **%d**.\n", report.Duration.AverageCommands,
 		report.Duration.P50Commands, report.Duration.P95Commands, report.Duration.MaxCommands)
 	fmt.Fprintf(&out, "- Primeiro jogador: **%s** (%d/%d).\n\n", percent(report.FirstPlayer.WinRate), report.FirstPlayer.Wins, report.FirstPlayer.Games)
+	out.WriteString("### Causa do término\n\n| Causa | Partidas | Participação | Média de rodadas | p95 |\n|---|---:|---:|---:|---:|\n")
+	for _, reason := range report.EndReasons {
+		fmt.Fprintf(&out, "| %s | %d | %s | %.2f | %d |\n", reason.Reason, reason.Games, percent(reason.Share), reason.AverageRounds, reason.P95Rounds)
+	}
+	out.WriteString("\n")
 	out.WriteString("## Win rate por Campeão\n\n| Campeão | Partidas | Vitórias | Win rate |\n|---|---:|---:|---:|\n")
 	for _, champion := range report.Champions {
 		fmt.Fprintf(&out, "| %s (`%s`) | %d | %d | %s |\n", champion.Name, champion.ID, champion.Games, champion.Wins, percent(champion.WinRate))
@@ -61,8 +66,27 @@ func WriteMarkdown(path string, report Report) error {
 			fmt.Fprintf(&out, "- %s\n", warning)
 		}
 	}
+	if report.Gate.Enabled {
+		status := "APROVADO"
+		if !report.Gate.Passed {
+			status = "REPROVADO"
+		}
+		fmt.Fprintf(&out, "\n## Gate competitivo — %s\n\n", status)
+		for _, check := range report.Gate.Checks {
+			mark := "✓"
+			if !check.Passed {
+				mark = "✗"
+			}
+			fmt.Fprintf(&out, "- %s `%s`: %s\n", mark, check.Name, check.Detail)
+		}
+	}
 	out.WriteString("\n## Interpretação\n\n")
-	out.WriteString("Este baseline usa decks preconstruídos determinísticos sem facção aliada. Use a matriz de matchups e os sinais por carta para formular hipóteses; mudanças de regra exigem ADR, bump de ruleset e nova simulação.\n")
+	if report.Config.DeckMode == DeckVaried {
+		out.WriteString("Este baseline usa decks variados legais sobre todo o pool do Modo Confronto, com composição mínima 8/8/4. ")
+	} else {
+		out.WriteString("Este baseline usa os precons oficiais determinísticos. ")
+	}
+	out.WriteString("Use a matriz de matchups e os sinais por carta para formular hipóteses; mudanças de regra exigem ADR, bump de ruleset e nova simulação.\n")
 	return writeFile(path, []byte(out.String()))
 }
 

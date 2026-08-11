@@ -15,17 +15,27 @@ import (
 // versionadas por Ruleset — apenas os atributos (vitalidade etc.). Mudar
 // comportamento de Campeão exige release do binário e bump de ruleset.
 type Ruleset struct {
-	Version   string
-	Cards     map[string]*CardDef
-	CardList  []*CardDef
-	Champions map[string]*ChampionDef
-	Effects   *EffectsFile
+	Version       string
+	Mode          string
+	ConfrontRules ConfrontRulesConfig
+	Cards         map[string]*CardDef
+	CardList      []*CardDef
+	Champions     map[string]*ChampionDef
+	Effects       *EffectsFile
 
 	assault map[string]*assaultImpl
 	guard   map[string]*guardImpl
 	rite    map[string]*riteImpl
 	perm    map[string]*permImpl
 }
+
+const (
+	RulesModeLegacy   = "legacy"
+	RulesModeConfront = "confront"
+)
+
+// IsConfront informa se este conjunto usa o fluxo direto do ADR-044.
+func (rs *Ruleset) IsConfront() bool { return rs != nil && rs.Mode == RulesModeConfront }
 
 // CompileRuleset valida catálogo + efeitos e compila os registros executáveis.
 // É o único caminho de construção de um Ruleset — o embutido passa por aqui.
@@ -43,6 +53,7 @@ func CompileRuleset(version string, cardsJSON, championsJSON, effectsJSON []byte
 	}
 	rs := &Ruleset{
 		Version:   version,
+		Mode:      fx.Mode,
 		Cards:     cards,
 		CardList:  list,
 		Champions: champs,
@@ -52,7 +63,19 @@ func CompileRuleset(version string, cardsJSON, championsJSON, effectsJSON []byte
 		rite:      map[string]*riteImpl{},
 		perm:      map[string]*permImpl{},
 	}
+	if rs.Mode == "" {
+		rs.Mode = RulesModeLegacy
+	}
+	if rs.IsConfront() {
+		rs.ConfrontRules = initialConfrontRules()
+		if fx.Confront != nil {
+			rs.ConfrontRules = *fx.Confront
+		}
+	}
 	compileEffects(fx, rs)
+	if rs.IsConfront() {
+		prepareConfrontRuleset(rs)
+	}
 	return rs, nil
 }
 
@@ -142,18 +165,109 @@ func RegisteredVersions() []string {
 // pipeline, com os globais servindo de visão do builtin para pacotes externos
 // e testes.
 func init() {
-	rs, err := CompileRuleset(RulesetVersion, cardsAlphaJSON, championsAlphaJSON, effectsAlphaJSON)
+	legacy, err := CompileRuleset(RulesetVersion, cardsAlphaJSON, championsAlphaJSON, effectsAlphaJSON)
 	if err != nil {
 		panic(fmt.Sprintf("engine: ruleset embutido inválido: %v", err))
 	}
-	builtin = rs
-	rulesets[rs.Version] = rs
-	Cards = rs.Cards
-	CardList = rs.CardList
-	Champions = rs.Champions
-	Effects = rs.Effects
-	assaultImpls = rs.assault
-	guardImpls = rs.guard
-	riteImpls = rs.rite
-	permImpls = rs.perm
+	confrontInitial, err := CompileRuleset(ConfrontInitialRulesetVersion, cardsAlphaJSON, championsAlphaJSON, effectsAlphaJSON)
+	if err != nil {
+		panic(fmt.Sprintf("engine: ruleset Confronto inicial inválido: %v", err))
+	}
+	configureConfrontRuleset(confrontInitial, initialConfrontRules())
+	confront, err := CompileRuleset(ConfrontRulesetVersion, cardsAlphaJSON, championsAlphaJSON, effectsAlphaJSON)
+	if err != nil {
+		panic(fmt.Sprintf("engine: ruleset Confronto competitivo inválido: %v", err))
+	}
+	configureConfrontRuleset(confront, competitiveConfrontRules())
+	tacticalInitial, err := CompileRuleset(TacticalInitialRulesetVersion, cardsAlphaJSON, championsAlphaJSON, effectsAlphaJSON)
+	if err != nil {
+		panic(fmt.Sprintf("engine: ruleset Confronto tático inicial inválido: %v", err))
+	}
+	configureConfrontRuleset(tacticalInitial, initialTacticalConfrontRules())
+	tactical, err := CompileRuleset(TacticalRulesetVersion, cardsAlphaJSON, championsAlphaJSON, effectsAlphaJSON)
+	if err != nil {
+		panic(fmt.Sprintf("engine: ruleset Confronto tático balanceado inválido: %v", err))
+	}
+	configureConfrontRuleset(tactical, tacticalConfrontRules())
+	longDuel, err := CompileRuleset(LongDuelRulesetVersion, cardsAlphaJSON, championsAlphaJSON, effectsAlphaJSON)
+	if err != nil {
+		panic(fmt.Sprintf("engine: ruleset de duelo longo inválido: %v", err))
+	}
+	configureConfrontRuleset(longDuel, longDuelConfrontRules())
+
+	// `builtin` e os globais permanecem apontando para 0.8.3 para que replays
+	// históricos e integrações antigas nunca mudem de significado. Produto e
+	// matchmaking escolhem explicitamente CompetitiveRulesetVersion.
+	builtin = legacy
+	rulesets[legacy.Version] = legacy
+	rulesets[confrontInitial.Version] = confrontInitial
+	rulesets[confront.Version] = confront
+	rulesets[tacticalInitial.Version] = tacticalInitial
+	rulesets[tactical.Version] = tactical
+	rulesets[longDuel.Version] = longDuel
+	Cards = legacy.Cards
+	CardList = legacy.CardList
+	Champions = legacy.Champions
+	Effects = legacy.Effects
+	assaultImpls = legacy.assault
+	guardImpls = legacy.guard
+	riteImpls = legacy.rite
+	permImpls = legacy.perm
+}
+
+func configureConfrontRuleset(rs *Ruleset, cfg ConfrontRulesConfig) {
+	rs.Mode = RulesModeConfront
+	rs.ConfrontRules = cfg
+	rs.Effects.Mode = RulesModeConfront
+	rs.Effects.Confront = &rs.ConfrontRules
+	prepareConfrontRuleset(rs)
+}
+
+func initialConfrontRules() ConfrontRulesConfig {
+	return ConfrontRulesConfig{StartingVitality: 30}
+}
+
+func competitiveConfrontRules() ConfrontRulesConfig {
+	return ConfrontRulesConfig{StartingVitality: ConfrontStartingVitality,
+		PowerBonus: ConfrontPowerBonus, FirstTurnPenalty: ConfrontFirstTurnPenalty,
+		DrawOnFirstTurn: true, PressureStartTurn: ConfrontPressureStartTurn,
+		PressureBaseLoss: ConfrontPressureBaseLoss, MinAssaults: ConfrontMinAssaults,
+		MinGuards: ConfrontMinGuards, MinRites: ConfrontMinRites}
+}
+
+func initialTacticalConfrontRules() ConfrontRulesConfig {
+	cfg := competitiveConfrontRules()
+	cfg.TacticalSeals = true
+	return cfg
+}
+
+func tacticalConfrontRules() ConfrontRulesConfig {
+	cfg := initialTacticalConfrontRules()
+	cfg.ExposedPowerBonus = 2
+	return cfg
+}
+
+// longDuelConfrontRules parte do tático e corrige a assimetria que encurtava a
+// partida: o Assalto recebia bônus fixo de Poder e a Guarda, nenhum. Ver ADR-035.
+func longDuelConfrontRules() ConfrontRulesConfig {
+	cfg := tacticalConfrontRules()
+	cfg.StartingVitality = LongDuelStartingVitality
+	cfg.GuardBonus = LongDuelGuardBonus
+	cfg.PressureStartTurn = LongDuelPressureStartTurn
+	cfg.PressureBaseLoss = LongDuelPressureBaseLoss
+	cfg.SecondPlayerBonusDraw = LongDuelSecondPlayerDraw
+	cfg.TargetP95Rounds = LongDuelTargetP95Rounds
+	cfg.TargetMinP50Rounds = LongDuelTargetMinP50Rounds
+	cfg.MinGuards = LongDuelMinGuards
+	cfg.GuardLeakCap = LongDuelGuardLeakCap
+	return cfg
+}
+
+// CompetitiveRuleset devolve o ruleset atualmente servido pelo produto.
+func CompetitiveRuleset() *Ruleset {
+	rs, err := RulesetByVersion(CompetitiveRulesetVersion)
+	if err != nil {
+		panic(err)
+	}
+	return rs
 }

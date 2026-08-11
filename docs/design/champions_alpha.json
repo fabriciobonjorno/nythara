@@ -3,16 +3,21 @@
     "id": "CH-VH-01",
     "name": "Seris Vhal, Herdeira Carmesim",
     "faction": "Casa Vhal",
-    "vitality": 30,
+    "vitality": 27,
     "passive": "A primeira vez em cada rodada que você sacrificar Vitalidade, ganhe 1 Essência temporária.",
     "ultimate": "Banquete da Lua — uma vez por partida, após causar dano, cure metade do dano causado, arredondado para baixo.",
+    "precon_swaps": {
+      "VR-006": "VR-082",
+      "VR-010": "VR-084",
+      "VR-011": "VR-085"
+    },
     "eclipse_form": "No Eclipse Noturno, seus efeitos de Dreno recebem +1."
   },
   {
     "id": "CH-VH-02",
     "name": "Kaedor, o Sem-Pulso",
     "faction": "Casa Vhal",
-    "vitality": 32,
+    "vitality": 29,
     "passive": "Quando sua Vitalidade estiver em 15 ou menos, o primeiro Assalto de cada rodada custa 1 a menos.",
     "ultimate": "Recusa da Morte — uma vez por partida, ao cair a 0 ou menos, permaneça com 1 de Vitalidade e descarte sua mão.",
     "eclipse_form": "No Eclipse Noturno, o primeiro Assalto que você joga não pode ser prevenido por Ward."
@@ -21,16 +26,19 @@
     "id": "CH-SO-01",
     "name": "Mara Vale, Lâmina do Primeiro Sol",
     "faction": "Ordem Solara",
-    "vitality": 31,
-    "passive": "A primeira Guarda que você usar em cada rodada previne +1 dano.",
+    "vitality": 28,
+    "passive": "A primeira Guarda que você usar em cada rodada custa 1 a menos.",
     "ultimate": "Aurora Implacável — mova o Medidor de Eclipse 2 passos em direção à Aurora e cause 2 de dano.",
-    "eclipse_form": "Na Aurora Total, após prevenir todo o dano de um Assalto, compre 1 carta."
+    "eclipse_form": "Na Aurora Total, após prevenir todo o dano de um Assalto, compre 1 carta.",
+    "precon_swaps": {
+      "VR-020": "VR-076"
+    }
   },
   {
     "id": "CH-SO-02",
     "name": "Ilyan, Portador da Cicatriz Dourada",
     "faction": "Ordem Solara",
-    "vitality": 30,
+    "vitality": 27,
     "passive": "Quando o oponente deslocar o Eclipse em direção à Noite pela segunda vez numa rodada, ganhe Ward 2.",
     "ultimate": "Julgamento Solar — uma vez por partida, anule um efeito de Eclipse de uma carta adversária.",
     "eclipse_form": "Na Aurora Total, seus Ritos custam 1 a menos, mínimo 0."
@@ -39,8 +47,8 @@
     "id": "CH-MI-01",
     "name": "Nyra dos Sete Reflexos",
     "faction": "Conclave Mirr",
-    "vitality": 29,
-    "passive": "Uma vez por rodada, ao completar Ressonância de 3 Sigilos, olhe a carta do topo do seu deck; pode colocá-la no fundo.",
+    "vitality": 30,
+    "passive": "Uma vez por rodada, ao completar Ressonância de 3 Sigilos, compre 1 carta.",
     "ultimate": "Reflexo Impossível — copie o texto base do último Rito do oponente; você pode jogá-lo sem possuir a carta.",
     "eclipse_form": "Em qualquer Eclipse Total, seus efeitos de cópia mantêm também um bônus de Ressonância."
   },
@@ -49,15 +57,19 @@
     "name": "Oren, Leitor do Véu",
     "faction": "Conclave Mirr",
     "vitality": 30,
-    "passive": "No início da partida, veja as 3 cartas do topo do seu deck e reordene-as.",
+    "passive": "No início da partida, veja as 3 cartas do topo do seu deck e reordene-as. A primeira compra extra de cada rodada custa 1 a menos; seu passo de Fadiga é reduzido em 1.",
     "ultimate": "Fenda de Probabilidade — escolha entre comprar 2 cartas ou fazer o oponente embaralhar 2 cartas aleatórias da mão no deck.",
+    "precon_swaps": {
+      "VR-029": "VR-099",
+      "VR-035": "VR-078"
+    },
     "eclipse_form": "Em qualquer Eclipse Total, a primeira carta comprada além da compra normal custa 1 a menos neste turno."
   },
   {
     "id": "CH-VA-01",
     "name": "Rauk Fenclaw, Alfa da Fenda",
     "faction": "Matilha Varka",
-    "vitality": 31,
+    "vitality": 28,
     "passive": "Seu segundo Assalto na mesma rodada recebe +1 de dano.",
     "ultimate": "Caçada Sem Lua — uma vez por partida, abra uma segunda janela de Assalto nesta rodada.",
     "eclipse_form": "No Eclipse Noturno, o limite de Ressonância da rodada aumenta de 5 para 6."
@@ -66,7 +78,7 @@
     "id": "CH-VA-02",
     "name": "Saela, Pele-de-Lua",
     "faction": "Matilha Varka",
-    "vitality": 30,
+    "vitality": 27,
     "passive": "Depois que você usar uma Guarda, seu próximo Assalto nesta rodada custa 1 a menos.",
     "ultimate": "Forma da Fera Branca — até o fim da rodada, a primeira vez que sofrer dano, reduza-o a 0; seu próximo Assalto causa +2.",
     "eclipse_form": "No Eclipse Noturno, Assaltos com sigilo Garra geram 1 Ressonância extra."
@@ -75,8 +87,8 @@
     "id": "CH-CI-01",
     "name": "Voren Ashhand, Mestre da Retorta",
     "faction": "Sínodo Cinéreo",
-    "vitality": 30,
-    "passive": "A primeira carta que você Recuperar do descarte em cada rodada custa 1 a menos.",
+    "vitality": 27,
+    "passive": "A primeira carta que você Recuperar do descarte em cada rodada custa 1 a menos. No primeiro autoexílio de cada rodada, ganhe Ward 1.",
     "ultimate": "Destilação Negra — exile até 3 cartas do seu descarte; para cada uma, escolha: cure 1 ou cause 1 de dano.",
     "eclipse_form": "Em qualquer Eclipse Total, quando uma carta sua for exilada, ganhe Ward 1."
   },
@@ -84,9 +96,9 @@
     "id": "CH-CI-02",
     "name": "Edda, Escriba das Cinzas",
     "faction": "Sínodo Cinéreo",
-    "vitality": 32,
-    "passive": "Sempre que você descartar uma carta por custo, coloque 1 marcador de Cinza (máx. 3).",
-    "ultimate": "Página Reescrita — remova 3 Cinzas: devolva uma carta não-Lendária do descarte à mão e ela custa 0 nesta rodada.",
+    "vitality": 29,
+    "passive": "Sempre que você descartar uma carta por custo, coloque 1 marcador de Cinza (máx. 2).",
+    "ultimate": "Página Reescrita — remova 2 Cinzas: devolva uma carta não-Lendária do descarte à mão e ela custa 0 nesta rodada.",
     "eclipse_form": "Na Aurora Total, suas Maldições duram uma rodada adicional."
   }
 ]

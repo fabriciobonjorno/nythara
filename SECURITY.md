@@ -20,8 +20,10 @@ públicas com detalhes exploráveis.
 ## Controles de plataforma
 
 - **Cabeçalhos**: API JSON com `CSP default-src 'none'`, nosniff, DENY frames,
-  no-referrer, COOP/CORP, HSTS sob TLS. PWA com CSP própria via meta
-  (`connect-src 'self' ws: wss:`; sem script externo).
+  no-referrer, COOP/CORP, HSTS sob TLS. A PWA aplica via meta as diretivas de
+  carregamento (`connect-src 'self' ws: wss:`; sem script externo) e entrega
+  `frame-ancestors 'none'`/`X-Frame-Options: DENY` como cabeçalhos HTTP —
+  `frame-ancestors` não tem efeito quando declarado em meta.
 - **Rate limiting**: token bucket por chave com poda de memória
   (`internal/security/ratelimit.go`); faixas em `internal/httpapi/hardening.go`.
 - **Scanning**: `govulncheck` no CI e local (`make vuln`) — base zerada em

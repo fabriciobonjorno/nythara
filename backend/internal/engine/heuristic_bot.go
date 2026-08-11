@@ -37,6 +37,11 @@ func (b *HeuristicBot) NextFor(g *Game, player int) (Command, bool) {
 	if d := s.Pending; d != nil {
 		return b.answerDecision(g, d), true
 	}
+	if g.rs.IsConfront() {
+		actions := g.legalPlays(player)
+		actions = append(actions, Command{Player: player, Kind: CmdKindPass})
+		return b.bestAction(g, actions), true
+	}
 	switch s.Phase {
 	case PhaseMulligan:
 		return b.mulligan(g, player), true
@@ -59,6 +64,10 @@ func (b *HeuristicBot) NextFor(g *Game, player int) (Command, bool) {
 			}
 		}
 		actions = append(actions, Command{Player: actor, Kind: CmdKindPass})
+		return b.bestAction(g, actions), true
+	case PhaseAssault, PhaseGuard:
+		actions := g.legalPlays(player)
+		actions = append(actions, Command{Player: player, Kind: CmdKindPass})
 		return b.bestAction(g, actions), true
 	}
 	return Command{}, false
@@ -300,7 +309,9 @@ func (b *HeuristicBot) opsValue(g *Game, player int, ops []Op, depth int) int {
 		case "shift_chosen", "clock_direction_choice":
 			total += 10
 		case "status":
-			if op.Who == "opponent" || op.Status == "exposto" || op.Status == "sangramento" || op.Status == "maldicao" {
+			if g.rs.ConfrontRules.TacticalSeals && op.Status == "exposto" {
+				total += 22
+			} else if op.Who == "opponent" || op.Status == "exposto" || op.Status == "sangramento" || op.Status == "maldicao" {
 				total += max(1, op.N) * 8
 			} else if op.Status == "veu" {
 				total += 10
@@ -314,7 +325,7 @@ func (b *HeuristicBot) opsValue(g *Game, player int, ops []Op, depth int) int {
 				total += 14
 			}
 		case "cost_mod":
-			total += 8
+			total += b.costModValue(g, player, op)
 		case "open_extra_window":
 			total += 12
 		case "choose_discard":
@@ -323,7 +334,9 @@ func (b *HeuristicBot) opsValue(g *Game, player int, ops []Op, depth int) int {
 			} else {
 				total -= op.N * 5
 			}
-		case "recover_pick", "pick_top2", "reorder_top", "moon_return":
+		case "recover_pick":
+			total += max(1, op.N) * 10
+		case "pick_top2", "reorder_top", "moon_return":
 			total += 10
 		case "destroy_relic_pick":
 			if len(opp.Relics) > 0 {
@@ -337,9 +350,45 @@ func (b *HeuristicBot) opsValue(g *Game, player int, ops []Op, depth int) int {
 			total += 9
 		case "mirror_relic_pick", "copy_played_pick":
 			total += 16
+		case "exile_all_choices":
+			// VR-060 só gera recompensa a cada bloco completo de quatro
+			// cartas; jogar com 1–3 descartes seria desperdício real.
+			batch := op.N
+			if batch <= 0 {
+				batch = 4
+			}
+			choices := min(len(p.Discard)/batch, 3)
+			total += choices*16 - len(p.Discard)
+		}
+		// Operações de decisão continuam em `then` depois da escolha. Esse
+		// valor fazia VR-049 parecer apenas um descarte, ocultando a compra 2.
+		if op.Op != "conditional" && len(op.Then) > 0 {
+			total += b.opsValue(g, player, op.Then, depth+1)
 		}
 	}
 	return total
+}
+
+func (b *HeuristicBot) costModValue(g *Game, player int, op *Op) int {
+	if op.Delta >= 0 {
+		return 0
+	}
+	s := g.State()
+	best := 0
+	for _, id := range s.Players[player].Hand {
+		inst := s.Cards[id]
+		if inst == nil {
+			continue
+		}
+		def := g.rs.Cards[inst.Def]
+		if def == nil || (op.Type != "" && string(def.Type) != op.Type) ||
+			(op.Faction != "" && def.Faction != op.Faction) {
+			continue
+		}
+		saving := min(-op.Delta, g.effectiveCost(player, def, id))
+		best = max(best, saving*14)
+	}
+	return best
 }
 
 // sigilValue: emitir Sigilo vale mais quando o kit persegue a tríade da
@@ -440,6 +489,37 @@ func (b *HeuristicBot) scoreAction(g *Game, cmd Command) int {
 		return -1000
 	}
 	def := g.rs.Cards[inst.Def]
+	if g.rs.IsConfront() {
+		costPenalty := def.Cost * 7
+		switch s.Phase {
+		case PhaseAssault:
+			score := def.Confront.Power*12 - costPenalty
+			if g.rs.ConfrontRules.TacticalSeals && s.Players[1-cmd.Player].Exposto {
+				score += 24
+			}
+			return score
+		case PhaseGuard:
+			incoming := 0
+			if s.Confront != nil {
+				incoming = s.Confront.Power
+			}
+			prevent := def.Confront.Prevention
+			if def.Confront.PreventAll {
+				prevent = incoming
+			}
+			sealValue := 0
+			if fx := g.rs.Effects.Cards[def.ID]; g.rs.ConfrontRules.TacticalSeals && fx != nil && fx.Guard != nil && fx.Guard.CounterRite {
+				sealValue = 18
+			}
+			if incoming >= s.Players[cmd.Player].Vitality {
+				return min(incoming, prevent)*20 - costPenalty + sealValue + 300
+			}
+			return min(incoming, prevent)*13 - costPenalty + sealValue
+		case PhaseRite:
+			fx := g.rs.Effects.Cards[def.ID]
+			return 8 + b.opsValue(g, cmd.Player, fx.Rite.Steps, 0) - costPenalty
+		}
+	}
 	fx := b.cardFx(g, inst.Def)
 	player := cmd.Player
 	var score int
@@ -467,9 +547,9 @@ func (b *HeuristicBot) scoreActivate(g *Game, cmd Command) int {
 		return 60
 	}
 	act := fx.Permanent.Activated
-	value := 24 + b.opsValue(g, cmd.Player, act.Do, 0)
-	value -= act.DiscardCost * 7
-	value -= act.ExileCost * 5
+	value := 2 + b.opsValue(g, cmd.Player, act.Do, 0)
+	value -= act.DiscardCost * 12
+	value -= act.ExileCost * 4
 	return value
 }
 

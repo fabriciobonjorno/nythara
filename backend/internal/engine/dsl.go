@@ -17,9 +17,43 @@ var effectsAlphaJSON []byte
 
 // EffectsFile é o arquivo versionado de definições.
 type EffectsFile struct {
-	Version     string              `json:"version"`
-	Cards       map[string]*CardFx  `json:"cards"`
-	Unsupported map[string]string   `json:"unsupported"`
+	Version     string               `json:"version"`
+	Mode        string               `json:"mode,omitempty"`
+	Confront    *ConfrontRulesConfig `json:"confront_rules,omitempty"`
+	Cards       map[string]*CardFx   `json:"cards"`
+	Unsupported map[string]string    `json:"unsupported"`
+}
+
+// ConfrontRulesConfig faz as alavancas globais viajarem no snapshot. Assim
+// versões antigas preservam o ritmo original e versões de balanceamento
+// carregam seus próprios números.
+type ConfrontRulesConfig struct {
+	StartingVitality int `json:"starting_vitality"`
+	PowerBonus       int `json:"power_bonus"`
+	// GuardBonus é o espelho defensivo de PowerBonus. Sem ele o Assalto ganha
+	// um bônus fixo que a Guarda nunca recebe, e defender vira jogada
+	// dominada. Zero preserva o comportamento dos rulesets anteriores.
+	GuardBonus int `json:"guard_bonus,omitempty"`
+	// GuardLeakCap limita o dano que atravessa uma Guarda comprometida. Zero
+	// mantém a subtração pura dos rulesets anteriores.
+	GuardLeakCap int `json:"guard_leak_cap,omitempty"`
+	// SecondPlayerBonusDraw dá cartas extras a quem não tem a iniciativa.
+	SecondPlayerBonusDraw int `json:"second_player_bonus_draw,omitempty"`
+	// TargetP95Rounds e TargetMinP50Rounds declaram a faixa de duração que o
+	// formato promete. O gate de balanceamento valida contra estes números em
+	// vez de um teto fixo, e o piso impede que o formato longo volte a
+	// encurtar sem que alguém perceba. Zero = faixa histórica.
+	TargetP95Rounds    int  `json:"target_p95_rounds,omitempty"`
+	TargetMinP50Rounds int  `json:"target_min_p50_rounds,omitempty"`
+	FirstTurnPenalty  int  `json:"first_turn_penalty"`
+	ExposedPowerBonus int  `json:"exposed_power_bonus,omitempty"`
+	DrawOnFirstTurn   bool `json:"draw_on_first_turn"`
+	PressureStartTurn int  `json:"pressure_start_turn,omitempty"`
+	PressureBaseLoss  int  `json:"pressure_base_loss,omitempty"`
+	MinAssaults       int  `json:"min_assaults,omitempty"`
+	MinGuards         int  `json:"min_guards,omitempty"`
+	MinRites          int  `json:"min_rites,omitempty"`
+	TacticalSeals     bool `json:"tactical_seals,omitempty"`
 }
 
 // CardFx é a definição de efeitos de uma carta (exatamente uma seção,
@@ -45,14 +79,14 @@ type AssaultFx struct {
 
 // GuardFx descreve uma Guarda.
 type GuardFx struct {
-	Prevent        int     `json:"prevent"`
-	PreventAll     bool    `json:"prevent_all,omitempty"`
-	CounterRite    bool    `json:"counter_rite,omitempty"` // VR-035
-	Bonuses        []Bonus `json:"bonuses,omitempty"`
-	OnPlay         []Op    `json:"on_play,omitempty"`
-	After          []Op    `json:"after,omitempty"`
-	ToHandAfter    bool    `json:"to_hand_after,omitempty"` // VR-056
-	SelfCostAfter  int     `json:"self_cost_after,omitempty"`
+	Prevent       int     `json:"prevent"`
+	PreventAll    bool    `json:"prevent_all,omitempty"`
+	CounterRite   bool    `json:"counter_rite,omitempty"` // VR-035
+	Bonuses       []Bonus `json:"bonuses,omitempty"`
+	OnPlay        []Op    `json:"on_play,omitempty"`
+	After         []Op    `json:"after,omitempty"`
+	ToHandAfter   bool    `json:"to_hand_after,omitempty"` // VR-056
+	SelfCostAfter int     `json:"self_cost_after,omitempty"`
 }
 
 // RiteFx descreve um Rito.
@@ -88,9 +122,9 @@ type Trigger struct {
 	On           string `json:"on"` // round_start | sigil_emitted | assault_resolved | heal | curse_applied | exile | opponent_draw | damage_dealt | guard_played
 	OncePerRound bool   `json:"once_per_round,omitempty"`
 	If           *Cond  `json:"if,omitempty"`
-	Sigil        string `json:"sigil,omitempty"`     // filtro para sigil_emitted
-	MaxCost      int    `json:"max_cost,omitempty"`  // filtro para assault_resolved (0 = sem filtro)
-	NEquals      int    `json:"n_equals,omitempty"`  // filtro para damage_dealt / opponent_draw
+	Sigil        string `json:"sigil,omitempty"`    // filtro para sigil_emitted
+	MaxCost      int    `json:"max_cost,omitempty"` // filtro para assault_resolved (0 = sem filtro)
+	NEquals      int    `json:"n_equals,omitempty"` // filtro para damage_dealt / opponent_draw
 	Do           []Op   `json:"do"`
 }
 
@@ -173,12 +207,12 @@ var knownConds = map[string]bool{
 	"eclipse_night": true, "eclipse_aurora": true,
 	"second_assault": true, "took_damage_round": true, "exiled_round": true,
 	"trail_ends": true, "distinct_sigils_ge": true, "last_global_sigil_in": true,
-	"sigil_count_eq": true,
+	"sigil_count_eq":     true,
 	"hand_less_than_opp": true, "hand_ge": true, "opp_has_manif": true,
 	"opp_has_relic": true, "opp_discard_nonempty": true,
 	"opp_vitality_le": true, "prevented_all": true, "resonance_bonus": true,
 	"relic_destroyed_round": true,
-	"opp_veiled": true, "discard_has": true, "discard_ge": true,
+	"opp_veiled":            true, "discard_has": true, "discard_ge": true,
 	"opp_hand_ge": true, "opp_assaults_eq": true,
 	"picked_was_rite": true, "own_assaults_eq": true,
 }
