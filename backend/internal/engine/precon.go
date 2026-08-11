@@ -28,6 +28,11 @@ func (rs *Ruleset) PreconstructedDeck(championID string) ([]string, error) {
 		if card.Faction != champion.Faction && card.Faction != NeutralFaction {
 			continue
 		}
+		// Precons são o produto de entrada e a régua do gate de balanceamento:
+		// só o Set 1 entra (ADR-032). Sets de expansão vivem no deckbuilding.
+		if card.Set != 1 {
+			continue
+		}
 		copies := MaxCopies
 		if card.Rarity == RarityLendaria {
 			copies = MaxLegendary

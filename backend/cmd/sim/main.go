@@ -17,13 +17,15 @@ func main() {
 	maxCommands := flag.Int("max-commands", defaults.MaxCommands, "teto de comandos por partida")
 	bot0 := flag.String("bot0", string(defaults.Bot0), "bot do slot 0: random|heuristic")
 	bot1 := flag.String("bot1", string(defaults.Bot1), "bot do slot 1: random|heuristic")
+	deckMode := flag.String("decks", "precon", "decks: precon|varied (varied = catálogo inteiro, gate de saúde de expansão)")
 	verify := flag.Bool("verify-replay", defaults.VerifyReplay, "reproduzir cada partida e comparar log/snapshot")
 	jsonPath := flag.String("json", "artifacts/balance-report.json", "saída JSON")
 	markdownPath := flag.String("markdown", "artifacts/balance-report.md", "saída Markdown")
 	flag.Parse()
 
 	cfg := sim.Config{Games: *games, BaseSeed: *seed, Workers: *workers, MaxCommands: *maxCommands,
-		Bot0: sim.BotKind(*bot0), Bot1: sim.BotKind(*bot1), VerifyReplay: *verify}
+		Bot0: sim.BotKind(*bot0), Bot1: sim.BotKind(*bot1), VerifyReplay: *verify,
+		DeckMode: sim.DeckMode(*deckMode)}
 	report, runErr := sim.Run(cfg)
 	if report.SchemaVersion != "" {
 		if err := sim.WriteJSON(*jsonPath, report); err != nil {

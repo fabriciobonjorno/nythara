@@ -7,12 +7,13 @@ import (
 	"veurubro/backend/internal/engine"
 )
 
-// legalVhalDeck monta um deck válido para um Campeão da Casa Vhal:
-// 23 cartas Vhal (11 não-lendárias ×2 + 1 lendária) + 13 neutras.
+// legalVhalDeck monta um deck válido para um Campeão da Casa Vhal a partir do
+// Set 1 (o Set 2 tornaria o preenchimento maior que 36; a legalidade não
+// depende de set — só a montagem determinística do teste).
 func legalVhalDeck() []string {
 	var deck []string
 	for _, c := range engine.CardList {
-		if c.Faction == "Casa Vhal" {
+		if c.Faction == "Casa Vhal" && c.Set == 1 {
 			if c.Rarity == engine.RarityLendaria {
 				deck = append(deck, c.ID)
 			} else {
@@ -24,7 +25,7 @@ func legalVhalDeck() []string {
 		if len(deck) == engine.DeckSize {
 			break
 		}
-		if c.Faction == engine.NeutralFaction && c.Rarity != engine.RarityLendaria {
+		if c.Faction == engine.NeutralFaction && c.Set == 1 && c.Rarity != engine.RarityLendaria {
 			deck = append(deck, c.ID)
 		}
 	}

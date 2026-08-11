@@ -31,6 +31,73 @@ type Config struct {
 	VerifyReplay bool    `json:"verify_replay"`
 	// RulesetVersion escolhe a versão registrada na engine (vazio = embutida).
 	RulesetVersion string `json:"ruleset_version,omitempty"`
+	// DeckMode: "precon" (padrão; a régua do gate de balanceamento) ou
+	// "varied" — decks legais sorteados por partida sobre o catálogo INTEIRO
+	// (Sets 1+2, com facção aliada), o gate de saúde das expansões (ADR-032).
+	DeckMode DeckMode `json:"deck_mode,omitempty"`
+}
+
+type DeckMode string
+
+const (
+	DeckPrecon DeckMode = "precon"
+	DeckVaried DeckMode = "varied"
+)
+
+// variedDeck sorteia um deck LEGAL determinístico para o Campeão: núcleo
+// (facção própria + neutras) garante MinCoreFaction; o resto mistura o
+// núcleo com uma facção aliada sorteada. Limites de cópia/lendária valem; o
+// ValidateDeck confere o resultado — um deck ilegal aqui é bug, e o sim
+// contaria como rejeição.
+func variedDeck(rs *engine.Ruleset, championID string, rng *engine.RNG) []string {
+	champ := rs.Champions[championID]
+	var factions []string
+	for _, other := range []string{"Casa Vhal", "Ordem Solara", "Conclave Mirr", "Matilha Varka", "Sínodo Cinéreo"} {
+		if other != champ.Faction {
+			factions = append(factions, other)
+		}
+	}
+	ally := factions[rng.Intn(len(factions))]
+
+	expand := func(match func(*engine.CardDef) bool) []string {
+		var pool []string
+		for _, card := range rs.CardList {
+			if !match(card) {
+				continue
+			}
+			copies := engine.MaxCopies
+			if card.Rarity == engine.RarityLendaria {
+				copies = engine.MaxLegendary
+			}
+			for range copies {
+				pool = append(pool, card.ID)
+			}
+		}
+		rng.Shuffle(len(pool), func(a, b int) { pool[a], pool[b] = pool[b], pool[a] })
+		return pool
+	}
+	core := expand(func(c *engine.CardDef) bool {
+		return c.Faction == champ.Faction || c.Faction == engine.NeutralFaction
+	})
+	allied := expand(func(c *engine.CardDef) bool { return c.Faction == ally })
+
+	deck := append([]string{}, core[:engine.MinCoreFaction]...)
+	rest := append(append([]string{}, core[engine.MinCoreFaction:]...), allied...)
+	rng.Shuffle(len(rest), func(a, b int) { rest[a], rest[b] = rest[b], rest[a] })
+	alliedUsed := 0
+	for _, id := range rest {
+		if len(deck) == engine.DeckSize {
+			break
+		}
+		if rs.Cards[id].Faction == ally {
+			if alliedUsed == engine.MaxAlliedCards {
+				continue
+			}
+			alliedUsed++
+		}
+		deck = append(deck, id)
+	}
+	return deck
 }
 
 type Report struct {
@@ -260,6 +327,7 @@ func PreconstructedDeckFor(rs *engine.Ruleset, championID string) ([]string, err
 }
 
 func simulateOne(cfg Config, index int, champions []string, decks map[string][]string) (result matchResult) {
+	// declarado antes do defer/recover para aparecer no relatório de crash
 	step := -1
 	command := engine.Command{}
 	pending := ""
@@ -275,9 +343,17 @@ func simulateOne(cfg Config, index int, champions []string, decks map[string][]s
 	result.champions = [2]string{champions[pair/len(champions)], champions[pair%len(champions)]}
 	result.first = repetition % 2
 	seed := cfg.BaseSeed + uint64(index)*0x9e3779b97f4a7c15
+	deck0, deck1 := decks[result.champions[0]], decks[result.champions[1]]
+	if cfg.DeckMode == DeckVaried {
+		rs, rsErr := engine.RulesetByVersion(cfg.RulesetVersion)
+		if rsErr == nil {
+			deck0 = variedDeck(rs, result.champions[0], engine.NewRNG(seed^0xDEC0DEC0DEC0DEC0))
+			deck1 = variedDeck(rs, result.champions[1], engine.NewRNG(seed^0x0DECADE0DECADE0D))
+		}
+	}
 	gameCfg := engine.Config{RulesetVersion: cfg.RulesetVersion, Seed: seed, FirstPlayer: result.first,
-		Players: [2]engine.PlayerSetup{{ChampionID: result.champions[0], Deck: decks[result.champions[0]]},
-			{ChampionID: result.champions[1], Deck: decks[result.champions[1]]}}}
+		Players: [2]engine.PlayerSetup{{ChampionID: result.champions[0], Deck: deck0},
+			{ChampionID: result.champions[1], Deck: deck1}}}
 	game, err := engine.NewGame(gameCfg)
 	if err != nil {
 		result.rejected = true
@@ -761,3 +837,12 @@ func championName(rs *engine.Ruleset, id string) string {
 	}
 	return id
 }
+
+// VariedDeckFor expõe o gerador de decks variados para ferramentas de
+// depuração (mesma matemática do harness).
+func VariedDeckFor(rs *engine.Ruleset, championID string, rng *engine.RNG) []string {
+	return variedDeck(rs, championID, rng)
+}
+
+// ValidateZonesFor expõe o verificador de zonas para depuração.
+func ValidateZonesFor(state *engine.GameState) error { return validateZones(state) }

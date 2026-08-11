@@ -1,5 +1,5 @@
 {
-  "version": "alpha-0.6.1",
+  "version": "alpha-0.7.0",
   "cards": {
     "VR-006": {
       "rite": {
@@ -1249,6 +1249,800 @@
             "op": "draw",
             "n": 2,
             "who": "opponent"
+          }
+        ]
+      }
+    },
+    "VR-081": {
+      "assault": {
+        "damage": 2,
+        "after": [
+          {
+            "op": "conditional",
+            "if": {
+              "cond": "sacrificed_this_round"
+            },
+            "then": [
+              {
+                "op": "status",
+                "status": "sangramento",
+                "n": 1,
+                "who": "opponent"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-082": {
+      "rite": {
+        "sacrifice": 1,
+        "targets_opponent": true,
+        "deals_damage": true,
+        "steps": [
+          {
+            "op": "damage",
+            "n": 2,
+            "who": "opponent"
+          },
+          {
+            "op": "heal",
+            "n": 1
+          }
+        ]
+      }
+    },
+    "VR-083": {
+      "guard": {
+        "prevent": 3,
+        "after": [
+          {
+            "op": "conditional",
+            "if": {
+              "cond": "prevented_all"
+            },
+            "then": [
+              {
+                "op": "lose_vitality",
+                "n": 1,
+                "who": "opponent"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-084": {
+      "permanent": {
+        "on_enter": [
+          {
+            "op": "status",
+            "status": "sangramento",
+            "n": 1,
+            "who": "opponent"
+          }
+        ],
+        "triggers": [
+          {
+            "on": "round_start",
+            "if": {
+              "cond": "eclipse_night"
+            },
+            "do": [
+              {
+                "op": "damage",
+                "n": 1,
+                "who": "opponent"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-085": {
+      "rite": {
+        "sacrifice": 2,
+        "targets_opponent": true,
+        "steps": [
+          {
+            "op": "draw",
+            "n": 1
+          },
+          {
+            "op": "status",
+            "status": "maldicao",
+            "n": 2,
+            "who": "opponent"
+          }
+        ]
+      }
+    },
+    "VR-086": {
+      "assault": {
+        "damage": 3,
+        "undefendable_if": {
+          "cond": "eclipse_ge",
+          "n": 2
+        }
+      }
+    },
+    "VR-087": {
+      "guard": {
+        "prevent": 4,
+        "after": [
+          {
+            "op": "lose_vitality",
+            "n": 1
+          },
+          {
+            "op": "draw",
+            "n": 1
+          }
+        ]
+      }
+    },
+    "VR-088": {
+      "permanent": {
+        "activated": {
+          "once_per_round": true,
+          "discard_cost": 1,
+          "do": [
+            {
+              "op": "damage",
+              "n": 2,
+              "who": "opponent"
+            },
+            {
+              "op": "lose_vitality",
+              "n": 1
+            }
+          ]
+        }
+      }
+    },
+    "VR-089": {
+      "assault": {
+        "damage": 2,
+        "bonuses": [
+          {
+            "if": {
+              "cond": "opp_hand_ge",
+              "n": 5
+            },
+            "add": 2
+          }
+        ]
+      }
+    },
+    "VR-090": {
+      "rite": {
+        "steps": [
+          {
+            "op": "draw",
+            "n": 1
+          },
+          {
+            "op": "conditional",
+            "if": {
+              "cond": "eclipse_le",
+              "n": -1
+            },
+            "then": [
+              {
+                "op": "ward",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-091": {
+      "guard": {
+        "prevent": 2,
+        "after": [
+          {
+            "op": "reorder_top",
+            "n": 2
+          }
+        ]
+      }
+    },
+    "VR-092": {
+      "guard": {
+        "prevent": 0,
+        "counter_rite": true
+      }
+    },
+    "VR-093": {
+      "permanent": {
+        "triggers": [
+          {
+            "on": "guard_played",
+            "once_per_round": true,
+            "do": [
+              {
+                "op": "heal",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-094": {
+      "rite": {
+        "steps": [
+          {
+            "op": "ward",
+            "n": 2
+          },
+          {
+            "op": "conditional",
+            "if": {
+              "cond": "opp_has_manif"
+            },
+            "then": [
+              {
+                "op": "suppress_opp_manifs",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-095": {
+      "permanent": {
+        "triggers": [
+          {
+            "on": "sigil_emitted",
+            "sigil": "Sol",
+            "once_per_round": true,
+            "do": [
+              {
+                "op": "ward",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-096": {
+      "assault": {
+        "damage": 5,
+        "pre_exile": true,
+        "after": [
+          {
+            "op": "heal",
+            "n": 2
+          }
+        ]
+      }
+    },
+    "VR-097": {
+      "rite": {
+        "steps": [
+          {
+            "op": "re_emit_sigils",
+            "n": 1
+          }
+        ]
+      }
+    },
+    "VR-098": {
+      "assault": {
+        "damage": 1,
+        "instances": 2,
+        "bonuses": [
+          {
+            "if": {
+              "cond": "last_global_sigil_in",
+              "sigils": [
+                "Espelho"
+              ]
+            },
+            "add": 2,
+            "resonance": true
+          }
+        ]
+      }
+    },
+    "VR-099": {
+      "guard": {
+        "prevent": 2,
+        "after": [
+          {
+            "op": "conditional",
+            "if": {
+              "cond": "hand_less_than_opp"
+            },
+            "then": [
+              {
+                "op": "draw",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-100": {
+      "permanent": {
+        "triggers": [
+          {
+            "on": "sigil_emitted",
+            "once_per_round": true,
+            "if": {
+              "cond": "distinct_sigils_ge",
+              "n": 3
+            },
+            "do": [
+              {
+                "op": "temp_essence",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-101": {
+      "rite": {
+        "steps": [
+          {
+            "op": "neutral_sigil_choice",
+            "then": [
+              {
+                "op": "conditional",
+                "if": {
+                  "cond": "trail_ends",
+                  "sigils": [
+                    "Espelho",
+                    "*"
+                  ]
+                },
+                "then": [
+                  {
+                    "op": "draw",
+                    "n": 1
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-102": {
+      "assault": {
+        "damage": 4,
+        "bonuses": [
+          {
+            "if": {
+              "cond": "sigil_count_eq",
+              "sigils": [
+                "Espelho"
+              ],
+              "n": 2
+            },
+            "instead": 6,
+            "resonance": true
+          }
+        ]
+      }
+    },
+    "VR-103": {
+      "guard": {
+        "prevent": 4,
+        "to_hand_after": true,
+        "self_cost_after": 1
+      }
+    },
+    "VR-104": {
+      "permanent": {
+        "on_enter": [
+          {
+            "op": "re_emit_sigils",
+            "n": 2
+          }
+        ],
+        "triggers": [
+          {
+            "on": "sigil_emitted",
+            "once_per_round": true,
+            "if": {
+              "cond": "distinct_sigils_ge",
+              "n": 4
+            },
+            "do": [
+              {
+                "op": "draw",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-105": {
+      "assault": {
+        "damage": 1,
+        "instances": 2
+      }
+    },
+    "VR-106": {
+      "rite": {
+        "steps": [
+          {
+            "op": "open_extra_window",
+            "n": 2
+          }
+        ]
+      }
+    },
+    "VR-107": {
+      "guard": {
+        "prevent": 2,
+        "bonuses": [
+          {
+            "if": {
+              "cond": "took_damage_round"
+            },
+            "instead": 4
+          }
+        ]
+      }
+    },
+    "VR-108": {
+      "permanent": {
+        "triggers": [
+          {
+            "on": "assault_resolved",
+            "max_cost": 2,
+            "once_per_round": true,
+            "do": [
+              {
+                "op": "damage",
+                "n": 1,
+                "who": "opponent"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-109": {
+      "assault": {
+        "damage": 3,
+        "bonuses": [
+          {
+            "if": {
+              "cond": "second_assault"
+            },
+            "add": 2
+          }
+        ]
+      }
+    },
+    "VR-110": {
+      "rite": {
+        "own_shift": true,
+        "steps": [
+          {
+            "op": "shift",
+            "n": 2
+          },
+          {
+            "op": "conditional",
+            "if": {
+              "cond": "eclipse_ge",
+              "n": 2
+            },
+            "then": [
+              {
+                "op": "temp_essence",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-111": {
+      "guard": {
+        "prevent": 3,
+        "after": [
+          {
+            "op": "conditional",
+            "if": {
+              "cond": "opp_assaults_eq",
+              "n": 2
+            },
+            "then": [
+              {
+                "op": "end_assault_window"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-112": {
+      "assault": {
+        "damage": 2,
+        "instances": 3,
+        "ignore_ward": 1
+      }
+    },
+    "VR-113": {
+      "rite": {
+        "targets_opponent": true,
+        "steps": [
+          {
+            "op": "status",
+            "status": "maldicao",
+            "n": 2,
+            "who": "opponent"
+          }
+        ]
+      }
+    },
+    "VR-114": {
+      "guard": {
+        "prevent": 3,
+        "bonuses": [
+          {
+            "if": {
+              "cond": "discard_ge",
+              "n": 3
+            },
+            "instead": 5
+          }
+        ]
+      }
+    },
+    "VR-115": {
+      "assault": {
+        "damage": 2,
+        "after": [
+          {
+            "op": "conditional",
+            "if": {
+              "cond": "discard_has",
+              "type": "Rito"
+            },
+            "then": [
+              {
+                "op": "status",
+                "status": "maldicao",
+                "n": 1,
+                "who": "opponent"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-116": {
+      "permanent": {
+        "activated": {
+          "once_per_round": true,
+          "exile_cost": 1,
+          "do": [
+            {
+              "op": "draw",
+              "n": 1
+            }
+          ]
+        }
+      }
+    },
+    "VR-117": {
+      "rite": {
+        "steps": [
+          {
+            "op": "remove_curse_smart"
+          },
+          {
+            "op": "ward",
+            "n": 1
+          }
+        ]
+      }
+    },
+    "VR-118": {
+      "permanent": {
+        "triggers": [
+          {
+            "on": "exile",
+            "once_per_round": true,
+            "do": [
+              {
+                "op": "draw",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-119": {
+      "rite": {
+        "targets_opponent": true,
+        "steps": [
+          {
+            "op": "recover_pick",
+            "n": 1,
+            "then": [
+              {
+                "op": "status",
+                "status": "maldicao",
+                "n": 2,
+                "who": "opponent"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-120": {
+      "permanent": {
+        "triggers": [
+          {
+            "on": "curse_applied",
+            "once_per_round": true,
+            "do": [
+              {
+                "op": "damage",
+                "n": 1,
+                "who": "opponent"
+              },
+              {
+                "op": "draw",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-121": {
+      "guard": {
+        "prevent": 0,
+        "counter_rite": true
+      }
+    },
+    "VR-122": {
+      "assault": {
+        "damage": 2,
+        "bonuses": [
+          {
+            "if": {
+              "cond": "took_damage_round"
+            },
+            "add": 1
+          }
+        ]
+      }
+    },
+    "VR-123": {
+      "rite": {
+        "steps": [
+          {
+            "op": "pick_top2"
+          }
+        ]
+      }
+    },
+    "VR-124": {
+      "permanent": {
+        "triggers": [
+          {
+            "on": "damage_dealt",
+            "n_equals": 3,
+            "once_per_round": true,
+            "do": [
+              {
+                "op": "ward",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-125": {
+      "guard": {
+        "prevent": 2,
+        "after": [
+          {
+            "op": "both_draw",
+            "n": 1
+          }
+        ]
+      }
+    },
+    "VR-126": {
+      "permanent": {
+        "activated": {
+          "once_per_round": true,
+          "discard_cost": 1,
+          "do": [
+            {
+              "op": "reorder_top",
+              "n": 3
+            }
+          ]
+        }
+      }
+    },
+    "VR-127": {
+      "rite": {
+        "steps": [
+          {
+            "op": "both_draw",
+            "n": 1
+          },
+          {
+            "op": "cost_mod",
+            "type": "Rito",
+            "delta": -1,
+            "uses": 1
+          }
+        ]
+      }
+    },
+    "VR-128": {
+      "assault": {
+        "damage": 4,
+        "undefendable_if": {
+          "cond": "eclipse_abs_eq",
+          "n": 2
+        }
+      }
+    },
+    "VR-129": {
+      "permanent": {
+        "triggers": [
+          {
+            "on": "round_start",
+            "if": {
+              "cond": "eclipse_eq",
+              "n": 0
+            },
+            "do": [
+              {
+                "op": "temp_essence",
+                "n": 1
+              },
+              {
+                "op": "ward",
+                "n": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "VR-130": {
+      "rite": {
+        "targets_opponent": true,
+        "deals_damage": true,
+        "steps": [
+          {
+            "op": "set_eclipse",
+            "n": 0
+          },
+          {
+            "op": "damage",
+            "n": 4,
+            "who": "opponent"
+          },
+          {
+            "op": "heal",
+            "n": 4
           }
         ]
       }

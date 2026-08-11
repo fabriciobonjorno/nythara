@@ -130,7 +130,7 @@ func NewGame(cfg Config) (*Game, error) {
 
 // RulesetVersion corrente da engine. Acompanha o version do arquivo de
 // efeitos: mudanças de conteúdo/regra exigem bump + regeneração dos goldens.
-const RulesetVersion = "alpha-0.6.1"
+const RulesetVersion = "alpha-0.7.0"
 
 // Apply valida e aplica um comando. Comando ilegal retorna erro e não muta
 // nada. Retorna os eventos gerados por este comando.
@@ -186,6 +186,13 @@ func (g *Game) Apply(cmd Command) ([]Event, error) {
 			panic(fmt.Sprintf("engine: comando rejeitado após emitir eventos: %v", err))
 		}
 		return nil, err
+	}
+	// A cadeia deste comando pode ter mutado zonas DEPOIS de abrir a decisão
+	// pendente (ex.: retaliação que compra a carta que uma reordenação de
+	// topo segurava — VR-091 × VR-120, ADR-032). Opções apresentadas são
+	// sempre as vivas.
+	if g.s.Pending != nil {
+		g.refreshQueuedDecision(g.s.Pending)
 	}
 	g.CommandLog = append(g.CommandLog, cmd)
 	return g.Log[start:], nil
@@ -818,6 +825,7 @@ func (g *Game) refreshQueuedDecision(d *Decision) bool {
 	case DecReorderTop:
 		deck := s.Players[d.Player].Deck
 		d.Options = append(d.Options[:0], deck[:min(d.N, len(deck))]...)
+		d.N = len(d.Options) // o topo pode ter encolhido no meio da cadeia
 	case DecRecoverPick, DecExilePick, DecEddaReturn:
 		d.Options = filterZone(d.Options, d.Player, ZoneDiscard)
 	case DecDestroyRelicPick, DecMirrorRelic:

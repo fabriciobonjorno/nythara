@@ -7,8 +7,8 @@ import (
 )
 
 func TestCatalogLoads(t *testing.T) {
-	if got := len(engine.CardList); got != 80 {
-		t.Fatalf("cartas carregadas: %d; esperado 80", got)
+	if got := len(engine.CardList); got != 130 {
+		t.Fatalf("cartas carregadas: %d; esperado 130 (Set 1 + Set 2)", got)
 	}
 	if got := len(engine.Champions); got != 10 {
 		t.Fatalf("campeões carregados: %d; esperado 10", got)
@@ -22,17 +22,18 @@ func TestCatalogLoads(t *testing.T) {
 			legendaries++
 		}
 	}
+	// Set 1 (12×5 + 20) + Set 2 (8×5 + 10).
 	want := map[string]int{
-		"Casa Vhal": 12, "Ordem Solara": 12, "Conclave Mirr": 12,
-		"Matilha Varka": 12, "Sínodo Cinéreo": 12, "Errantes": 20,
+		"Casa Vhal": 20, "Ordem Solara": 20, "Conclave Mirr": 20,
+		"Matilha Varka": 20, "Sínodo Cinéreo": 20, "Errantes": 30,
 	}
 	for f, n := range want {
 		if byFaction[f] != n {
 			t.Errorf("facção %s: %d cartas; esperado %d", f, byFaction[f], n)
 		}
 	}
-	if legendaries != 7 {
-		t.Errorf("lendárias: %d; esperado 7", legendaries)
+	if legendaries != 8 {
+		t.Errorf("lendárias: %d; esperado 8 (7 do Set 1 + O Peso de Nythara)", legendaries)
 	}
 
 	champsByFaction := map[string]int{}
@@ -48,8 +49,8 @@ func TestCatalogLoads(t *testing.T) {
 
 func TestImplementationReportGate(t *testing.T) {
 	r := engine.ImplementationReport()
-	if len(r.ImplementedCards)+len(r.MissingCards) != 80 {
-		t.Fatalf("relatório não cobre as 80 cartas: %d + %d",
+	if len(r.ImplementedCards)+len(r.MissingCards) != 130 {
+		t.Fatalf("relatório não cobre as 130 cartas: %d + %d",
 			len(r.ImplementedCards), len(r.MissingCards))
 	}
 	// Gate da Fase 1: pelo menos 20 cartas totalmente funcionais.

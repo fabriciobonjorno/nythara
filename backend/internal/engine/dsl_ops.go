@@ -596,8 +596,16 @@ func (g *Game) resolveDecisionPicks(d *Decision, picks []string) string {
 		return pick
 	case DecReorderTop:
 		p := s.Players[d.Player]
-		copy(p.Deck[:len(picks)], picks)
-		g.emit(Event{Kind: EvDeckReordered, P: d.Player, N: len(picks)})
+		// Defesa em profundidade: só reescreve cartas que AINDA estão no
+		// baralho (a cadeia pode ter comprado uma delas — ADR-032).
+		kept := picks[:0]
+		for _, id := range picks {
+			if s.Cards[id] != nil && s.Cards[id].Zone == ZoneDeck {
+				kept = append(kept, id)
+			}
+		}
+		copy(p.Deck[:len(kept)], kept)
+		g.emit(Event{Kind: EvDeckReordered, P: d.Player, N: len(kept)})
 	case DecRecoverPick:
 		p := s.Players[d.Player]
 		for _, id := range picks {

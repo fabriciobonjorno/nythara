@@ -78,6 +78,10 @@ type CardDef struct {
 	RulesText    string   `json:"rules_text"`
 	Flavor       string   `json:"flavor"`
 	DesignRole   string   `json:"design_role"`
+	// Set identifica a coleção: 1 = núcleo (precons), 2 = expansão
+	// (deckbuilding). 0 = fora de sets (drafts do admin) — nunca entra em
+	// precon (ADR-032).
+	Set int `json:"set,omitempty"`
 }
 
 // ChampionDef é a definição estática de um Campeão.
@@ -155,6 +159,8 @@ func validateCardDef(c *CardDef) error {
 		return fmt.Errorf("%s: sigilo inválido %q", c.ID, c.Sigil)
 	case c.RulesText == "":
 		return fmt.Errorf("%s: sem texto de regras", c.ID)
+	case c.Set < 0 || c.Set > 2:
+		return fmt.Errorf("%s: set fora do intervalo: %d", c.ID, c.Set)
 	}
 	return nil
 }
