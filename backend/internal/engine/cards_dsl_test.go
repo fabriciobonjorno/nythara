@@ -215,7 +215,7 @@ func TestVR023ResetToAurora(t *testing.T) {
 	s.Players[0].Bleeds = []engine.TimedN{{N: 2, Round: 2}}
 	s.Players[0].Curses = []engine.TimedN{{N: 2, Round: 2, Kind: "VR-053"}}
 	h.play(0, h.handInst(0, "VR-023"))
-	h.assertEclipse(-1) // alpha-0.5.0: move 2 (não seta -2); +1 → -1
+	h.assertEclipse(0) // alpha-0.6.0: move 1 (ADR-029); +1 → 0
 	if len(s.Players[0].Bleeds) != 0 || len(s.Players[0].Curses) != 0 {
 		t.Fatal("Sangramento e Maldição deveriam ter sido removidos")
 	}

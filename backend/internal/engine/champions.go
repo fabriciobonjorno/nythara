@@ -24,6 +24,7 @@ type championImpl struct {
 	onExtraDraw         func(g *Game, player int, inst string)                            // Oren: forma
 	copyExtraSigil      func(g *Game, player int) bool                                    // Nyra: forma
 	preMulliganScry     bool                                                              // Oren: passiva
+	fatigueStepDelta    func(g *Game, player int) int                                     // Oren: passiva (ADR-029)
 	on3Sigils           func(g *Game, player int)                                         // Nyra: passiva
 
 	canUltimate func(g *Game, player int) error
@@ -86,21 +87,28 @@ func init() {
 		"CH-SO-01": {
 			// alpha-0.5.0: era "+1 de prevenção na 1ª Guarda" — dominava o
 			// meta (91% com bots). Vira vantagem de tempo, não de muralha.
+			// alpha-0.6.0: o desconto só vale com o Eclipse do lado da Aurora
+			// (ADR-029) — o motor recorrente compunha por 30+ rodadas sem
+			// counterplay; agora o rival desliga a passiva contestando o céu.
 			costDelta: func(g *Game, player int, def *CardDef) int {
-				if def.Type == TypeGuarda && g.s.Players[player].GuardsRound == 0 {
+				if def.Type == TypeGuarda && g.s.Players[player].GuardsRound == 0 &&
+					g.s.EclipseState == EclipseAurora {
 					return -1
 				}
 				return 0
 			},
 			afterFullPrevent: func(g *Game, player int) {
+				// alpha-0.6.0 (ADR-029): era compra — vantagem de cartas
+				// compunha; cura preserva a identidade de muralha sem bola
+				// de neve.
 				if g.s.EclipseState == EclipseAurora {
-					g.drawOne(player)
+					g.heal(player, 1, "CH-SO-01")
 				}
 			},
 			canUltimate: func(g *Game, player int) error { return nil },
 			ultimate: func(g *Game, player int) {
 				g.shiftEclipse(-2, "CH-SO-01", player)
-				g.loseVitality(1-player, 2, "CH-SO-01")
+				g.loseVitality(1-player, 1, "CH-SO-01") // alpha-0.6.0: era 2
 			},
 		},
 
@@ -108,7 +116,12 @@ func init() {
 		// Ritos -1 na Aurora Total; ultimate: anula o próximo Eclipse adversário.
 		"CH-SO-02": {
 			onOppNightShift: func(g *Game, player int) {
-				g.gainWard(player, 1, "CH-SO-02") // alpha-0.5.0: era 2
+				// alpha-0.5.0: era 2. alpha-0.6.0: não acumula (ADR-029) — o
+				// fluxo por rodada virava uma montanha de Ward contra decks
+				// de Noite, que empurram o Eclipse pelo próprio plano.
+				if g.s.Players[player].Ward == 0 {
+					g.gainWard(player, 1, "CH-SO-02")
+				}
 			},
 			costDelta: func(g *Game, player int, def *CardDef) int {
 				if def.Type == TypeRito && g.s.EclipseState == EclipseAurora {
@@ -126,11 +139,17 @@ func init() {
 		// Sigilo extra em Eclipse Total; ultimate: copia o último Rito rival.
 		"CH-MI-01": {
 			on3Sigils: func(g *Game, player int) {
-				// alpha-0.5.0: era só scry — vira compra direta (valor que
-				// sustenta o arquétipo de combo).
+				// alpha-0.5.0: era só scry — vira compra direta. alpha-0.6.0
+				// (ADR-029): a tríade também gera 1 Essência temporária — o
+				// combo produz o tempo do próximo elo em vez de consumi-lo.
 				g.drawOne(player)
+				g.gainTempEssence(player, 1, "CH-MI-01")
+				g.heal(player, 1, "CH-MI-01")
 			},
-			copyExtraSigil: func(g *Game, player int) bool { return anyTotal(g) },
+			// alpha-0.6.0: sempre, não só em Eclipse Total (ADR-029) — os
+			// Sete Reflexos são a identidade dela; o gatilho raro deixava a
+			// passiva quase nunca ligada.
+			copyExtraSigil: func(g *Game, player int) bool { return true },
 			canUltimate: func(g *Game, player int) error {
 				def := g.s.LastRite[1-player]
 				if def == "" {
@@ -150,13 +169,21 @@ func init() {
 		// barata em Eclipse Total; ultimate: Fenda de Probabilidade.
 		"CH-MI-02": {
 			preMulliganScry: true,
+			// alpha-0.6.0 (ADR-029): quem lê o Véu não se queima nele — a
+			// Fadiga de Oren cresce 1 a menos por ciclo. O arquétipo de
+			// compra esvazia o próprio baralho primeiro e perdia a corrida
+			// de atrito que o próprio plano dele alonga.
+			fatigueStepDelta: func(g *Game, player int) int { return -2 },
 			onExtraDraw: func(g *Game, player int, inst string) {
 				// alpha-0.5.0: sem exigir Eclipse Total (era só em totais).
+				// alpha-0.6.0 (ADR-029): desconto de 2 — o conhecimento paga
+				// o dobro; era -1 e Oren seguia no fundo (20-24%).
 				p := g.s.Players[player]
 				p.CostMods = append(p.CostMods, CostMod{
-					Instance: inst, Delta: -1, Uses: 1, Round: g.s.Round, Source: "CH-MI-02",
+					Instance: inst, Delta: -2, Uses: 1, Round: g.s.Round, Source: "CH-MI-02",
 				})
-				g.emit(Event{Kind: EvCostModAdded, P: player, N: -1, S: "CH-MI-02"})
+				g.emit(Event{Kind: EvCostModAdded, P: player, N: -2, S: "CH-MI-02"})
+				g.heal(player, 1, "CH-MI-02") // conhecimento também sustenta (ADR-029)
 			},
 			canUltimate: func(g *Game, player int) error { return nil },
 			ultimate: func(g *Game, player int) {
@@ -344,6 +371,13 @@ func champOnGuardResolved(g *Game, player int) {
 func champResonanceCapDelta(g *Game, player int) int {
 	if ci := champImpl(g, player); ci != nil && ci.resonanceCapDelta != nil {
 		return ci.resonanceCapDelta(g, player)
+	}
+	return 0
+}
+
+func champFatigueStepDelta(g *Game, player int) int {
+	if ci := champImpl(g, player); ci != nil && ci.fatigueStepDelta != nil {
+		return ci.fatigueStepDelta(g, player)
 	}
 	return 0
 }

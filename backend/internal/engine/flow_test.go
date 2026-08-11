@@ -56,23 +56,24 @@ func TestScriptedMatchGolden(t *testing.T) {
 	h.play(1, h.handInst(1, "VR-014"))
 	h.assertVit(1, 30)
 
-	// Golpe da Alvorada: eclipse em 0 → 2 (sem bônus no alpha-0.5.0).
+	// Golpe da Alvorada: eclipse em 0 → 2 (bônus exige Aurora funda).
 	h.play(0, h.handInst(0, "VR-013"))
 	h.pass(1)
 	h.assertVit(1, 28)
 	h.pass(0)
 
-	// Confronto p1: Refração Dolorosa: 3 base +1 (último sigilo global Presa);
-	// Exposto em p0 → +2 = 6.
+	// Confronto p1: Refração Dolorosa: 3 base +2 (último sigilo global Presa,
+	// alpha-0.6.0); Exposto em p0 → +2 = 7.
 	h.play(1, h.handInst(1, "VR-025"))
 	h.pass(0)
-	h.assertVit(0, 22)
+	h.assertVit(0, 21)
 	if g.State().Players[0].Exposto {
 		t.Fatal("Exposto deveria ter sido consumido")
 	}
 	h.pass(1)
 
-	// Rodada 2 começou: iniciativa virou, essência 4, eclipse persistiu em -1.
+	// Rodada 2 começou: iniciativa virou, essência 4, eclipse persistiu em 0
+	// (alpha-0.6.0: VR-015 não desloca mais o céu).
 	s := g.State()
 	if s.Round != 2 || s.Initiative != 1 || s.Phase != engine.PhaseStance {
 		t.Fatalf("estado da rodada 2 inesperado: round=%d initiative=%d phase=%s", s.Round, s.Initiative, s.Phase)
@@ -80,7 +81,7 @@ func TestScriptedMatchGolden(t *testing.T) {
 	if s.Players[0].Essence != 4 || s.Players[0].TempEssence != 0 {
 		t.Fatalf("essência p0 na rodada 2: %d (+%d temp); esperado 4 (+0)", s.Players[0].Essence, s.Players[0].TempEssence)
 	}
-	h.assertEclipse(-1)
+	h.assertEclipse(0)
 	if len(s.Players[0].Trail) != 0 || len(s.RoundSigils) != 0 {
 		t.Fatal("trilhas de Ressonância deveriam zerar na nova rodada")
 	}

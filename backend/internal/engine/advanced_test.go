@@ -541,7 +541,7 @@ func TestSerisUltimateHealsHalf(t *testing.T) {
 	h.play(0, h.handInst(0, "VR-020"))
 	h.pass(1)
 	h.must(engine.Command{Player: 0, Kind: engine.CmdKindUltimate})
-	h.assertVit(0, 22) // curou metade de 4
+	h.assertVit(0, 21) // curou metade de 3 (alpha-0.6.0: VR-020 causa 3)
 }
 
 func TestVorenUltimateDistillation(t *testing.T) {
@@ -592,7 +592,7 @@ func TestMaraUltimateAurora(t *testing.T) {
 	h.stances(engine.StanceVigilia, engine.StanceVigilia)
 	h.must(engine.Command{Player: 0, Kind: engine.CmdKindUltimate})
 	h.assertEclipse(-2)
-	h.assertVit(1, 28)
+	h.assertVit(1, 29) // alpha-0.6.0: a ultimate drena 1 (era 2)
 }
 
 // Regressão: morte por Fadiga no meio da emissão de Sigilo de uma Guarda

@@ -130,7 +130,7 @@ func NewGame(cfg Config) (*Game, error) {
 
 // RulesetVersion corrente da engine. Acompanha o version do arquivo de
 // efeitos: mudanças de conteúdo/regra exigem bump + regeneração dos goldens.
-const RulesetVersion = "alpha-0.5.0"
+const RulesetVersion = "alpha-0.6.0"
 
 // Apply valida e aplica um comando. Comando ilegal retorna erro e não muta
 // nada. Retorna os eventos gerados por este comando.
@@ -493,9 +493,12 @@ func (g *Game) drawOne(player int) *CardInstance {
 	s := g.s
 	p := s.Players[player]
 	if len(p.Deck) == 0 {
-		// alpha-0.5.0: Fadiga em passos de 2 (2, 4, 6…) — fecha partidas de
-		// atrito muito antes (ADR-024).
-		p.Fatigue += 2
+		// alpha-0.6.0: Fadiga em passos de 4 (4, 8, 12…) — a corrida de
+		// atrito era longa o bastante para passivas recorrentes dominarem o
+		// meta, e a rodada de sustain do ADR-029 esticou o fim de jogo;
+		// antes: passos de 2 (ADR-024). Campeões modulam o passo (Oren: -2),
+		// nunca abaixo de 1.
+		p.Fatigue += max(1, 4+champFatigueStepDelta(g, player))
 		g.emit(Event{Kind: EvFatigue, P: player, N: p.Fatigue})
 		g.loseVitality(player, p.Fatigue, "Fadiga")
 		if s.Over {

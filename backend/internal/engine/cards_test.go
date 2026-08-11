@@ -66,10 +66,11 @@ func TestMultiHitVsWardVR044(t *testing.T) {
 	h.pass(0)
 
 	h.pass(1) // confronto de p1
+	h.g.State().Players[0].Essence = 4 // alpha-0.6.0: VR-044 custa 4
 	h.play(0, h.handInst(0, "VR-044"))
 	h.pass(1)
-	// 3 instâncias de 1: a primeira consome o Ward, as outras acertam.
-	h.assertVit(1, 28)
+	// 3 instâncias de 2 (alpha-0.6.0): a 1ª perde 1 no Ward; 5 atravessam.
+	h.assertVit(1, 25)
 	if got := h.g.State().Players[1].Ward; got != 0 {
 		t.Fatalf("ward final: %d; esperado 0", got)
 	}
@@ -86,8 +87,8 @@ func TestPierceWardVR020(t *testing.T) {
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-020"))
 	h.pass(1)
-	// Ignora 2 de Ward: o Ward 1 é totalmente contornado; 4 de dano cheio.
-	h.assertVit(1, 26)
+	// Ignora 1 de Ward (alpha-0.6.0): o Ward 1 é contornado; 3 de dano cheio.
+	h.assertVit(1, 27)
 	if got := h.g.State().Players[1].Ward; got != 1 {
 		t.Fatalf("ward deveria permanecer 1 (contornado), tem %d", got)
 	}
@@ -154,10 +155,10 @@ func TestPeleGrossaVR042(t *testing.T) {
 	h.stances(engine.StanceArcano, engine.StanceArcano)
 	h.bothPassRite()
 
-	// Sem dano prévio na rodada: previne 3 de 4 → passa 1.
+	// Sem dano prévio na rodada: previne 3 de 3 (alpha-0.6.0) → nada passa.
 	h.play(0, h.handInst(0, "VR-020"))
 	h.play(1, h.handInst(1, "VR-042"))
-	h.assertVit(1, 29)
+	h.assertVit(1, 30)
 	h.pass(0)
 	h.pass(1)
 
@@ -168,10 +169,10 @@ func TestPeleGrossaVR042(t *testing.T) {
 	h.bothPassRite()
 	h.play(0, h.handInst(0, "VR-013"))
 	h.pass(1)
-	h.assertVit(1, 26) // 3 de dano; p1 sofreu dano nesta rodada
+	h.assertVit(1, 28) // 2 de dano (alpha-0.6.0: o bônus exige Aurora funda)
 	h.play(0, h.handInst(0, "VR-020"))
 	h.play(1, h.handInst(1, "VR-042"))
-	h.assertVit(1, 26) // previne 5 de 4 → nada passa
+	h.assertVit(1, 28) // previne 5 de 3 → nada passa
 }
 
 func TestResonanceComboVR005(t *testing.T) {
@@ -213,10 +214,11 @@ func TestAntiResonanceGuardVR017(t *testing.T) {
 	h.assertVit(1, 28)
 	h.pass(0)
 
-	// VR-025 chega com bônus de Ressonância: VR-017 previne 2+2 e anula os 3.
+	// VR-025 chega com bônus de Ressonância +2 (alpha-0.6.0): 5 de dano
+	// contra prevenção 2+2 do VR-017 → 1 atravessa.
 	h.play(1, h.handInst(1, "VR-025"))
 	h.play(0, h.handInst(0, "VR-017"))
-	h.assertVit(0, 30)
+	h.assertVit(0, 29)
 	h.pass(1)
 
 	// Rodada 2: trilhas zeradas; VR-020 (sem bônus) contra VR-017 → previne só 2.
@@ -279,13 +281,13 @@ func TestFatigueOnEmptyDeck(t *testing.T) {
 	}
 	p.Deck = nil
 
-	// Dívida de Sangue: sacrifica 2 e compra 2 → 1ª compra: Fadiga 2 +
+	// Dívida de Sangue: sacrifica 2 e compra 2 → 1ª compra: Fadiga 4 +
 	// reembaralha o descarte; 2ª compra normal.
 	h.play(0, h.handInst(0, "VR-002"))
-	// Seris: 30 - 2 (sacrifício) - 2 (fadiga alpha-0.5.0) = 26.
-	h.assertVit(0, 26)
-	if p.Fatigue != 2 {
-		t.Fatalf("fadiga: %d; esperado 2", p.Fatigue)
+	// Seris: 30 - 2 (sacrifício) - 4 (fadiga alpha-0.6.0) = 24.
+	h.assertVit(0, 24)
+	if p.Fatigue != 4 {
+		t.Fatalf("fadiga: %d; esperado 4", p.Fatigue)
 	}
 	if len(p.Deck) == 0 {
 		t.Fatal("deck deveria ter sido reembaralhado do descarte")

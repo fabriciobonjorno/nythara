@@ -7,7 +7,7 @@
   "n": 0,
   "from": 0,
   "to": 0,
-  "s": "alpha-0.5.0"
+  "s": "alpha-0.6.0"
  },
  {
   "seq": 1,
@@ -425,16 +425,6 @@
  {
   "seq": 41,
   "round": 1,
-  "kind": "eclipse_shifted",
-  "p": 1,
-  "n": -1,
-  "from": 1,
-  "to": 0,
-  "s": "VR-015"
- },
- {
-  "seq": 42,
-  "round": 1,
   "kind": "card_discarded",
   "p": 1,
   "card": "p1-c02",
@@ -444,7 +434,7 @@
   "to": 0
  },
  {
-  "seq": 43,
+  "seq": 42,
   "round": 1,
   "kind": "pass",
   "p": 1,
@@ -454,7 +444,7 @@
   "s": "rito"
  },
  {
-  "seq": 44,
+  "seq": 43,
   "round": 1,
   "kind": "window_opened",
   "p": 0,
@@ -464,7 +454,7 @@
   "s": "confronto"
  },
  {
-  "seq": 45,
+  "seq": 44,
   "round": 1,
   "kind": "card_played",
   "p": 0,
@@ -475,7 +465,7 @@
   "to": 0
  },
  {
-  "seq": 46,
+  "seq": 45,
   "round": 1,
   "kind": "essence_spent",
   "p": 0,
@@ -484,7 +474,7 @@
   "to": 2
  },
  {
-  "seq": 47,
+  "seq": 46,
   "round": 1,
   "kind": "window_opened",
   "p": 1,
@@ -496,15 +486,24 @@
   "s": "guarda"
  },
  {
-  "seq": 48,
+  "seq": 47,
   "round": 1,
   "kind": "card_played",
   "p": 1,
   "card": "p1-c00",
   "def": "VR-014",
-  "n": 0,
+  "n": 1,
   "from": 0,
   "to": 0
+ },
+ {
+  "seq": 48,
+  "round": 1,
+  "kind": "essence_spent",
+  "p": 1,
+  "n": 1,
+  "from": 0,
+  "to": 1
  },
  {
   "seq": 49,
@@ -523,8 +522,8 @@
   "kind": "eclipse_shifted",
   "p": 1,
   "n": -1,
-  "from": 0,
-  "to": -1,
+  "from": 1,
+  "to": 0,
   "s": "VR-014"
  },
  {
@@ -565,8 +564,8 @@
   "kind": "eclipse_shifted",
   "p": 0,
   "n": 1,
-  "from": -1,
-  "to": 0,
+  "from": 0,
+  "to": 1,
   "s": "VR-001"
  },
  {
@@ -639,8 +638,8 @@
   "kind": "eclipse_shifted",
   "p": 0,
   "n": -1,
-  "from": 0,
-  "to": -1,
+  "from": 1,
+  "to": 0,
   "s": "VR-013"
  },
  {
@@ -681,7 +680,7 @@
   "p": 1,
   "n": 1,
   "from": 0,
-  "to": 1
+  "to": 0
  },
  {
   "seq": 66,
@@ -690,7 +689,7 @@
   "p": 0,
   "card": "p1-c04",
   "def": "VR-025",
-  "n": 4,
+  "n": 5,
   "from": 0,
   "to": 0,
   "s": "guarda"
@@ -722,9 +721,9 @@
   "p": 0,
   "card": "p1-c04",
   "def": "VR-025",
-  "n": 6,
+  "n": 7,
   "from": 28,
-  "to": 22
+  "to": 21
  },
  {
   "seq": 70,
