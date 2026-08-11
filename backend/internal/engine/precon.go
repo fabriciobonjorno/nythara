@@ -42,6 +42,17 @@ func (rs *Ruleset) PreconstructedDeck(championID string) ([]string, error) {
 			break
 		}
 	}
+	// Cirurgia de precon por Campeão (ADR-031): substituições declaradas nos
+	// dados do Campeão, aplicadas cópia a cópia. A validação integral abaixo
+	// continua sendo o único juiz da legalidade do resultado.
+	for i, id := range deck {
+		if swap, ok := champion.PreconSwaps[id]; ok {
+			if rs.Cards[swap] == nil {
+				return nil, fmt.Errorf("precon %s: swap para carta desconhecida %q", championID, swap)
+			}
+			deck[i] = swap
+		}
+	}
 	if err := rs.ValidateDeck(championID, deck); err != nil {
 		return nil, fmt.Errorf("precon %s: %w", championID, err)
 	}

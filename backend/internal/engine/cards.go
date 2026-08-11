@@ -89,6 +89,10 @@ type ChampionDef struct {
 	Passive     string `json:"passive"`
 	Ultimate    string `json:"ultimate"`
 	EclipseForm string `json:"eclipse_form"`
+	// PreconSwaps ajusta o precon DESTE Campeão: cada cópia da carta-chave é
+	// substituída pela carta-valor (ADR-031 — cirurgia de precon separa a
+	// força do deck da força do kit sem tocar em regra). Dados, não código.
+	PreconSwaps map[string]string `json:"precon_swaps,omitempty"`
 }
 
 // Cards e Champions são os catálogos carregados dos dados embutidos.

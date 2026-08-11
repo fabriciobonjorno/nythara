@@ -24,7 +24,10 @@
     "vitality": 31,
     "passive": "A primeira Guarda que você usar em cada rodada custa 1 a menos.",
     "ultimate": "Aurora Implacável — mova o Medidor de Eclipse 2 passos em direção à Aurora e cause 2 de dano.",
-    "eclipse_form": "Na Aurora Total, após prevenir todo o dano de um Assalto, compre 1 carta."
+    "eclipse_form": "Na Aurora Total, após prevenir todo o dano de um Assalto, compre 1 carta.",
+    "precon_swaps": {
+      "VR-020": "VR-076"
+    }
   },
   {
     "id": "CH-SO-02",

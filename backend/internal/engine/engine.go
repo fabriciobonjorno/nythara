@@ -130,7 +130,7 @@ func NewGame(cfg Config) (*Game, error) {
 
 // RulesetVersion corrente da engine. Acompanha o version do arquivo de
 // efeitos: mudanças de conteúdo/regra exigem bump + regeneração dos goldens.
-const RulesetVersion = "alpha-0.6.0"
+const RulesetVersion = "alpha-0.6.1"
 
 // Apply valida e aplica um comando. Comando ilegal retorna erro e não muta
 // nada. Retorna os eventos gerados por este comando.
