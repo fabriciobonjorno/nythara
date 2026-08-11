@@ -373,13 +373,16 @@ func (p *Postgres) MatchTelemetry(ctx context.Context) (domain.MatchTelemetry, e
 	if err != nil {
 		return t, mapError(err)
 	}
+	// O campeão de um assento vem do deck (match_players não tem coluna
+	// própria) — bug pego pelo primeiro consumidor real (painel LiveOps).
 	rows, err := p.db.QueryContext(ctx, `
-		SELECT mp.champion_id, count(*) AS games,
+		SELECT d.champion_id, count(*) AS games,
 		       count(*) FILTER (WHERE m.winner_slot = mp.slot) AS wins
 		FROM match_players mp
+		JOIN decks d ON d.id = mp.deck_id
 		JOIN matches m ON m.id = mp.match_id
 		WHERE m.status = 'finished' AND m.mode = 'pvp'
-		GROUP BY mp.champion_id ORDER BY mp.champion_id`)
+		GROUP BY d.champion_id ORDER BY d.champion_id`)
 	if err != nil {
 		return t, mapError(err)
 	}

@@ -83,7 +83,7 @@ func TestPostgresPersistsBattleSnapshotAndCatchup(t *testing.T) {
 	ctx, db, user0 := integrationDB(t)
 	user1, _ := security.NewID()
 	_, err := db.CreateUser(ctx, domain.User{ID: user1, Email: user1 + "@example.test",
-		DisplayName: "Rival DB", Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.RulesetVersion)
+		DisplayName: "R-" + user1[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.RulesetVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,8 +215,9 @@ func integrationDB(t *testing.T) (context.Context, *Postgres, string) {
 		t.Fatal(err)
 	}
 	userID, _ := security.NewID()
+	// Identidade (migração 000006): username sem espaços e único.
 	_, err = db.CreateUser(ctx, domain.User{ID: userID, Email: userID + "@example.test",
-		DisplayName: "Teste DB", Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.RulesetVersion)
+		DisplayName: "T-" + userID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.RulesetVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -425,5 +426,18 @@ func TestPostgresRecordMatchProgress(t *testing.T) {
 	mastery, err := db.MasteryFor(ctx, userID)
 	if err != nil || len(mastery) != 1 || mastery[0].XP != 30 || mastery[0].Wins != 1 {
 		t.Fatalf("maestria: %+v err=%v", mastery, err)
+	}
+}
+
+// Regressão: a telemetria juntava match_players a uma coluna inexistente
+// (champion_id); o campeão vem do deck. Pego pelo painel LiveOps.
+func TestPostgresMatchTelemetryQueryRuns(t *testing.T) {
+	ctx, db, _ := integrationDB(t)
+	telemetry, err := db.MatchTelemetry(ctx)
+	if err != nil {
+		t.Fatalf("telemetria: %v", err)
+	}
+	if telemetry.TotalMatches < 0 {
+		t.Fatal("contagem inválida")
 	}
 }
