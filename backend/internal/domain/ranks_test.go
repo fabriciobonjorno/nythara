@@ -58,3 +58,18 @@ func TestMasteryTitleLadder(t *testing.T) {
 		}
 	}
 }
+
+func TestSeasonRewardsGrowWithTier(t *testing.T) {
+	previous := -1
+	for _, tier := range rankTiers {
+		_, reward := SeasonRewardForRating(tier.MinRating)
+		if reward <= previous {
+			t.Fatalf("recompensa de %s (%d) não cresce sobre a anterior (%d)",
+				tier.Key, reward, previous)
+		}
+		previous = reward
+	}
+	if _, reward := SeasonRewardForRating(1000); reward != 60 {
+		t.Fatalf("rating inicial deveria valer 60 (Lâmina Velada); veio %d", reward)
+	}
+}

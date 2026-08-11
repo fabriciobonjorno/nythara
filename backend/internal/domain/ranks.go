@@ -43,6 +43,20 @@ func TierForRating(rating int) RankTier {
 	return tier
 }
 
+// seasonRewards são os Fragmentos do Véu concedidos pela patente FINAL ao
+// fechar uma temporada (ADR-034). Derivado puro, como as patentes: ajustar
+// valores é decisão de economia, sem migração.
+var seasonRewards = map[string]int{
+	"errante": 20, "iniciado": 40, "lamina": 60, "guardiao": 90,
+	"arauto": 130, "soberano": 180, "voz": 250,
+}
+
+// SeasonRewardForRating devolve a patente final e a recompensa do rating.
+func SeasonRewardForRating(rating int) (RankTier, int) {
+	tier := TierForRating(rating)
+	return tier, seasonRewards[tier.Key]
+}
+
 // MasteryTitle é o título exibido pelo nível de maestria com um Campeão.
 func MasteryTitle(level int) string {
 	switch {

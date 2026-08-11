@@ -349,9 +349,31 @@ func (p *Postgres) CreateSeason(ctx context.Context, season domain.Season,
 		return domain.Season{}, err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `UPDATE seasons SET ends_at=$1
-		WHERE ends_at IS NULL AND starts_at < $1`, season.StartsAt); err != nil {
+	// Fecha as temporadas abertas e captura QUAIS fecharam nesta transação —
+	// as recompensas de fim de temporada (ADR-034) só valem para a transição
+	// real, o que torna a concessão idempotente por construção.
+	closedRows, err := tx.QueryContext(ctx, `UPDATE seasons SET ends_at=$1
+		WHERE ends_at IS NULL AND starts_at < $1 RETURNING id`, season.StartsAt)
+	if err != nil {
 		return domain.Season{}, mapError(err)
+	}
+	var closed []string
+	for closedRows.Next() {
+		var id string
+		if err := closedRows.Scan(&id); err != nil {
+			closedRows.Close()
+			return domain.Season{}, err
+		}
+		closed = append(closed, id)
+	}
+	closedRows.Close()
+	if err := closedRows.Err(); err != nil {
+		return domain.Season{}, err
+	}
+	for _, seasonID := range closed {
+		if err := grantSeasonRewards(ctx, tx, seasonID, audit.Actor); err != nil {
+			return domain.Season{}, err
+		}
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO seasons(id,name,ruleset_version,starts_at)
 		VALUES($1,$2,$3,$4)`, season.ID, season.Name, season.RulesetVersion, season.StartsAt); err != nil {
@@ -361,6 +383,62 @@ func (p *Postgres) CreateSeason(ctx context.Context, season domain.Season,
 		return domain.Season{}, err
 	}
 	return season, tx.Commit()
+}
+
+// grantSeasonRewards credita Fragmentos pela patente final de cada ranqueado
+// da temporada fechada (bot fora; exige ao menos 1 partida), com trilha em
+// economy_transactions e um resumo na auditoria — na MESMA transação do
+// fechamento.
+func grantSeasonRewards(ctx context.Context, tx *sql.Tx, seasonID, actor string) error {
+	rows, err := tx.QueryContext(ctx, `SELECT user_id, rating FROM ranked_ratings
+		WHERE season_id=$1 AND games >= 1 AND user_id <> $2 ORDER BY user_id`,
+		seasonID, domain.BotUserID)
+	if err != nil {
+		return mapError(err)
+	}
+	type grant struct {
+		userID    string
+		rating    int
+		tier      string
+		fragments int
+	}
+	var grants []grant
+	for rows.Next() {
+		var g grant
+		if err := rows.Scan(&g.userID, &g.rating); err != nil {
+			rows.Close()
+			return err
+		}
+		tier, fragments := domain.SeasonRewardForRating(g.rating)
+		g.tier, g.fragments = tier.Key, fragments
+		if g.fragments > 0 {
+			grants = append(grants, g)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	total := 0
+	for _, g := range grants {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO player_wallets(user_id,fragments)
+			VALUES($1,$2) ON CONFLICT (user_id) DO UPDATE
+			SET fragments = player_wallets.fragments + $2, updated_at = now()`,
+			g.userID, g.fragments); err != nil {
+			return mapError(err)
+		}
+		payload := fmt.Sprintf(`{"season_id":%q,"tier":%q,"rating":%d,"fragments":%d}`,
+			seasonID, g.tier, g.rating, g.fragments)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO economy_transactions(id,user_id,kind,source,payload)
+			VALUES(gen_random_uuid(),$1,'fragment_grant','season_reward',$2)`,
+			g.userID, payload); err != nil {
+			return mapError(err)
+		}
+		total += g.fragments
+	}
+	summary := fmt.Sprintf(`{"players":%d,"fragments":%d}`, len(grants), total)
+	return appendAudit(ctx, tx, domain.AuditEntry{Actor: actor, Action: "season:rewards",
+		Subject: seasonID, Payload: json.RawMessage(summary)})
 }
 
 // --- Telemetria e auditoria ---

@@ -441,3 +441,67 @@ func TestPostgresMatchTelemetryQueryRuns(t *testing.T) {
 		t.Fatal("contagem inválida")
 	}
 }
+
+// ADR-034: fechar temporada concede Fragmentos pela patente final, na mesma
+// transação e apenas na transição real (idempotente por construção).
+func TestPostgresSeasonCloseGrantsTierRewards(t *testing.T) {
+	ctx, db, userID := integrationDB(t)
+	season, err := db.ActiveSeason(ctx)
+	if err != nil {
+		t.Fatalf("temporada ativa: %v", err)
+	}
+	// Semeia um ranqueado: rating 1210 (Arauto do Eclipse → 130 fragmentos).
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO ranked_ratings(user_id,season_id,rating,games,wins)
+		VALUES($1,$2,1210,8,5)`, userID, season.ID); err != nil {
+		t.Fatalf("seed rating: %v", err)
+	}
+	before, err := db.Fragments(ctx, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newSeasonID, _ := security.NewID()
+	_, err = db.CreateSeason(ctx, domain.Season{ID: newSeasonID, Name: "Temporada Prova",
+		RulesetVersion: engine.RulesetVersion, StartsAt: time.Now().UTC()},
+		domain.AuditEntry{Actor: userID, Action: "season:create", Subject: newSeasonID})
+	if err != nil {
+		t.Fatalf("virada de temporada: %v", err)
+	}
+
+	after, err := db.Fragments(ctx, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after-before != 130 {
+		t.Fatalf("fragmentos: %d → %d; esperado +130 (Arauto)", before, after)
+	}
+	var kind, source string
+	if err := db.db.QueryRowContext(ctx, `SELECT kind, source FROM economy_transactions
+		WHERE user_id=$1 AND source='season_reward' ORDER BY created_at DESC LIMIT 1`, userID).
+		Scan(&kind, &source); err != nil {
+		t.Fatalf("trilha econômica ausente: %v", err)
+	}
+	var audits int
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM admin_audit
+		WHERE action='season:rewards' AND subject=$1`, season.ID).Scan(&audits); err != nil {
+		t.Fatal(err)
+	}
+	if audits != 1 {
+		t.Fatalf("auditoria da concessão: %d entradas; esperado 1", audits)
+	}
+
+	// Segunda virada: a temporada antiga já está fechada — nada é reconcedido.
+	thirdID, _ := security.NewID()
+	if _, err := db.CreateSeason(ctx, domain.Season{ID: thirdID, Name: "Temporada Prova 2",
+		RulesetVersion: engine.RulesetVersion, StartsAt: time.Now().UTC().Add(time.Second)},
+		domain.AuditEntry{Actor: userID, Action: "season:create", Subject: thirdID}); err != nil {
+		t.Fatalf("segunda virada: %v", err)
+	}
+	final, err := db.Fragments(ctx, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if final != after {
+		t.Fatalf("reconcessão indevida: %d → %d", after, final)
+	}
+}
