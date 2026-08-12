@@ -26,6 +26,10 @@ type liveopsState struct {
 	audit       []domain.AuditEntry
 	rituals     map[string][]domain.RitualState
 	progressLog map[string]domain.MatchProgress
+	players     []domain.AdminPlayer
+	matches     []domain.AdminMatch
+	playerBans  map[string]domain.PlayerBan
+	invites     []domain.AdminInvite
 }
 
 func newLiveopsState() *liveopsState {
@@ -45,8 +49,107 @@ func newLiveopsState() *liveopsState {
 				Champions: champsRaw, Effects: effects},
 		},
 		drafts: map[string]domain.CardDraft{},
-		bans:   map[string]domain.CardBan{},
+		bans:   map[string]domain.CardBan{}, playerBans: map[string]domain.PlayerBan{},
+		players: []domain.AdminPlayer{{ID: "00000000-0000-4000-8000-000000000010", Email: "jogador@example.test",
+			DisplayName: "Jogador", Role: domain.RolePlayer, AccountXP: 120, MatchCount: 4, Wins: 2}},
+		matches: []domain.AdminMatch{{ID: "00000000-0000-4000-8000-000000000111", Mode: "pvp",
+			RulesetVersion: engine.CompetitiveRulesetVersion, Status: "finished"}},
 	}
+}
+
+func TestAdminOperationsAndOwnerOnlyInvites(t *testing.T) {
+	handler, store := testHandler()
+
+	request := httptest.NewRequest(http.MethodGet, "/v1/admin/overview", nil)
+	request.Header.Set("Authorization", "Bearer admin-token")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"total_players":1`) {
+		t.Fatalf("overview admin: status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "/v1/admin/invites", bytes.NewBufferString(`{"email":"guardiao@example.test"}`))
+	request.Header.Set("Authorization", "Bearer admin-token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden || len(store.ops().invites) != 0 {
+		t.Fatalf("admin comum emitiu convite: status=%d invites=%d", response.Code, len(store.ops().invites))
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "/v1/admin/invites", bytes.NewBufferString(`{"email":"guardiao@example.test"}`))
+	request.Header.Set("Authorization", "Bearer owner-token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || !strings.Contains(response.Body.String(), `"token":"`) || len(store.ops().invites) != 1 {
+		t.Fatalf("owner não emitiu convite: status=%d body=%s invites=%d", response.Code, response.Body.String(), len(store.ops().invites))
+	}
+
+	request = httptest.NewRequest(http.MethodPost,
+		"/v1/admin/players/00000000-0000-4000-8000-000000000010/ban",
+		bytes.NewBufferString(`{"reason":"abuso confirmado"}`))
+	request.Header.Set("Authorization", "Bearer admin-token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || len(store.ops().playerBans) != 1 {
+		t.Fatalf("banimento: status=%d body=%s bans=%d", response.Code, response.Body.String(), len(store.ops().playerBans))
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/v1/admin/rulesets", nil)
+	request.Header.Set("Authorization", "Bearer owner-token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("owner não herdou RBAC admin: status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func (f *fakeStore) AdminOverview(context.Context) (domain.AdminOverview, error) {
+	s := f.ops()
+	return domain.AdminOverview{TotalPlayers: len(s.players), TotalMatches: len(s.matches), FinishedMatches: len(s.matches)}, nil
+}
+
+func (f *fakeStore) ListAdminPlayers(context.Context, string, int) ([]domain.AdminPlayer, error) {
+	s := f.ops()
+	return append([]domain.AdminPlayer{}, s.players...), nil
+}
+
+func (f *fakeStore) ListAdminMatches(context.Context, int) ([]domain.AdminMatch, error) {
+	s := f.ops()
+	return append([]domain.AdminMatch{}, s.matches...), nil
+}
+
+func (f *fakeStore) BanPlayer(_ context.Context, ban domain.PlayerBan, audit domain.AuditEntry) (domain.PlayerBan, error) {
+	s := f.ops()
+	ban.CreatedAt = time.Now().UTC()
+	s.playerBans[ban.UserID] = ban
+	s.audit = append(s.audit, audit)
+	return ban, nil
+}
+
+func (f *fakeStore) LiftPlayerBan(_ context.Context, userID, liftedBy string, audit domain.AuditEntry) (domain.PlayerBan, error) {
+	s := f.ops()
+	ban, ok := s.playerBans[userID]
+	if !ok {
+		return domain.PlayerBan{}, domain.ErrNotFound
+	}
+	now := time.Now().UTC()
+	ban.LiftedAt, ban.LiftedBy = &now, liftedBy
+	delete(s.playerBans, userID)
+	s.audit = append(s.audit, audit)
+	return ban, nil
+}
+
+func (f *fakeStore) CreateAdminInvite(_ context.Context, invite domain.AdminInvite, audit domain.AuditEntry) (domain.AdminInvite, error) {
+	s := f.ops()
+	invite.CreatedAt = time.Now().UTC()
+	s.invites = append(s.invites, invite)
+	s.audit = append(s.audit, audit)
+	return invite, nil
+}
+
+func (f *fakeStore) ListAdminInvites(context.Context, int) ([]domain.AdminInvite, error) {
+	s := f.ops()
+	return append([]domain.AdminInvite{}, s.invites...), nil
 }
 
 func (f *fakeStore) ops() *liveopsState {

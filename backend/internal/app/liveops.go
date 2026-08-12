@@ -10,6 +10,7 @@ import (
 
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
+	accountprogress "veurubro/backend/internal/progression"
 	"veurubro/backend/internal/security"
 	"veurubro/backend/internal/sim"
 )
@@ -21,6 +22,8 @@ import (
 
 var versionPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.\-]{2,63}$`)
 
+const AdminInviteTTL = 24 * time.Hour
+
 // OnRulesetActivated permite ao servidor reagir a ativações (ex.: apontar o
 // matchmaking para a nova versão) sem acoplar app a battle.
 type OnRulesetActivated func(version string)
@@ -28,7 +31,14 @@ type OnRulesetActivated func(version string)
 func (s *Service) SetRulesetActivationHook(hook OnRulesetActivated) { s.onRulesetActivated = hook }
 
 func requireAdmin(principal domain.Principal) error {
-	if principal.Role != domain.RoleAdmin {
+	if !principal.Role.IsAdmin() {
+		return domain.ErrForbidden
+	}
+	return nil
+}
+
+func requireOwner(principal domain.Principal) error {
+	if principal.Role != domain.RoleOwner {
 		return domain.ErrForbidden
 	}
 	return nil
@@ -37,6 +47,117 @@ func requireAdmin(principal domain.Principal) error {
 func auditEntry(principal domain.Principal, action, subject string, payload any) domain.AuditEntry {
 	raw, _ := json.Marshal(payload)
 	return domain.AuditEntry{Actor: principal.UserID, Action: action, Subject: subject, Payload: raw}
+}
+
+func (s *Service) AdminOverview(ctx context.Context, principal domain.Principal) (domain.AdminOverview, error) {
+	if err := requireAdmin(principal); err != nil {
+		return domain.AdminOverview{}, err
+	}
+	overview, err := s.store.AdminOverview(ctx)
+	if err != nil {
+		return domain.AdminOverview{}, err
+	}
+	overview.CanInviteAdmins = principal.Role == domain.RoleOwner
+	return overview, nil
+}
+
+func (s *Service) ListAdminPlayers(ctx context.Context, principal domain.Principal, query string, limit int) ([]domain.AdminPlayer, error) {
+	if err := requireAdmin(principal); err != nil {
+		return nil, err
+	}
+	query = strings.TrimSpace(query)
+	if len(query) > 120 {
+		return nil, fmt.Errorf("%w: busca longa demais", domain.ErrInvalid)
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	players, err := s.store.ListAdminPlayers(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	for index := range players {
+		players[index].AccountLevel = accountprogress.LevelForXP(players[index].AccountXP)
+	}
+	return players, nil
+}
+
+func (s *Service) ListAdminMatches(ctx context.Context, principal domain.Principal, limit int) ([]domain.AdminMatch, error) {
+	if err := requireAdmin(principal); err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	return s.store.ListAdminMatches(ctx, limit)
+}
+
+func (s *Service) BanPlayer(ctx context.Context, principal domain.Principal, userID, reason string) (domain.PlayerBan, error) {
+	if err := requireAdmin(principal); err != nil {
+		return domain.PlayerBan{}, err
+	}
+	reason = strings.TrimSpace(reason)
+	if len(reason) < 4 || len(reason) > 500 {
+		return domain.PlayerBan{}, fmt.Errorf("%w: motivo deve ter entre 4 e 500 caracteres", domain.ErrInvalid)
+	}
+	if userID == "" || userID == principal.UserID || userID == domain.BotUserID {
+		return domain.PlayerBan{}, domain.ErrForbidden
+	}
+	id, err := security.NewID()
+	if err != nil {
+		return domain.PlayerBan{}, err
+	}
+	ban := domain.PlayerBan{ID: id, UserID: userID, Reason: reason, CreatedBy: principal.UserID}
+	return s.store.BanPlayer(ctx, ban,
+		auditEntry(principal, "player:ban", userID, map[string]string{"reason": reason}))
+}
+
+func (s *Service) LiftPlayerBan(ctx context.Context, principal domain.Principal, userID string) (domain.PlayerBan, error) {
+	if err := requireAdmin(principal); err != nil {
+		return domain.PlayerBan{}, err
+	}
+	if userID == "" || userID == principal.UserID || userID == domain.BotUserID {
+		return domain.PlayerBan{}, domain.ErrForbidden
+	}
+	return s.store.LiftPlayerBan(ctx, userID, principal.UserID,
+		auditEntry(principal, "player:unban", userID, nil))
+}
+
+func (s *Service) IssueAdminInvite(ctx context.Context, principal domain.Principal, email string) (domain.IssuedAdminInvite, error) {
+	if err := requireOwner(principal); err != nil {
+		return domain.IssuedAdminInvite{}, err
+	}
+	normalized, err := normalizeEmail(email)
+	if err != nil {
+		return domain.IssuedAdminInvite{}, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	plain, tokenHash, err := security.NewToken()
+	if err != nil {
+		return domain.IssuedAdminInvite{}, err
+	}
+	id, err := security.NewID()
+	if err != nil {
+		return domain.IssuedAdminInvite{}, err
+	}
+	now := s.now().UTC()
+	invite := domain.AdminInvite{ID: id, Email: normalized, TokenHash: tokenHash,
+		CreatedBy: principal.UserID, ExpiresAt: now.Add(AdminInviteTTL)}
+	created, err := s.store.CreateAdminInvite(ctx, invite,
+		auditEntry(principal, "admin_invite:create", id, map[string]string{"email": normalized}))
+	if err != nil {
+		return domain.IssuedAdminInvite{}, err
+	}
+	return domain.IssuedAdminInvite{AdminInvite: created, Token: plain}, nil
+}
+
+func (s *Service) ListAdminInvites(ctx context.Context, principal domain.Principal, limit int) ([]domain.AdminInvite, error) {
+	if err := requireOwner(principal); err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 30
+	}
+	return s.store.ListAdminInvites(ctx, limit)
 }
 
 // RegisterStoredRulesets compila e registra na engine todas as versões

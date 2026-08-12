@@ -11,6 +11,243 @@ import (
 	"veurubro/backend/internal/engine"
 )
 
+func (p *Postgres) AdminOverview(ctx context.Context) (domain.AdminOverview, error) {
+	var overview domain.AdminOverview
+	err := p.db.QueryRowContext(ctx, `SELECT
+		(SELECT count(*) FROM users WHERE role='player' AND id<>$1),
+		(SELECT count(*) FROM users WHERE role IN ('admin','owner')),
+		(SELECT count(*) FROM player_bans WHERE lifted_at IS NULL),
+		(SELECT count(*) FROM users WHERE role='player' AND id<>$1 AND created_at>=now()-interval '7 days'),
+		(SELECT count(DISTINCT s.user_id) FROM auth_sessions s JOIN users u ON u.id=s.user_id
+			WHERE u.role='player' AND u.id<>$1 AND s.created_at>=now()-interval '7 days'),
+		(SELECT count(DISTINCT s.user_id) FROM auth_sessions s JOIN users u ON u.id=s.user_id
+			WHERE u.role='player' AND u.id<>$1 AND s.created_at>=now()-interval '30 days')`, domain.BotUserID).
+		Scan(&overview.TotalPlayers, &overview.TotalAdmins, &overview.BannedPlayers,
+			&overview.NewPlayers7D, &overview.ActivePlayers7D, &overview.ActivePlayers30D)
+	if err != nil {
+		return domain.AdminOverview{}, mapError(err)
+	}
+	err = p.db.QueryRowContext(ctx, `SELECT count(*),
+		count(*) FILTER (WHERE status IN ('waiting_ready','active')),
+		count(*) FILTER (WHERE status='finished'),
+		count(*) FILTER (WHERE status='cancelled'),
+		count(*) FILTER (WHERE mode='pvp'),
+		count(*) FILTER (WHERE mode='practice') FROM matches`).
+		Scan(&overview.TotalMatches, &overview.ActiveMatches, &overview.FinishedMatches,
+			&overview.CancelledMatches, &overview.PVPMatches, &overview.PracticeMatches)
+	return overview, mapError(err)
+}
+
+func (p *Postgres) ListAdminPlayers(ctx context.Context, query string, limit int) ([]domain.AdminPlayer, error) {
+	pattern := "%" + query + "%"
+	rows, err := p.db.QueryContext(ctx, `WITH session_stats AS (
+			SELECT user_id,max(created_at) last_session_at FROM auth_sessions GROUP BY user_id
+		), match_stats AS (
+			SELECT mp.user_id,count(*) matches,
+				count(*) FILTER (WHERE m.status='finished' AND m.winner_slot=mp.slot) wins
+			FROM match_players mp JOIN matches m ON m.id=mp.match_id GROUP BY mp.user_id
+		)
+		SELECT u.id,u.email,p.display_name,u.role,COALESCE(ap.xp,0),u.created_at,
+			s.last_session_at,COALESCE(ms.matches,0),COALESCE(ms.wins,0),b.created_at,b.reason
+		FROM users u JOIN player_profiles p ON p.user_id=u.id
+		LEFT JOIN player_account_progress ap ON ap.user_id=u.id
+		LEFT JOIN session_stats s ON s.user_id=u.id
+		LEFT JOIN match_stats ms ON ms.user_id=u.id
+		LEFT JOIN player_bans b ON b.user_id=u.id AND b.lifted_at IS NULL
+		WHERE u.id<>$1 AND ($2='' OR u.email ILIKE $3 OR p.display_name ILIKE $3)
+		ORDER BY (b.id IS NOT NULL) DESC,u.created_at DESC LIMIT $4`, domain.BotUserID, query, pattern, limit)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	defer rows.Close()
+	players := make([]domain.AdminPlayer, 0)
+	for rows.Next() {
+		var player domain.AdminPlayer
+		var lastSession, bannedAt sql.NullTime
+		var banReason sql.NullString
+		if err := rows.Scan(&player.ID, &player.Email, &player.DisplayName, &player.Role, &player.AccountXP,
+			&player.CreatedAt, &lastSession, &player.MatchCount, &player.Wins, &bannedAt, &banReason); err != nil {
+			return nil, err
+		}
+		if lastSession.Valid {
+			value := lastSession.Time
+			player.LastSessionAt = &value
+		}
+		if bannedAt.Valid {
+			value := bannedAt.Time
+			player.BannedAt = &value
+			player.BannedReason = banReason.String
+		}
+		players = append(players, player)
+	}
+	return players, rows.Err()
+}
+
+func (p *Postgres) ListAdminMatches(ctx context.Context, limit int) ([]domain.AdminMatch, error) {
+	rows, err := p.db.QueryContext(ctx, `SELECT m.id,m.mode,m.ruleset_version,m.status,
+		COALESCE(json_agg(json_build_object('user_id',u.id,'display_name',p.display_name,'slot',mp.slot)
+			ORDER BY mp.slot) FILTER (WHERE mp.user_id IS NOT NULL),'[]'::json),
+		m.winner_slot,m.end_reason,m.created_at,m.started_at,m.ended_at,
+		COALESCE(EXTRACT(EPOCH FROM (m.ended_at-m.started_at))::integer,0)
+		FROM matches m LEFT JOIN match_players mp ON mp.match_id=m.id
+		LEFT JOIN users u ON u.id=mp.user_id LEFT JOIN player_profiles p ON p.user_id=u.id
+		GROUP BY m.id ORDER BY m.created_at DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	defer rows.Close()
+	matches := make([]domain.AdminMatch, 0)
+	for rows.Next() {
+		var match domain.AdminMatch
+		var playersJSON []byte
+		var winner sql.NullInt64
+		var endReason sql.NullString
+		var started, ended sql.NullTime
+		if err := rows.Scan(&match.ID, &match.Mode, &match.RulesetVersion, &match.Status, &playersJSON,
+			&winner, &endReason, &match.CreatedAt, &started, &ended, &match.DurationSeconds); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(playersJSON, &match.Players); err != nil {
+			return nil, err
+		}
+		if winner.Valid {
+			value := int(winner.Int64)
+			match.WinnerSlot = &value
+		}
+		match.EndReason = endReason.String
+		if started.Valid {
+			value := started.Time
+			match.StartedAt = &value
+		}
+		if ended.Valid {
+			value := ended.Time
+			match.EndedAt = &value
+		}
+		matches = append(matches, match)
+	}
+	return matches, rows.Err()
+}
+
+func (p *Postgres) BanPlayer(ctx context.Context, ban domain.PlayerBan, audit domain.AuditEntry) (domain.PlayerBan, error) {
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domain.PlayerBan{}, err
+	}
+	defer tx.Rollback()
+	var role domain.Role
+	if err := tx.QueryRowContext(ctx, `SELECT role FROM users WHERE id=$1 FOR UPDATE`, ban.UserID).Scan(&role); err != nil {
+		return domain.PlayerBan{}, mapError(err)
+	}
+	if role != domain.RolePlayer || ban.UserID == domain.BotUserID {
+		return domain.PlayerBan{}, domain.ErrForbidden
+	}
+	err = tx.QueryRowContext(ctx, `INSERT INTO player_bans(id,user_id,reason,created_by)
+		VALUES($1,$2,$3,$4) RETURNING created_at`, ban.ID, ban.UserID, ban.Reason, ban.CreatedBy).
+		Scan(&ban.CreatedAt)
+	if err != nil {
+		return domain.PlayerBan{}, mapError(err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE auth_sessions SET revoked_at=now()
+		WHERE user_id=$1 AND revoked_at IS NULL`, ban.UserID); err != nil {
+		return domain.PlayerBan{}, mapError(err)
+	}
+	if err := appendAudit(ctx, tx, audit); err != nil {
+		return domain.PlayerBan{}, err
+	}
+	return ban, mapError(tx.Commit())
+}
+
+func (p *Postgres) LiftPlayerBan(ctx context.Context, userID, liftedBy string, audit domain.AuditEntry) (domain.PlayerBan, error) {
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domain.PlayerBan{}, err
+	}
+	defer tx.Rollback()
+	var ban domain.PlayerBan
+	err = tx.QueryRowContext(ctx, `UPDATE player_bans SET lifted_by=$2,lifted_at=now()
+		WHERE user_id=$1 AND lifted_at IS NULL
+		RETURNING id,user_id,reason,created_by,created_at,lifted_by,lifted_at`, userID, liftedBy).
+		Scan(&ban.ID, &ban.UserID, &ban.Reason, &ban.CreatedBy, &ban.CreatedAt, &ban.LiftedBy, &ban.LiftedAt)
+	if err != nil {
+		return domain.PlayerBan{}, mapError(err)
+	}
+	if err := appendAudit(ctx, tx, audit); err != nil {
+		return domain.PlayerBan{}, err
+	}
+	return ban, mapError(tx.Commit())
+}
+
+func (p *Postgres) CreateAdminInvite(ctx context.Context, invite domain.AdminInvite, audit domain.AuditEntry) (domain.AdminInvite, error) {
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domain.AdminInvite{}, err
+	}
+	defer tx.Rollback()
+	var owner bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE id=$1 AND role='owner')`, invite.CreatedBy).Scan(&owner); err != nil {
+		return domain.AdminInvite{}, mapError(err)
+	}
+	if !owner {
+		return domain.AdminInvite{}, domain.ErrForbidden
+	}
+	// Serializa convites do mesmo e-mail sem bloquear emissões independentes.
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, invite.Email); err != nil {
+		return domain.AdminInvite{}, mapError(err)
+	}
+	var emailExists bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE email=$1)`, invite.Email).Scan(&emailExists); err != nil {
+		return domain.AdminInvite{}, mapError(err)
+	}
+	if emailExists {
+		return domain.AdminInvite{}, fmt.Errorf("%w: já existe uma conta com este e-mail", domain.ErrConflict)
+	}
+	var activeInvite bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM admin_invites
+		WHERE email=$1 AND used_at IS NULL AND expires_at>now())`, invite.Email).Scan(&activeInvite); err != nil {
+		return domain.AdminInvite{}, mapError(err)
+	}
+	if activeInvite {
+		return domain.AdminInvite{}, fmt.Errorf("%w: já existe um convite ativo para este e-mail", domain.ErrConflict)
+	}
+	err = tx.QueryRowContext(ctx, `INSERT INTO admin_invites(id,email,token_hash,created_by,expires_at)
+		VALUES($1,$2,$3,$4,$5)
+		RETURNING created_at`, invite.ID, invite.Email, invite.TokenHash, invite.CreatedBy, invite.ExpiresAt).
+		Scan(&invite.CreatedAt)
+	if err != nil {
+		return domain.AdminInvite{}, mapError(err)
+	}
+	if err := appendAudit(ctx, tx, audit); err != nil {
+		return domain.AdminInvite{}, err
+	}
+	return invite, mapError(tx.Commit())
+}
+
+func (p *Postgres) ListAdminInvites(ctx context.Context, limit int) ([]domain.AdminInvite, error) {
+	rows, err := p.db.QueryContext(ctx, `SELECT id,email,created_by,expires_at,used_at,used_by,created_at
+		FROM admin_invites ORDER BY created_at DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	defer rows.Close()
+	invites := make([]domain.AdminInvite, 0)
+	for rows.Next() {
+		var invite domain.AdminInvite
+		var usedAt sql.NullTime
+		var usedBy sql.NullString
+		if err := rows.Scan(&invite.ID, &invite.Email, &invite.CreatedBy, &invite.ExpiresAt,
+			&usedAt, &usedBy, &invite.CreatedAt); err != nil {
+			return nil, err
+		}
+		if usedAt.Valid {
+			value := usedAt.Time
+			invite.UsedAt = &value
+			invite.UsedBy = usedBy.String
+		}
+		invites = append(invites, invite)
+	}
+	return invites, rows.Err()
+}
+
 // Fase 7 — Admin/LiveOps. Toda mutação grava a entrada de auditoria na mesma
 // transação: sem auditoria, sem mudança.
 

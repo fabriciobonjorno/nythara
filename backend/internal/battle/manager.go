@@ -220,7 +220,7 @@ func (m *Manager) IssueTicket(ctx context.Context, principal domain.Principal, m
 	if mode == TicketPlayer && slot < 0 {
 		return Ticket{}, ErrNotParticipant
 	}
-	if mode == TicketSpectator && principal.Role != domain.RoleAdmin {
+	if mode == TicketSpectator && !principal.Role.IsAdmin() {
 		return Ticket{}, domain.ErrForbidden
 	}
 	plain, _, err := security.NewToken()

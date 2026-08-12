@@ -62,6 +62,9 @@ button:disabled { cursor: not-allowed; opacity: .46; }
 .danger-text { border: 0; background: transparent; color: var(--danger); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .form-error, .battle-error { border-left: 3px solid var(--danger); background: #2b1219; color: #ffd7d9; padding: .75rem 1rem; }
 .form-success { border-left: 3px solid var(--gold); background: #211c13; color: var(--gold-bright); padding: .85rem 1rem; line-height: 1.55; }
+.admin-invite-banner { display: grid; gap: .25rem; padding: .85rem 1rem; color: #d9c689; background: #211b0e; border-bottom: 1px solid #66552b; }
+.admin-invite-banner strong { font-family: Georgia, serif; color: var(--gold-bright); }
+.admin-invite-banner span { font-size: .68rem; line-height: 1.45; }
 
 /* Landing */
 .landing { position: relative; isolation: isolate; min-height: 100svh; overflow-x: hidden; display: grid; grid-template-rows: auto auto auto auto; background: #070609; }

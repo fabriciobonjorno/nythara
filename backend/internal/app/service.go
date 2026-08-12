@@ -124,6 +124,7 @@ type RegisterInput struct {
 	Password    string `json:"password"`
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name,omitempty"`
+	AdminInvite string `json:"admin_invite,omitempty"`
 }
 
 var usernamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -150,8 +151,20 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (domain.Use
 	if err != nil {
 		return domain.User{}, domain.SessionTokens{}, err
 	}
-	user, err := s.store.CreateUser(ctx, domain.User{ID: id, Email: email, DisplayName: username,
-		Role: domain.RolePlayer, PasswordHash: passwordHash, PasswordSet: true}, engine.CompetitiveRulesetVersion)
+	userInput := domain.User{ID: id, Email: email, DisplayName: username,
+		Role: domain.RolePlayer, PasswordHash: passwordHash, PasswordSet: true}
+	var user domain.User
+	invite := strings.TrimSpace(input.AdminInvite)
+	if invite == "" {
+		user, err = s.store.CreateUser(ctx, userInput, engine.CompetitiveRulesetVersion)
+	} else {
+		if len(invite) < 32 || len(invite) > 256 {
+			return domain.User{}, domain.SessionTokens{}, fmt.Errorf("%w: convite administrativo inválido ou expirado", domain.ErrInvalid)
+		}
+		userInput.Role = domain.RoleAdmin
+		user, err = s.store.CreateInvitedAdmin(ctx, security.TokenHash(invite), s.now().UTC(), userInput,
+			engine.CompetitiveRulesetVersion)
+	}
 	if err != nil {
 		return domain.User{}, domain.SessionTokens{}, err
 	}
@@ -404,7 +417,7 @@ func (s *Service) ListRewards(ctx context.Context, principal domain.Principal) (
 
 func (s *Service) GrantReward(ctx context.Context, principal domain.Principal, reward domain.Reward,
 	key string, rawBody []byte) (domain.Reward, bool, error) {
-	if principal.Role != domain.RoleAdmin {
+	if !principal.Role.IsAdmin() {
 		return reward, false, domain.ErrForbidden
 	}
 	if err := validateIdempotencyKey(key); err != nil {

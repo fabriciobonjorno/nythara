@@ -18,6 +18,13 @@ func (a *API) adminRoutes(mux *http.ServeMux) {
 		return a.auth(a.requireRole(domain.RoleAdmin, h))
 	}
 	mux.Handle("GET /v1/admin/rulesets", admin(a.adminListRulesets))
+	mux.Handle("GET /v1/admin/overview", admin(a.adminOverview))
+	mux.Handle("GET /v1/admin/players", admin(a.adminPlayers))
+	mux.Handle("POST /v1/admin/players/{id}/ban", admin(a.adminBanPlayer))
+	mux.Handle("POST /v1/admin/players/{id}/unban", admin(a.adminUnbanPlayer))
+	mux.Handle("GET /v1/admin/matches", admin(a.adminMatches))
+	mux.Handle("GET /v1/admin/invites", admin(a.adminInvites))
+	mux.Handle("POST /v1/admin/invites", admin(a.adminCreateInvite))
 	mux.Handle("POST /v1/admin/rulesets/{version}/activate", admin(a.adminActivateRuleset))
 	mux.Handle("POST /v1/admin/rulesets/{version}/rotate", admin(a.adminRotateRuleset))
 	mux.Handle("GET /v1/admin/feedback", admin(a.adminListFeedback))
@@ -34,6 +41,84 @@ func (a *API) adminRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /v1/admin/seasons", admin(a.adminCreateSeason))
 	mux.Handle("GET /v1/admin/telemetry", admin(a.adminTelemetry))
 	mux.Handle("GET /v1/admin/audit", admin(a.adminAudit))
+}
+
+func (a *API) adminOverview(w http.ResponseWriter, r *http.Request) {
+	overview, err := a.service.AdminOverview(r.Context(), principal(r))
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, overview)
+}
+
+func (a *API) adminPlayers(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	players, err := a.service.ListAdminPlayers(r.Context(), principal(r), r.URL.Query().Get("q"), limit)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, players)
+}
+
+func (a *API) adminBanPlayer(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Reason string `json:"reason"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	ban, err := a.service.BanPlayer(r.Context(), principal(r), r.PathValue("id"), input.Reason)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, ban)
+}
+
+func (a *API) adminUnbanPlayer(w http.ResponseWriter, r *http.Request) {
+	ban, err := a.service.LiftPlayerBan(r.Context(), principal(r), r.PathValue("id"))
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, ban)
+}
+
+func (a *API) adminMatches(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	matches, err := a.service.ListAdminMatches(r.Context(), principal(r), limit)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, matches)
+}
+
+func (a *API) adminInvites(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	invites, err := a.service.ListAdminInvites(r.Context(), principal(r), limit)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, invites)
+}
+
+func (a *API) adminCreateInvite(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Email string `json:"email"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	invite, err := a.service.IssueAdminInvite(r.Context(), principal(r), input.Email)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, invite)
 }
 
 func (a *API) adminListRulesets(w http.ResponseWriter, r *http.Request) {

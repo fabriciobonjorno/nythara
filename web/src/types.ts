@@ -43,8 +43,8 @@ export interface Champion {
 }
 
 export interface Principal {
-  user_id: string;
-  role: "player" | "admin";
+	user_id: string;
+	role: "player" | "admin" | "owner";
   display_name: string;
   avatar_id?: string;
   password_set: boolean;
@@ -55,7 +55,7 @@ export interface User {
   email: string;
   display_name: string;
   avatar_id?: string;
-  role: "player" | "admin";
+	role: "player" | "admin" | "owner";
   password_set: boolean;
   created_at: string;
 }

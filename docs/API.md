@@ -10,7 +10,9 @@ protegidas recebem `Authorization: Bearer <access_token>`.
   de usuário são únicos sem diferenciar maiúsculas/minúsculas. O alias legado
   `display_name` ainda é aceito durante o Alpha. Cria o direito-base do
   catálogo Alpha e a progressão global em 0 XP (nível 1); Lendárias continuam
-  sujeitas aos marcos de nível.
+  sujeitas aos marcos de nível. O cadastro público sempre persiste `player` e
+  rejeita campos desconhecidos como `role`/`admin`; `admin_invite` só é aceito
+  quando contém um convite administrativo válido, preso ao mesmo e-mail.
 - `POST /v1/auth/login` — `email`, `password`.
 - `POST /v1/auth/refresh` — `refresh_token`; cada uso rotaciona o token.
 - `POST /v1/auth/logout` — `refresh_token`.
@@ -113,16 +115,30 @@ em treino/PvP e fica editável para substituição.
 
 ## Administração
 
-- `POST /v1/admin/rewards/grant` — somente `admin`; exige
+- `POST /v1/admin/rewards/grant` — somente equipe administrativa; exige
   `Idempotency-Key`. O corpo informa `user_id`, `source`, `quantity` e
   exatamente um entre `card_id` e `champion_id`.
 
-Contas públicas nascem como `player`; elevação para `admin` é uma operação
-administrativa fora da API pública.
+Contas públicas nascem como `player`. Não existe elevação por payload: novos
+`admin` só podem se cadastrar com um convite de uso único emitido por `owner`.
+O papel `owner` não é emitido por convite nem pela API pública.
 
-### LiveOps (Fase 7) — todas exigem `admin`; mutações são idempotentes por
+### Operações e LiveOps — todas exigem `admin`/`owner`; mutações são idempotentes por
 construção e auditadas em `admin_audit` na mesma transação.
 
+- `GET /v1/admin/overview` — jogadores, atividade em 7/30 dias, contas
+  banidas e resumo de partidas por estado/modo.
+- `GET /v1/admin/players?q=&limit=` — contas pesquisáveis, papel, nível,
+  último acesso e resultados agregados.
+- `POST /v1/admin/players/{id}/ban` — corpo `{"reason":"..."}`; somente
+  jogadores podem ser banidos. Revoga todas as sessões na mesma transação e
+  bloqueia login, refresh e tokens ainda não expirados.
+- `POST /v1/admin/players/{id}/unban` — remove o bloqueio ativo, com auditoria.
+- `GET /v1/admin/matches?limit=` — partidas recentes, participantes, modo,
+  estado, resultado e duração.
+- `GET|POST /v1/admin/invites` — somente `owner`. O POST recebe `email` e
+  devolve o token opaco apenas uma vez; o convite expira em 24 horas, é preso
+  ao e-mail e consumido atomicamente pelo cadastro.
 - `GET /v1/admin/rulesets` — versões publicadas e o ponteiro ativo.
 - `POST /v1/admin/rulesets/{version}/activate` — ativa a versão (rollback é
   ativar uma versão anterior). Reponta o matchmaking em tempo real.

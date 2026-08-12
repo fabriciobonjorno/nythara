@@ -30,7 +30,7 @@ func (s *Service) MatchReplay(ctx context.Context, principal domain.Principal,
 	}
 	participant := replay.Players[0].UserID == principal.UserID ||
 		replay.Players[1].UserID == principal.UserID
-	if !participant && principal.Role != domain.RoleAdmin {
+	if !participant && !principal.Role.IsAdmin() {
 		return domain.MatchReplayData{}, domain.ErrForbidden
 	}
 	if replay.Status != "finished" {

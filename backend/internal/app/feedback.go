@@ -17,7 +17,7 @@ import (
 
 // RecentFeedback devolve os recados mais recentes para leitura administrativa.
 func (s *Service) RecentFeedback(ctx context.Context, principal domain.Principal, limit int) ([]domain.Feedback, error) {
-	if principal.Role != domain.RoleAdmin {
+	if !principal.Role.IsAdmin() {
 		return nil, domain.ErrForbidden
 	}
 	if limit <= 0 || limit > 200 {

@@ -17,7 +17,8 @@ export function Landing() {
 	const { data: catalog } = useCards();
 	const oauthHandled = useRef(false);
 	const enteringTutorial = useRef(false);
-  const [mode, setMode] = useState<"login" | "register">("login");
+	const adminInvite = new URLSearchParams(location.search).get("admin_invite")?.trim() ?? "";
+  const [mode, setMode] = useState<"login" | "register">(() => adminInvite ? "register" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -31,6 +32,12 @@ export function Landing() {
 	useEffect(() => { if (passwordChanged) sessionStorage.removeItem("nythara-password-changed"); }, [passwordChanged]);
 
 	const enterApp = (response: AuthEnvelope, forceTutorial = false) => {
+		if (response.user.role !== "player") {
+			enteringTutorial.current = false;
+			setAuth(response.user, response.tokens);
+			navigate("/salao", { replace: true });
+			return;
+		}
 		const firstLogin = forceTutorial || needsFirstLoginTutorial(response.user.id);
 		enteringTutorial.current = firstLogin;
 		if (firstLogin) usePreferencesStore.getState().beginTutorial(response.user.id);
@@ -61,14 +68,15 @@ export function Landing() {
 			.finally(() => setBusy(false));
 	}, [navigate, setAuth]);
 
-  if (tokens) return <Navigate to={enteringTutorial.current || (sessionUser && needsFirstLoginTutorial(sessionUser.id)) ? "/tutorial" : "/app"} replace />;
+  if (tokens) return <Navigate to={sessionUser?.role !== "player" ? "/salao"
+		: enteringTutorial.current || (sessionUser && needsFirstLoginTutorial(sessionUser.id)) ? "/tutorial" : "/app"} replace />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError("");
     try {
-      const body = mode === "register" ? { email, password, username } : { email, password };
+      const body = mode === "register" ? { email, password, username, ...(adminInvite ? { admin_invite: adminInvite } : {}) } : { email, password };
       const response = await api<AuthEnvelope>(`/v1/auth/${mode}`, { method: "POST", body: JSON.stringify(body) });
       enterApp(response, mode === "register");
     } catch (caught) {
@@ -89,13 +97,14 @@ export function Landing() {
 		<a className="landing-glimpse" href="#conheca-o-jogo"><span><img src="/card-art/vr-001.webp" alt="" /><img src="/card-art/vr-014.webp" alt="" /><img src="/card-art/vr-076.webp" alt="" /></span><strong>Ver a mesa, as cartas e o duelo antes de criar conta <UiIcon name="arrow-right" /></strong></a>
       </section>
       <section className="auth-panel" aria-labelledby="auth-title">
+		{adminInvite && <div className="admin-invite-banner"><strong>Convite administrativo</strong><span>Crie a conta com o mesmo e-mail para aceitar este convite de uso único.</span></div>}
         <div className="auth-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={mode === "login"} onClick={() => setMode("login")}>Entrar</button>
           <button type="button" role="tab" aria-selected={mode === "register"} onClick={() => setMode("register")}>Criar conta</button>
         </div>
 		<form onSubmit={submit}>
           <div><p className="eyebrow">ABRA O VÉU</p><h2 id="auth-title">{mode === "login" ? "Retorne ao círculo" : "Escolha seu nome"}</h2></div>
-          {providers.google && <><a className="oauth-button" href="/v1/auth/google/start"><span aria-hidden="true">G</span> Continuar com Google</a><div className="auth-divider"><span>ou use e-mail</span></div></>}
+          {providers.google && !adminInvite && <><a className="oauth-button" href="/v1/auth/google/start"><span aria-hidden="true">G</span> Continuar com Google</a><div className="auth-divider"><span>ou use e-mail</span></div></>}
           {mode === "register" && <label>Nome de usuário<input required minLength={2} maxLength={32} pattern={"[A-Za-z0-9_\\-]+"} title="Use apenas letras, números, hífen (-) e sublinhado (_), sem espaços." autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(event) => setUsername(event.target.value)} /><small>Apenas letras, números, hífen (-) e sublinhado (_), sem espaços.</small></label>}
           <label>E-mail<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           <label>Senha<input required type="password" minLength={12} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /><small>Mínimo de 12 caracteres.</small></label>

@@ -28,7 +28,10 @@ type Role string
 const (
 	RolePlayer Role = "player"
 	RoleAdmin  Role = "admin"
+	RoleOwner  Role = "owner"
 )
+
+func (role Role) IsAdmin() bool { return role == RoleAdmin || role == RoleOwner }
 
 type User struct {
 	ID           string    `json:"id"`
@@ -371,6 +374,87 @@ type AuditEntry struct {
 	CreatedAt time.Time       `json:"created_at"`
 }
 
+// PlayerBan bloqueia autenticação e revoga as sessões de uma conta de jogador.
+// Contas administrativas não podem ser moderadas por esta operação.
+type PlayerBan struct {
+	ID        string     `json:"id"`
+	UserID    string     `json:"user_id"`
+	Reason    string     `json:"reason"`
+	CreatedBy string     `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	LiftedBy  string     `json:"lifted_by,omitempty"`
+	LiftedAt  *time.Time `json:"lifted_at,omitempty"`
+}
+
+// AdminInvite guarda somente o hash do segredo. O token em texto puro é
+// devolvido uma vez, no momento em que o proprietário cria o convite.
+type AdminInvite struct {
+	ID        string     `json:"id"`
+	Email     string     `json:"email"`
+	TokenHash []byte     `json:"-"`
+	CreatedBy string     `json:"created_by"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	UsedAt    *time.Time `json:"used_at,omitempty"`
+	UsedBy    string     `json:"used_by,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type IssuedAdminInvite struct {
+	AdminInvite
+	Token string `json:"token"`
+}
+
+type AdminOverview struct {
+	TotalPlayers     int  `json:"total_players"`
+	TotalAdmins      int  `json:"total_admins"`
+	BannedPlayers    int  `json:"banned_players"`
+	NewPlayers7D     int  `json:"new_players_7d"`
+	ActivePlayers7D  int  `json:"active_players_7d"`
+	ActivePlayers30D int  `json:"active_players_30d"`
+	TotalMatches     int  `json:"total_matches"`
+	ActiveMatches    int  `json:"active_matches"`
+	FinishedMatches  int  `json:"finished_matches"`
+	CancelledMatches int  `json:"cancelled_matches"`
+	PVPMatches       int  `json:"pvp_matches"`
+	PracticeMatches  int  `json:"practice_matches"`
+	CanInviteAdmins  bool `json:"can_invite_admins"`
+}
+
+type AdminPlayer struct {
+	ID            string     `json:"id"`
+	Email         string     `json:"email"`
+	DisplayName   string     `json:"display_name"`
+	Role          Role       `json:"role"`
+	AccountXP     int        `json:"-"`
+	AccountLevel  int        `json:"account_level"`
+	CreatedAt     time.Time  `json:"created_at"`
+	LastSessionAt *time.Time `json:"last_session_at,omitempty"`
+	MatchCount    int        `json:"match_count"`
+	Wins          int        `json:"wins"`
+	BannedAt      *time.Time `json:"banned_at,omitempty"`
+	BannedReason  string     `json:"banned_reason,omitempty"`
+}
+
+type AdminMatchPlayer struct {
+	UserID      string `json:"user_id"`
+	DisplayName string `json:"display_name"`
+	Slot        int    `json:"slot"`
+}
+
+type AdminMatch struct {
+	ID              string             `json:"id"`
+	Mode            string             `json:"mode"`
+	RulesetVersion  string             `json:"ruleset_version"`
+	Status          string             `json:"status"`
+	Players         []AdminMatchPlayer `json:"players"`
+	WinnerSlot      *int               `json:"winner_slot,omitempty"`
+	EndReason       string             `json:"end_reason,omitempty"`
+	CreatedAt       time.Time          `json:"created_at"`
+	StartedAt       *time.Time         `json:"started_at,omitempty"`
+	EndedAt         *time.Time         `json:"ended_at,omitempty"`
+	DurationSeconds int                `json:"duration_seconds"`
+}
+
 // ChampionMatchStats agrega desempenho de um Campeão em partidas reais.
 type ChampionMatchStats struct {
 	ChampionID string  `json:"champion_id"`
@@ -402,6 +486,7 @@ type MatchTelemetry struct {
 
 type Store interface {
 	CreateUser(ctx context.Context, user User, starterRuleset string) (User, error)
+	CreateInvitedAdmin(ctx context.Context, tokenHash []byte, now time.Time, user User, starterRuleset string) (User, error)
 	UserByEmail(ctx context.Context, email string) (User, error)
 	UserByID(ctx context.Context, id string) (User, error)
 	UserByOAuth(ctx context.Context, provider, subject string) (User, error)
@@ -453,6 +538,13 @@ type Store interface {
 
 	MatchTelemetry(ctx context.Context) (MatchTelemetry, error)
 	ListAudit(ctx context.Context, limit int) ([]AuditEntry, error)
+	AdminOverview(ctx context.Context) (AdminOverview, error)
+	ListAdminPlayers(ctx context.Context, query string, limit int) ([]AdminPlayer, error)
+	ListAdminMatches(ctx context.Context, limit int) ([]AdminMatch, error)
+	BanPlayer(ctx context.Context, ban PlayerBan, audit AuditEntry) (PlayerBan, error)
+	LiftPlayerBan(ctx context.Context, userID, liftedBy string, audit AuditEntry) (PlayerBan, error)
+	CreateAdminInvite(ctx context.Context, invite AdminInvite, audit AuditEntry) (AdminInvite, error)
+	ListAdminInvites(ctx context.Context, limit int) ([]AdminInvite, error)
 
 	// Progressão (P1). RecordMatchProgress é idempotente por partida (retorna
 	// false quando a partida já havia sido creditada).

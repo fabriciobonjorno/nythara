@@ -268,6 +268,7 @@ func testHandler() (http.Handler, *fakeStore) {
 	store := &fakeStore{tokens: map[string]domain.Principal{
 		string(security.TokenHash("player-token")): {UserID: "00000000-0000-4000-8000-000000000010", Role: domain.RolePlayer},
 		string(security.TokenHash("admin-token")):  {UserID: "00000000-0000-4000-8000-000000000020", Role: domain.RoleAdmin},
+		string(security.TokenHash("owner-token")):  {UserID: "00000000-0000-4000-8000-000000000030", Role: domain.RoleOwner},
 	}}
 	service := app.NewWithClock(store, func() time.Time { return time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC) })
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -291,6 +292,9 @@ type fakeStore struct {
 }
 
 func (*fakeStore) CreateUser(context.Context, domain.User, string) (domain.User, error) {
+	panic("not used")
+}
+func (*fakeStore) CreateInvitedAdmin(context.Context, []byte, time.Time, domain.User, string) (domain.User, error) {
 	panic("not used")
 }
 func (f *fakeStore) UserByEmail(context.Context, string) (domain.User, error) {
