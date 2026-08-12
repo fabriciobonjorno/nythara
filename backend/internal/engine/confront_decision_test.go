@@ -34,7 +34,11 @@ func TestConfrontDiscardDecisionMovesCardAndRunsContinuation(t *testing.T) {
 	if _, err := g.Apply(engine.Command{Player: 0, Kind: engine.CmdKindPass}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := g.Apply(engine.Command{Player: 0, Kind: engine.CmdKindPlay, Card: instanceByDef(t, g, 0, "VR-049")}); err != nil {
+	riteID := instanceByDef(t, g, 0, "VR-049")
+	beforeRite := g.State()
+	roundBefore := beforeRite.Round
+	opponentHandBefore := len(beforeRite.Players[1].Hand)
+	if _, err := g.Apply(engine.Command{Player: 0, Kind: engine.CmdKindPlay, Card: riteID}); err != nil {
 		t.Fatal(err)
 	}
 	pending := g.State().Pending
@@ -43,6 +47,17 @@ func TestConfrontDiscardDecisionMovesCardAndRunsContinuation(t *testing.T) {
 	}
 	if pending.Player != 0 || pending.N != 1 || len(pending.Options) == 0 {
 		t.Fatalf("decisão malformada: %+v", pending)
+	}
+	if state := g.State(); state.Active != 0 || state.Phase != engine.PhaseRite || state.Round != roundBefore {
+		t.Fatalf("Rito avançou o turno antes da escolha: active=%d phase=%s round=%d",
+			state.Active, state.Phase, state.Round)
+	} else if len(state.Players[1].Hand) != opponentHandBefore {
+		t.Fatalf("rival comprou antes da escolha: mão=%d, esperado %d",
+			len(state.Players[1].Hand), opponentHandBefore)
+	} else if state.Cards[riteID].Zone != engine.ZoneClash {
+		t.Fatalf("Rito saiu da mesa antes da escolha: %s", state.Cards[riteID].Zone)
+	} else if state.PendingConfrontRite == nil || state.PendingConfrontRite.Inst != riteID {
+		t.Fatalf("continuação do Rito não foi preservada: %+v", state.PendingConfrontRite)
 	}
 
 	// Com decisão aberta, a mesa recusa qualquer outra ação.
@@ -75,9 +90,19 @@ func TestConfrontDiscardDecisionMovesCardAndRunsContinuation(t *testing.T) {
 	if g.State().Cards[chosen].Zone != engine.ZoneDiscard {
 		t.Fatalf("carta escolhida não foi para o descarte: %s", g.State().Cards[chosen].Zone)
 	}
+	if g.State().Cards[riteID].Zone != engine.ZoneDiscard {
+		t.Fatalf("Rito não foi descartado depois da escolha: %s", g.State().Cards[riteID].Zone)
+	}
 	// Descartou 1 e comprou 2: a continuação rodou.
 	if got := len(g.State().Players[0].Hand); got != handBefore-1+2 {
 		t.Fatalf("mão após a escolha: %d, esperado %d", got, handBefore+1)
+	}
+	if state := g.State(); state.Active != 1 || state.Phase != engine.PhaseAssault || state.Round != roundBefore+1 {
+		t.Fatalf("turno não avançou após finalizar o Rito: active=%d phase=%s round=%d",
+			state.Active, state.Phase, state.Round)
+	} else if len(state.Players[1].Hand) != opponentHandBefore+1 {
+		t.Fatalf("rival não comprou ao receber o turno: mão=%d, esperado %d",
+			len(state.Players[1].Hand), opponentHandBefore+1)
 	}
 }
 
@@ -93,9 +118,30 @@ func TestConfrontDecisionReplaysIdentically(t *testing.T) {
 	if pending == nil {
 		t.Fatal("a carta não abriu decisão")
 	}
+	pendingSnapshot, err := g.SnapshotJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := engine.RestoreSnapshot(g.Cfg, pendingSnapshot, g.Log, g.CommandLog)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := g.Apply(engine.Command{Player: 0, Kind: engine.CmdKindChoose,
 		DecisionID: pending.ID, Cards: []string{pending.Options[1]}}); err != nil {
 		t.Fatal(err)
+	}
+	restoredPending := restored.State().Pending
+	if restoredPending == nil {
+		t.Fatal("snapshot restaurado perdeu a decisão pendente")
+	}
+	if _, err := restored.Apply(engine.Command{Player: 0, Kind: engine.CmdKindChoose,
+		DecisionID: restoredPending.ID, Cards: []string{restoredPending.Options[1]}}); err != nil {
+		t.Fatal(err)
+	}
+	wantRestored, _ := g.SnapshotJSON()
+	gotRestored, _ := restored.SnapshotJSON()
+	if string(wantRestored) != string(gotRestored) {
+		t.Fatal("snapshot restaurado divergiu ao finalizar Rito pendente")
 	}
 	replayed, err := engine.Replay(g.Cfg, g.CommandLog)
 	if err != nil {

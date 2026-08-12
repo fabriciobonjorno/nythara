@@ -283,6 +283,14 @@ type RiteFinalize struct {
 	CopyDepth int    `json:"copy_depth,omitempty"`
 }
 
+// ConfrontRiteFinalize preserva o Rito do Confronto na mesa enquanto a sua
+// cadeia de decisões está aberta. O descarte e a troca de turno só acontecem
+// depois da última resposta (ADR-064).
+type ConfrontRiteFinalize struct {
+	Player int    `json:"player"`
+	Inst   string `json:"inst"`
+}
+
 // GameState é o estado serializável completo (sem o log de eventos).
 type GameState struct {
 	RulesetVersion string `json:"ruleset_version"`
@@ -303,15 +311,16 @@ type GameState struct {
 
 	RoundSigils []RoundSigil `json:"round_sigils"`
 
-	Pending      *Decision      `json:"pending,omitempty"`
-	DecQueue     []*Decision    `json:"dec_queue,omitempty"`
-	NextDecID    int            `json:"next_dec_id"`
-	Guard        *GuardCtx      `json:"guard,omitempty"`
-	Confront     *ConfrontCtx   `json:"confront,omitempty"`
-	RiteReact    *RiteReact     `json:"rite_react,omitempty"`
-	PendingRites []RiteFinalize `json:"pending_rites,omitempty"`
-	Extra        *ExtraWindow   `json:"extra,omitempty"`
-	QueuedExtra  []ExtraWindow  `json:"queued_extra,omitempty"`
+	Pending             *Decision             `json:"pending,omitempty"`
+	DecQueue            []*Decision           `json:"dec_queue,omitempty"`
+	NextDecID           int                   `json:"next_dec_id"`
+	Guard               *GuardCtx             `json:"guard,omitempty"`
+	Confront            *ConfrontCtx          `json:"confront,omitempty"`
+	RiteReact           *RiteReact            `json:"rite_react,omitempty"`
+	PendingRites        []RiteFinalize        `json:"pending_rites,omitempty"`
+	PendingConfrontRite *ConfrontRiteFinalize `json:"pending_confront_rite,omitempty"`
+	Extra               *ExtraWindow          `json:"extra,omitempty"`
+	QueuedExtra         []ExtraWindow         `json:"queued_extra,omitempty"`
 
 	PlayedRound []PlayedCard `json:"played_round,omitempty"`
 	LastRite    [2]string    `json:"last_rite,omitempty"` // último Rito resolvido por jogador

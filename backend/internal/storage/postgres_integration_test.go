@@ -15,6 +15,64 @@ import (
 	"veurubro/backend/internal/security"
 )
 
+func TestIdentityMigrationRenamesCaseInsensitiveDuplicatesDeterministically(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL não definido")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	db, err := Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback() })
+	if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE player_profiles (
+		user_id uuid PRIMARY KEY,
+		display_name text NOT NULL,
+		created_at timestamptz NOT NULL,
+		updated_at timestamptz NOT NULL
+	); SET LOCAL search_path TO pg_temp`); err != nil {
+		t.Fatal(err)
+	}
+	const olderID = "11111111-1111-4111-8111-111111111111"
+	const duplicateID = "22222222-2222-4222-8222-222222222222"
+	const blockerID = "33333333-3333-4333-8333-333333333333"
+	firstCandidate := "u_" + strings.ReplaceAll(duplicateID, "-", "")[:25] + "_0000"
+	if _, err := tx.ExecContext(ctx, `INSERT INTO player_profiles(user_id, display_name, created_at, updated_at)
+		VALUES ($1, 'Alpha', '2024-01-01', '2024-01-01'),
+		       ($2, 'alpha', '2024-02-01', '2024-02-01'),
+		       ($3, $4, '2024-03-01', '2024-03-01')`, olderID, duplicateID, blockerID, firstCandidate); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(ctx, migration6Up); err != nil {
+		t.Fatal(err)
+	}
+
+	var olderName, duplicateName, blockerName string
+	if err := tx.QueryRowContext(ctx, `SELECT
+		max(display_name) FILTER (WHERE user_id=$1),
+		max(display_name) FILTER (WHERE user_id=$2),
+		max(display_name) FILTER (WHERE user_id=$3)
+		FROM player_profiles`, olderID, duplicateID, blockerID).Scan(&olderName, &duplicateName, &blockerName); err != nil {
+		t.Fatal(err)
+	}
+	wantDuplicate := "u_" + strings.ReplaceAll(duplicateID, "-", "")[:25] + "_0001"
+	if olderName != "Alpha" || duplicateName != wantDuplicate || blockerName != firstCandidate {
+		t.Fatalf("renomeação inesperada: antigo=%q duplicado=%q bloqueador=%q",
+			olderName, duplicateName, blockerName)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO player_profiles(user_id, display_name, created_at, updated_at)
+		VALUES ('44444444-4444-4444-8444-444444444444', 'ALPHA', now(), now())`); err == nil {
+		t.Fatal("índice case-insensitive aceitou duplicata depois da correção")
+	}
+}
+
 func TestPostgresRejectsIllegalDeckAtCommit(t *testing.T) {
 	ctx, db, userID := integrationDB(t)
 	deckID, _ := security.NewID()

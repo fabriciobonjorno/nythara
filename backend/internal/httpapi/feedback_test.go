@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"veurubro/backend/internal/domain"
+	"veurubro/backend/internal/engine"
 )
 
 func postWithToken(t *testing.T, handler http.Handler, path, token, body string) *httptest.ResponseRecorder {
@@ -25,7 +26,7 @@ func postWithToken(t *testing.T, handler http.Handler, path, token, body string)
 func TestFeedbackAcceptsOwnMatchAndRejectsOthers(t *testing.T) {
 	handler, store := testHandler()
 	store.replay = &domain.MatchReplayData{
-		MatchID: "m1", Status: "finished",
+		MatchID: "m1", Status: "finished", RulesetVersion: engine.AvatarRulesetVersion,
 		Players: [2]domain.ReplayPlayer{
 			{UserID: playerUserID, DisplayName: "Jogador", ChampionID: "CH-CI-01"},
 			{UserID: domain.BotUserID, DisplayName: "Treinador do Véu", ChampionID: "CH-VA-02"},
@@ -41,8 +42,9 @@ func TestFeedbackAcceptsOwnMatchAndRejectsOthers(t *testing.T) {
 	if len(store.feedback) != 1 || store.feedback[0].UserID != playerUserID {
 		t.Fatalf("recado não persistido: %+v", store.feedback)
 	}
-	if store.feedback[0].RulesetVersion == "" {
-		t.Fatal("recado sem a versão de regras em que foi escrito")
+	if store.feedback[0].RulesetVersion != store.replay.RulesetVersion {
+		t.Fatalf("recado associado a %s, esperado ruleset do replay %s",
+			store.feedback[0].RulesetVersion, store.replay.RulesetVersion)
 	}
 
 	// Partida de terceiros é recusada mesmo com sessão válida.

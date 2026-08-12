@@ -67,6 +67,37 @@ func TestConfrontDecisionRejectsInvalidSelectionsWithoutMutation(t *testing.T) {
 	}
 }
 
+func TestConfrontDecisionContinuationChecksWinAndEmitsDecisionID(t *testing.T) {
+	g := decisionEdgeGame(t)
+	g.s.NextDecID = 7
+	g.s.Players[0].Vitality = 1
+	g.s.Players[0].Deck = nil
+	g.confrontRequestDiscard(0, 1, []Op{{Op: "draw", N: 1}}, "edge-test")
+	pending := g.s.Pending
+	if pending == nil || pending.ID != 8 || len(pending.Options) == 0 {
+		t.Fatalf("decisão de teste inválida: %+v", pending)
+	}
+
+	if _, err := g.Apply(Command{Player: 0, Kind: CmdKindChoose,
+		DecisionID: pending.ID, Cards: []string{pending.Options[0]}}); err != nil {
+		t.Fatal(err)
+	}
+	if !g.s.Over || g.s.Winner != 1 || g.s.Phase != PhaseOver {
+		t.Fatalf("Fadiga da continuação não encerrou a partida: over=%v winner=%d phase=%s",
+			g.s.Over, g.s.Winner, g.s.Phase)
+	}
+
+	for i := len(g.Log) - 1; i >= 0; i-- {
+		if g.Log[i].Kind == EvDecisionResolved {
+			if g.Log[i].N != pending.ID {
+				t.Fatalf("decision_resolved.n=%d, esperado ID %d", g.Log[i].N, pending.ID)
+			}
+			return
+		}
+	}
+	t.Fatal("evento decision_resolved ausente")
+}
+
 func decisionEdgeGame(t *testing.T) *Game {
 	t.Helper()
 	rs, err := RulesetByVersion(DecisionRulesetVersion)

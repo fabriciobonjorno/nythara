@@ -355,11 +355,11 @@ func (g *Game) applyConfrontPlay(cmd Command) error {
 		g.moveToClash(cmd.Player, inst)
 		g.emit(Event{Kind: EvCardPlayed, P: cmd.Player, Card: inst.ID, Def: def.ID, N: def.Cost + rite.Sacrifice})
 		g.confrontRunOps(rite.Steps, &opCtx{player: cmd.Player, source: def.ID, inst: inst.ID})
-		g.discardClash(inst.ID)
-		g.checkWin()
-		if !s.Over {
-			g.finishConfrontTurn(cmd.Player)
+		if s.Pending != nil || len(s.DecQueue) > 0 {
+			s.PendingConfrontRite = &ConfrontRiteFinalize{Player: cmd.Player, Inst: inst.ID}
+			return nil
 		}
+		g.finalizeConfrontRite(cmd.Player, inst.ID)
 		return nil
 	default:
 		return errCmd(ErrWrongPhase, "não é possível jogar carta na fase %s", s.Phase)

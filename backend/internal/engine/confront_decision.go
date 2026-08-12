@@ -72,11 +72,48 @@ func (g *Game) applyConfrontChoose(cmd Command) error {
 	for _, id := range cmd.Cards {
 		g.confrontDiscardFromHand(pending.Player, id)
 	}
-	g.emit(Event{Kind: EvDecisionResolved, P: pending.Player, N: len(cmd.Cards),
+	g.emit(Event{Kind: EvDecisionResolved, P: pending.Player, N: pending.ID,
 		S: string(pending.Kind), Def: pending.Source})
 	g.confrontRunOps(pending.Then, &opCtx{player: pending.Player, source: pending.Source})
 	g.promoteConfrontDecision()
+	if s.Pending == nil && len(s.DecQueue) == 0 && s.PendingConfrontRite != nil {
+		g.finalizePendingConfrontRite()
+	} else {
+		// A continuação pode causar Fadiga ou dano letal mesmo sem pertencer a
+		// um Rito suspenso; a vitória precisa ser observada antes da próxima
+		// ação da mesa.
+		g.checkWin()
+		if s.Over {
+			g.finalizePendingConfrontRite()
+		}
+	}
 	return nil
+}
+
+// finalizeConfrontRite encerra a carta e só então avança o turno. Separar a
+// finalização do executor impede que uma escolha aberta entregue a vez ao
+// rival antes de o efeito terminar.
+func (g *Game) finalizeConfrontRite(player int, inst string) {
+	g.discardClash(inst)
+	g.checkWin()
+	if !g.s.Over {
+		g.finishConfrontTurn(player)
+	}
+}
+
+// finalizePendingConfrontRite retoma o Rito quando a cadeia de decisões
+// termina. Se a continuação já encerrou a partida, ainda limpa a zona da carta
+// sem iniciar um novo turno.
+func (g *Game) finalizePendingConfrontRite() {
+	pending := g.s.PendingConfrontRite
+	if pending == nil {
+		return
+	}
+	if !g.s.Over && (g.s.Pending != nil || len(g.s.DecQueue) > 0) {
+		return
+	}
+	g.s.PendingConfrontRite = nil
+	g.finalizeConfrontRite(pending.Player, pending.Inst)
 }
 
 // promoteConfrontDecision puxa a próxima decisão da fila, se houver.

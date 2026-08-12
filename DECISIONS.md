@@ -1762,3 +1762,41 @@ servidor.
 recusa, e uma futura mudança de composição chega ao cliente junto da versão do
 ruleset. Os campos são aditivos no contrato REST e não mudam engine, replay,
 deck persistido ou regra publicada.
+
+## ADR-064 — Compatibilidade de dados e atomicidade das decisões no Alpha 0.13
+
+**Contexto.** A revisão anterior à entrada do Alpha 0.13 na branch protegida
+encontrou três lacunas de compatibilidade. A migração de identidade criava a
+unicidade case-insensitive sem tratar nomes Alpha já duplicados; um Rito do
+Confronto avançava o turno mesmo quando seu efeito ainda esperava uma escolha;
+e o recado de uma partida era etiquetado com a versão competitiva atual, não
+com a versão registrada no replay. O evento de resolução do Confronto também
+usava a quantidade escolhida em `n`, enquanto o contrato legado usa o ID da
+decisão, e uma continuação podia causar Fadiga letal sem verificar vitória.
+
+**Decisão.** Antes de criar o índice de nome público, a migração 000006 bloqueia
+escritas concorrentes, preserva o perfil mais antigo de cada colisão por
+`created_at` e `user_id` e renomeia os demais com um identificador ASCII
+determinístico derivado do `user_id`. Se esse nome já estiver ocupado, um
+sufixo numérico determinístico encontra o próximo livre. A operação é
+deliberadamente unidirecional: o `down` remove as restrições, mas não tenta
+adivinhar os nomes duplicados anteriores.
+
+No Confronto, um Rito que abre decisão permanece em `clash` e ganha uma
+continuação serializável própria. A fase, o jogador ativo e a rodada ficam
+inalterados até toda a cadeia ser respondida; só então a carta é descartada, a
+vitória é verificada e o próximo turno começa. Toda continuação verifica
+nocaute, inclusive quando não veio de um Rito suspenso, e
+`decision_resolved.n` volta a carregar o ID da decisão. O feedback associado a
+uma partida herda `replay.ruleset_version`; somente recados sem partida usam a
+versão competitiva corrente.
+
+**Consequências.** Bancos Alpha com colisões passam pela migração sem perder o
+perfil mais antigo e sem abrir janela para nova duplicata. Snapshots do
+Confronto recebem um campo opcional para a continuação do Rito, preservando
+replay e restauração durante a escolha. Testes cobrem colisão com o primeiro
+nome de fallback já ocupado, turno congelado, descarte tardio, ID do evento,
+Fadiga letal e atribuição histórica do feedback. Esta correção integra o mesmo
+`alpha-0.13.0` porque a versão ainda não entrou em `main` nem foi publicada por
+release; depois dessa entrada, qualquer mudança de comportamento continua
+exigindo nova versão, conforme a política de replays imutáveis.

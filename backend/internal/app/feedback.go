@@ -40,6 +40,7 @@ func (s *Service) SubmitFeedback(ctx context.Context, principal domain.Principal
 	// Só aceita associar o recado a uma partida que o jogador realmente jogou:
 	// o identificador vem do cliente e não pode virar ponteiro para a partida
 	// de outra pessoa.
+	rulesetVersion := engine.CompetitiveRulesetVersion
 	if matchID != "" {
 		replay, err := s.store.MatchReplay(ctx, matchID)
 		if err != nil {
@@ -48,11 +49,12 @@ func (s *Service) SubmitFeedback(ctx context.Context, principal domain.Principal
 		if replay.Players[0].UserID != principal.UserID && replay.Players[1].UserID != principal.UserID {
 			return domain.ErrForbidden
 		}
+		rulesetVersion = replay.RulesetVersion
 	}
 	return s.store.SaveFeedback(ctx, domain.Feedback{
 		UserID:         principal.UserID,
 		MatchID:        matchID,
-		RulesetVersion: engine.CompetitiveRulesetVersion,
+		RulesetVersion: rulesetVersion,
 		Message:        trimmed,
 		CreatedAt:      s.now(),
 	})
