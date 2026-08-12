@@ -29,10 +29,16 @@ cp .env.production.example .env.production
 ```
 
 Edite apenas `NYTHARA_DOMAIN` e um identificador imutável de imagem em
-`.env.production`. O bootstrap cria dois arquivos `0600` em `secrets/`:
+`.env.production`. O bootstrap cria dois arquivos em `secrets/`:
 
 - `postgres_password`: senha aleatória do usuário do PostgreSQL;
 - `database_url`: URL interna completa consumida pela API e pelo migrador.
+
+Quando executado por `root` em Linux, o bootstrap mantém
+`postgres_password` como `root:root`/`0600` e entrega `database_url` ao
+UID/GID não privilegiado `10001:10001` da imagem com modo `0400`. Isso é
+necessário porque os secrets do Compose são bind mounts e preservam o
+proprietário do host.
 
 Esses arquivos e `.env.production` são ignorados pelo Git. Em uma instalação
 mais rígida, defina `NYTHARA_SECRETS_DIR=/etc/nythara/secrets`, mantenha o

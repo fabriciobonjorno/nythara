@@ -25,6 +25,13 @@ printf '%s\n' "$POSTGRES_PASSWORD" > "$PASSWORD_FILE"
 printf 'postgres://nythara:%s@postgres:5432/nythara?sslmode=disable\n' "$POSTGRES_PASSWORD" > "$URL_FILE"
 chmod 600 "$PASSWORD_FILE" "$URL_FILE"
 
+# Secrets do Compose em Linux são bind mounts e preservam UID/GID. A API e o
+# migrador rodam como o usuário não privilegiado 10001:10001 da imagem.
+if [ "$(id -u)" -eq 0 ]; then
+  chown 10001:10001 "$URL_FILE"
+  chmod 400 "$URL_FILE"
+fi
+
 if [ ! -e "$ROOT/.env.production" ]; then
   cp "$ROOT/.env.production.example" "$ROOT/.env.production"
   chmod 600 "$ROOT/.env.production"
