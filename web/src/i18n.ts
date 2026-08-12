@@ -323,6 +323,9 @@ const entries: Entry[] = [
   ["O que atrapalhou, o que agradou, o que faltou…", "Qué molestó, qué gustó, qué faltó…", "What got in the way, what felt good, what was missing…"],
   ["Agora não", "Ahora no", "Not now"], ["Enviar", "Enviar", "Send"], ["Deixar um recado", "Dejar un comentario", "Leave a note"],
   ["Anotado — obrigado mesmo.", "Anotado — muchas gracias.", "Noted—thank you."], ["Sua leitura vai direto para quem ajusta o jogo.", "Tu opinión llega directamente a quienes ajustan el juego.", "Your feedback goes directly to the people tuning the game."],
+  ["As sugestões enviadas pelos jogadores aparecem aqui automaticamente.", "Las sugerencias enviadas por los jugadores aparecen aquí automáticamente.", "Suggestions sent by players appear here automatically."],
+  ["SUGESTÃO", "SUGERENCIA", "SUGGESTION"], ["SUGESTÕES", "SUGERENCIAS", "SUGGESTIONS"], ["Atualizando…", "Actualizando…", "Refreshing…"],
+  ["Não foi possível carregar as sugestões:", "No se pudieron cargar las sugerencias:", "Could not load suggestions:"],
   ["Caminho não encontrado", "Ruta no encontrada", "Page not found"], ["Esta área não existe ou foi movida.", "Esta área no existe o fue movida.", "This area does not exist or was moved."], ["Ir ao início", "Ir al inicio", "Go home"],
 
   // Administração.
