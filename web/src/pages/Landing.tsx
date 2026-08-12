@@ -70,8 +70,9 @@ export function Landing() {
         <img className="landing-hero-logo" src="/assets/nythara-apocalypse-logo.webp" alt="Nythara" />
         <p className="eyebrow">UM CONFRONTO. UMA DECISÃO POR VEZ.</p>
         <h1>Jogue sua carta.<br /><em>Veja o duelo acontecer.</em></h1>
-        <p>Assalte, defenda e use Ritos em uma mesa direta. As cartas se encontram no centro, a perdedora se estilhaça e toda escolha pesa na sua Vitalidade.</p>
-        <div className="feature-row" aria-label="Características"><span><b>30</b> cartas no baralho</span><span><b>3</b> ações claras</span><span><b>1v1</b> em tempo real</span></div>
+		<p>Assalte, defenda e use Ritos em uma mesa direta. As cartas se encontram no centro, a perdedora se estilhaça e toda escolha pesa na sua Vitalidade.</p>
+		<div className="feature-row" aria-label="Características"><span><b>30</b> cartas no baralho</span><span><b>3</b> ações claras</span><span><b>1v1</b> em tempo real</span></div>
+		<a className="landing-glimpse" href="#conheca-o-jogo"><span><img src="/card-art/vr-001.webp" alt="" /><img src="/card-art/vr-014.webp" alt="" /><img src="/card-art/vr-076.webp" alt="" /></span><strong>Ver a mesa, as cartas e o duelo antes de criar conta <UiIcon name="arrow-right" /></strong></a>
       </section>
       <section className="auth-panel" aria-labelledby="auth-title">
         <div className="auth-tabs" role="tablist">
