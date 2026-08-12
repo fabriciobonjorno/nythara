@@ -66,6 +66,7 @@ export function useBattleFx(events: BattleEvent[], mySlot: number | null,
   const lastSeqRef = useRef(-1);
   const idRef = useRef(0);
   const timersRef = useRef<Set<number>>(new Set());
+  const queueUntilRef = useRef(0);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -94,6 +95,43 @@ export function useBattleFx(events: BattleEvent[], mySlot: number | null,
     const after = (ms: number, run: () => void) => {
       const timer = window.setTimeout(() => { timersRef.current.delete(timer); run(); }, ms);
       timersRef.current.add(timer);
+    };
+    const now = Date.now();
+    const baseDelay = Math.max(0, queueUntilRef.current - now);
+    const opened = fresh.some((event) => event.kind === "confrontation_opened");
+    const guarded = fresh.some((event) => event.kind === "guard_committed");
+    const resolved = fresh.some((event) => event.kind === "confrontation_resolved");
+    const effectCard = fresh.some((event) => event.kind === "card_played") && !opened && !guarded && !resolved;
+    const impactOffset = guarded
+      ? timing.guardRevealMs + timing.guardedImpactMs
+      : opened && resolved
+        ? timing.attackToWaitingMs + timing.directImpactMs
+        : resolved
+          ? timing.directImpactMs
+          : effectCard
+            ? timing.effectToImpactMs
+            : 0;
+    const settleOffset = guarded
+      ? timing.guardRevealMs + timing.guardedSettleMs
+      : opened && resolved
+        ? timing.attackToWaitingMs + timing.directSettleMs
+        : effectCard
+          ? timing.effectSettleMs
+          : opened
+            ? timing.attackToWaitingMs
+            : 0;
+    const costOffset = guarded
+      ? Math.min(420, Math.round(timing.guardRevealMs * .48))
+      : opened
+        ? Math.min(520, Math.round(timing.attackToWaitingMs * .45))
+        : effectCard
+          ? Math.min(520, Math.round(timing.effectToImpactMs * .42))
+          : 0;
+    if (settleOffset > 0) queueUntilRef.current = now + baseDelay + settleOffset + timing.resultHoldMs;
+    const atStage = (offset: number, run: () => void) => {
+      const delay = baseDelay + offset;
+      if (delay <= 16) run();
+      else after(delay, run);
     };
     const spawnFloater = (slot: number, text: string, tone: Floater["tone"], icon?: Floater["icon"], crit = false) => {
       const id = ++idRef.current;
@@ -129,34 +167,35 @@ export function useBattleFx(events: BattleEvent[], mySlot: number | null,
           if (event.p === mySlot) vibrate(18);
           break;
         case "vitality_spent":
-          if (event.n > 0) spawnFloater(event.p, `CUSTO −${event.n}`, "cost", "heart");
+          if (event.n > 0) atStage(costOffset, () => spawnFloater(event.p, `CUSTO −${event.n}`, "cost", "heart"));
           break;
         case "card_drawn":
           if (event.p === mySlot) sfx.drawCard();
           break;
         case "card_played":
-          sfx.playCard();
+          atStage(0, () => sfx.playCard());
           break;
         case "confrontation_opened":
-          sfx.confront();
-          vibrate(16);
+          atStage(0, () => { sfx.confront(); vibrate(16); });
           break;
         case "guard_committed":
-          sfx.prevented();
+          atStage(0, () => sfx.prevented());
           break;
         case "confrontation_resolved":
           if (event.n === 0 && event.s === "guard") {
             // Bloqueio total: o momento de glória da Guarda merece sino próprio.
-            sfx.block();
-            burst({ kind: "ring", target: "slot-guard", power: 0.9 });
-            burst({ kind: "sparks", target: "slot-guard", power: 0.5, color: "#9fd2ef" });
+            atStage(impactOffset, () => {
+              sfx.block();
+              burst({ kind: "ring", target: "slot-guard", power: 0.9 });
+              burst({ kind: "sparks", target: "slot-guard", power: 0.5, color: "#9fd2ef" });
+            });
           }
           break;
         case "card_shattered": {
           // O evento chega no mesmo lote da resolução. Segurá-lo até a fase
           // settled sincroniza som, resposta tátil e partículas com a rachadura
           // visual, depois que o jogador teve tempo de ler o embate.
-          after(timing.shatterFxMs, () => {
+          atStage(settleOffset || timing.shatterFxMs, () => {
             sfx.shatter();
             vibrate([28, 22, 42]);
             // outcome "guard" = o Assalto se estilhaçou; "assault" = a Guarda.
@@ -167,43 +206,51 @@ export function useBattleFx(events: BattleEvent[], mySlot: number | null,
         }
         case "damage_dealt": {
           if (event.n <= 0) break;
-          const heavy = event.n >= 5;
-          spawnFloater(event.p, `-${event.n}`, "damage", undefined, heavy);
-          sfx.damage(heavy);
-          vibrate(heavy ? [45, 25, 65] : 28);
-          burst({ kind: "sparks", target: vialOf(event.p), power: heavy ? 1 : 0.45 });
-          if (heavy && !reducedMotion) {
-            setShaking(true);
-            after(450, () => setShaking(false));
-          }
+          atStage(impactOffset, () => {
+            const heavy = event.n >= 5;
+            spawnFloater(event.p, `-${event.n}`, "damage", undefined, heavy);
+            sfx.damage(heavy);
+            vibrate(heavy ? [45, 25, 65] : 28);
+            burst({ kind: "sparks", target: vialOf(event.p), power: heavy ? 1 : 0.45 });
+            if (heavy && !reducedMotion) {
+              setShaking(true);
+              after(450, () => setShaking(false));
+            }
+          });
           break;
         }
         case "damage_prevented":
           if (event.n <= 0) break;
-          spawnFloater(event.p, `${event.n}`, "prevent", "reaction");
-          sfx.prevented();
+          atStage(impactOffset, () => {
+            spawnFloater(event.p, `${event.n}`, "prevent", "reaction");
+            sfx.prevented();
+          });
           break;
         case "healed":
           if (event.n <= 0) break;
-          spawnFloater(event.p, `+${event.n}`, "heal", "heart");
-          burst({ kind: "motes", target: vialOf(event.p), power: 0.6 });
-          if (event.s === powerSource) {
-            sfx.power();
-            burst({ kind: "glint", target: vialOf(event.p), power: 0.6 });
-          } else {
-            sfx.heal();
-          }
+          atStage(impactOffset, () => {
+            spawnFloater(event.p, `+${event.n}`, "heal", "heart");
+            burst({ kind: "motes", target: vialOf(event.p), power: 0.6 });
+            if (event.s === powerSource) {
+              sfx.power();
+              burst({ kind: "glint", target: vialOf(event.p), power: 0.6 });
+            } else {
+              sfx.heal();
+            }
+          });
           break;
         case "ward_gained":
           if (event.n <= 0) break;
-          spawnFloater(event.p, `+${event.n}`, "ward", "ward");
-          burst({ kind: "ring", target: vialOf(event.p), power: 0.6, color: "#7fb7ff" });
-          if (event.s === powerSource) {
-            sfx.power();
-            burst({ kind: "glint", target: vialOf(event.p), power: 0.6 });
-          } else {
-            sfx.ward();
-          }
+          atStage(impactOffset, () => {
+            spawnFloater(event.p, `+${event.n}`, "ward", "ward");
+            burst({ kind: "ring", target: vialOf(event.p), power: 0.6, color: "#7fb7ff" });
+            if (event.s === powerSource) {
+              sfx.power();
+              burst({ kind: "glint", target: vialOf(event.p), power: 0.6 });
+            } else {
+              sfx.ward();
+            }
+          });
           break;
         case "status_applied":
           if (event.s === powerSource) {

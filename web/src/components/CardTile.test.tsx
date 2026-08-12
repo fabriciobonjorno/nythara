@@ -27,11 +27,11 @@ describe("CardTile progression gate", () => {
     const select = vi.fn();
     const { rerender } = render(<CardTile card={legendary} currentLevel={1} quantity={0} disabled onSelect={select} />);
     expect(screen.getByText("LIBERA NO NÍVEL 10")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Soberania Carmesim, adicionar ao deck" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Soberania Carmesim, adicionar ao baralho" })).toBeDisabled();
 
     rerender(<CardTile card={legendary} currentLevel={10} quantity={1} onSelect={select} />);
     expect(screen.queryByText("LIBERA NO NÍVEL 10")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Soberania Carmesim, adicionar ao deck" }));
+    fireEvent.click(screen.getByRole("button", { name: "Soberania Carmesim, adicionar ao baralho" }));
     expect(select).toHaveBeenCalledOnce();
   });
 });

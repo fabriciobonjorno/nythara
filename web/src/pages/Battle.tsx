@@ -17,26 +17,12 @@ import { usePreferencesStore, useSessionStore } from "../store";
 import type { BattleEvent, BattleState, CardDefinition, Champion, PlayerView } from "../types";
 import { useBattleSocket } from "../useBattleSocket";
 import { translateText } from "../i18n";
-import { battleTiming, paceScale, type AnimationPace } from "../battleTiming";
+import { paceScale, type AnimationPace } from "../battleTiming";
+import { useBattlePresentation, type ArenaVisual, type ConfrontVisual } from "../battlePresentation";
 
 // Mesa de duelo. A regra continua inteiramente na engine: esta tela só desenha
 // o estado publicado. A permanência das cartas na arena é apresentação — nada
 // aqui altera, adia ou antecipa o que o servidor já resolveu.
-
-type ArenaPhase = "attack" | "waiting" | "guard" | "impact" | "settled";
-
-interface ArenaVisual {
-  key: number;
-  attackDef: string;
-  guardDef?: string;
-  attacker: number;
-  power: number;
-  prevention: number;
-  damage: number;
-  outcome?: string;
-  phase: ArenaPhase;
-  stale?: boolean;
-}
 
 export function BattlePage() {
   const { matchId = "" } = useParams();
@@ -58,8 +44,6 @@ export function BattlePage() {
     baseLoss: rulesetData?.pressure_base_loss ?? 0,
   }), [rulesetData?.pressure_base_loss, rulesetData?.pressure_start_turn]);
   const battle = useBattleSocket(matchId);
-  const fx = useBattleFx(battle.events, battle.slot, { reducedMotion, sound, haptics, animationPace });
-  const arena = useArena(battle.events, reducedMotion, animationPace);
   const [zoomed, setZoomed] = useState<CardDefinition | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -67,6 +51,8 @@ export function BattlePage() {
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
   const cardsById = useMemo(() => new Map(cardData?.cards.map((card) => [card.id, card]) ?? []), [cardData]);
+  const presentation = useBattlePresentation(battle.events, battle.state, cardsById, reducedMotion, animationPace);
+  const fx = useBattleFx(battle.events, battle.slot, { reducedMotion, sound, haptics, animationPace });
   const avatars = useMemo(() => new Map(championData?.champions.map((champion) => [champion.id, champion]) ?? []), [championData]);
   const liveState = battle.state;
   const liveSlot = battle.slot;
@@ -171,14 +157,17 @@ export function BattlePage() {
   const state = liveState;
   const mySlot = liveSlot;
   const opponentSlot = 1 - mySlot;
-  const me = state.players[mySlot];
-  const opponent = state.players[opponentSlot];
+  // A engine já publicou o snapshot final, mas os medidores acompanham a fila
+  // visual. Assim a carta chega à mesa antes de seu custo ou dano aparecer.
+  const me = { ...state.players[mySlot], vitality: presentation.vitality[mySlot] };
+  const opponent = { ...state.players[opponentSlot], vitality: presentation.vitality[opponentSlot] };
   const myTurn = state.active === mySlot && battle.status === "connected" && !battle.pending;
   // Na janela de Guarda o ativo é o defensor; o dono do turno é o atacante.
   const turnOwner = state.phase === "guarda"
     ? state.confront?.attacker ?? state.guard?.attacker ?? 1 - state.active
     : state.active;
-  const visual = arena ?? (state.confront ? {
+  const visual: ArenaVisual | null = presentation.visual ?? (state.confront ? {
+    mode: "confront",
     key: state.round,
     attackDef: state.confront.assault_def,
     guardDef: state.confront.guard_def,
@@ -193,7 +182,9 @@ export function BattlePage() {
   // trilho. A carta fixada por clique é só o alvo dos botões do painel.
   const focused = hand.find((item) => item.instanceId === hoverId)
     ?? hand.find((item) => item.instanceId === selectedId);
-  const arenaCard = visual ? cardsById.get(visual.guardDef ?? visual.attackDef) : undefined;
+  const arenaCard = visual
+    ? cardsById.get(visual.mode === "effect" ? visual.cardDef : visual.guardDef ?? visual.attackDef)
+    : undefined;
   const inspected = focused?.card ?? arenaCard;
   const inspectSource: InspectSource = focused ? "hand" : arenaCard ? "arena" : "none";
   const choice = focused && focused.instanceId === selectedId ? {
@@ -283,7 +274,7 @@ export function BattlePage() {
       busy={Boolean(battle.pending) || battle.status !== "connected"}
       onConfirm={(picked) => { engageAmbience(); battle.send({ kind: "choose", decision_id: state.pending!.id, cards: picked }); }}
     />}
-    {state.over && <div className="match-over-overlay" role="dialog" aria-modal="true"><p className="eyebrow">CONFRONTO ENCERRADO</p><h2>{state.winner === mySlot ? "Vitória" : "Derrota"}</h2><p>{endReason(state.end_reason)}</p><button className="primary-button" type="button" onClick={() => navigate("/result")}>Ver resultado</button></div>}
+    {state.over && !presentation.busy && <div className="match-over-overlay" role="dialog" aria-modal="true"><p className="eyebrow">CONFRONTO ENCERRADO</p><h2>{state.winner === mySlot ? "Vitória" : "Derrota"}</h2><p>{endReason(state.end_reason)}</p><button className="primary-button" type="button" onClick={() => navigate("/result")}>Ver resultado</button></div>}
     {zoomed && <div className="modal-backdrop" onMouseDown={() => setZoomed(null)}><div className="battle-card-zoom" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setZoomed(null)} aria-label="Fechar"><UiIcon name="close" /></button><CardTile card={zoomed} /></div></div>}
   </main>;
 }
@@ -302,15 +293,17 @@ function ArenaTable({ visual, cards, mySlot, state, events, dragging, clock }: {
   dragging: boolean;
   clock: { startTurn: number; baseLoss: number };
 }) {
-  const attack = visual ? cards.get(visual.attackDef) : undefined;
-  const guard = visual?.guardDef ? cards.get(visual.guardDef) : undefined;
+  const confront = visual?.mode === "confront" ? visual : null;
+  const effect = visual?.mode === "effect" ? visual : null;
+  const attack = confront ? cards.get(confront.attackDef) : undefined;
+  const guard = confront?.guardDef ? cards.get(confront.guardDef) : undefined;
   // O impacto primeiro revela a conta. A rachadura e o carimbo só entram no
   // assentamento, depois da pausa de leitura, para a carta não explodir junto
   // com o primeiro frame do choque.
   const settled = visual?.phase === "settled";
-  const attackBroken = settled && visual?.outcome === "guard";
-  const guardBroken = settled && visual?.outcome === "assault";
-  const attackerIsMe = visual?.attacker === mySlot;
+  const attackBroken = settled && confront?.outcome === "guard";
+  const guardBroken = settled && confront?.outcome === "assault";
+  const attackerIsMe = confront?.attacker === mySlot;
   // O relógio da Pressão é regra do ruleset ativo. Fixá-lo aqui já fez a mesa
   // anunciar pressão em um turno em que a engine não aplicava nada.
   const start = clock.startTurn;
@@ -329,35 +322,58 @@ function ArenaTable({ visual, cards, mySlot, state, events, dragging, clock }: {
           : `No turno ${start}, ambos passam a perder Vitalidade crescente.`}</small></span>
     </div>}
 
-    {visual?.stale && <p className="arena__stale">TROCA ANTERIOR — permanece na mesa até o próximo confronto</p>}
+    {visual?.stale && <p className="arena__stale">JOGADA ANTERIOR — permanece na mesa até a próxima carta</p>}
 
-    <div className="arena__lane">
+    {effect ? <EffectStage visual={effect} card={cards.get(effect.cardDef)} mySlot={mySlot} /> : <div className="arena__lane">
       <ArenaSlot
         kind="assault"
         card={attack}
         broken={Boolean(attackBroken)}
         side={attackerIsMe ? "own" : "rival"}
-        stamp={visual && settled ? (attackBroken ? "ESTILHAÇADA" : "ATRAVESSOU") : undefined}
-        idleTitle={visual ? (attackerIsMe ? "SEU ASSALTO" : "ASSALTO DO RIVAL") : "ASSALTO"}
+        stamp={confront && settled ? (attackBroken ? "ESTILHAÇADA" : "ATRAVESSOU") : undefined}
+        idleTitle={confront ? (attackerIsMe ? "SEU ASSALTO" : "ASSALTO DO RIVAL") : "ASSALTO"}
         idleHint="A carta atacante fica aqui"
       />
 
-      <Verdict visual={visual} mySlot={mySlot} state={state} dragging={dragging} />
+      <Verdict visual={confront} mySlot={mySlot} state={state} dragging={dragging} />
 
       <ArenaSlot
         kind="guard"
         card={guard}
         broken={Boolean(guardBroken)}
         side={attackerIsMe ? "rival" : "own"}
-        stamp={visual && settled && !guard ? "SEM GUARDA" : visual && settled ? (guardBroken ? "ROMPIDA" : "SEGUROU") : undefined}
-        idleTitle={visual ? (attackerIsMe ? "GUARDA DO RIVAL" : "SUA GUARDA") : "GUARDA"}
+        stamp={confront && settled && !guard ? "SEM GUARDA" : confront && settled ? (guardBroken ? "ROMPIDA" : "SEGUROU") : undefined}
+        idleTitle={confront ? (attackerIsMe ? "GUARDA DO RIVAL" : "SUA GUARDA") : "GUARDA"}
         idleHint={visual && visual.phase === "waiting" ? "Aguardando a resposta" : "A resposta defensiva fica aqui"}
         waiting={visual?.phase === "waiting"}
       />
-    </div>
+    </div>}
 
     <Chronicle events={events} cards={cards} mySlot={mySlot} />
   </section>;
+}
+
+function EffectStage({ visual, card, mySlot }: {
+  visual: Extract<ArenaVisual, { mode: "effect" }>;
+  card?: CardDefinition;
+  mySlot: number;
+}) {
+  const mine = visual.player === mySlot;
+  const resolved = visual.phase === "impact" || visual.phase === "settled";
+  const target = visual.target === undefined ? "a mesa" : visual.target === mySlot ? "você" : "o rival";
+  return <div className={`arena-effect from-${mine ? "own" : "rival"} is-${visual.phase}`} data-fx="slot-effect">
+    <span className="arena-effect__label">{mine ? "SUA JOGADA" : "JOGADA DO RIVAL"}</span>
+    <div className="arena-effect__card">
+      {card
+        ? <DuelCard card={card} size="table" />
+        : <div className="arena-slot__ghost"><UiIcon name="sigil" /><small>Materializando a carta…</small></div>}
+    </div>
+    <div className={`arena-effect__result ${resolved ? "is-resolved" : ""}`} aria-live="polite">
+      <UiIcon name={visual.damage > 0 ? "duel" : "sigil"} />
+      <strong>{visual.damage > 0 ? `${visual.damage} DE DANO` : resolved ? "EFEITO RESOLVIDO" : "ATIVANDO EFEITO"}</strong>
+      <small>{visual.damage > 0 ? `atingiu ${target}` : "A carta permanece visível durante a resolução."}</small>
+    </div>
+  </div>;
 }
 
 function ArenaSlot({ kind, card, broken, side, stamp, idleTitle, idleHint, waiting }: {
@@ -378,7 +394,7 @@ function ArenaSlot({ kind, card, broken, side, stamp, idleTitle, idleHint, waiti
   </div>;
 }
 
-function Verdict({ visual, mySlot, state, dragging }: { visual: ArenaVisual | null; mySlot: number; state: BattleState; dragging: boolean }) {
+function Verdict({ visual, mySlot, state, dragging }: { visual: ConfrontVisual | null; mySlot: number; state: BattleState; dragging: boolean }) {
   if (dragging) {
     return <div className="verdict is-drop" aria-hidden="true"><UiIcon name="duel" /><strong>Solte para jogar</strong><small>A engine confirma a carta no centro.</small></div>;
   }
@@ -844,72 +860,6 @@ function useFreshHandCards(ids: string[], reducedMotion: boolean, pace: Animatio
     setFresh(new Set());
   }, [pace, reducedMotion, signature]);
   return fresh;
-}
-
-// A arena guarda o confronto na mesa até que outro comece ou o turno vire.
-// Quem some sem aviso é quem cria ambiguidade — aqui nada evapora sozinho.
-function useArena(events: BattleEvent[], reducedMotion: boolean, pace: AnimationPace) {
-  const [visual, setVisual] = useState<ArenaVisual | null>(null);
-  const visualRef = useRef<ArenaVisual | null>(null);
-  const lastSeq = useRef(-1);
-  const initialized = useRef(false);
-  const timers = useRef<number[]>([]);
-
-  useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
-
-  useEffect(() => {
-    if (!events.length) return;
-    if (!initialized.current) {
-      initialized.current = true;
-      lastSeq.current = events[events.length - 1].seq;
-      return;
-    }
-    const fresh = events.filter((event) => event.seq > lastSeq.current);
-    if (!fresh.length) return;
-    lastSeq.current = events[events.length - 1].seq;
-
-    const update = (next: ArenaVisual | null) => { visualRef.current = next; setVisual(next); };
-    const timing = battleTiming(pace, reducedMotion);
-    const after = (ms: number, run: () => void) => {
-      const timer = window.setTimeout(run, ms);
-      timers.current.push(timer);
-    };
-
-    for (const event of fresh) {
-      if (event.kind === "confrontation_opened" && event.def) {
-        update({ key: event.seq, attackDef: event.def, attacker: event.p, power: event.n, prevention: 0, damage: 0, phase: "attack" });
-        after(timing.attackToWaitingMs, () => { if (visualRef.current?.key === event.seq) update({ ...visualRef.current, phase: "waiting" }); });
-      }
-      if (event.kind === "guard_committed" && event.def && visualRef.current) {
-        update({ ...visualRef.current, guardDef: event.def, prevention: event.n, phase: "guard" });
-      }
-      if (event.kind === "confrontation_resolved") {
-        const base = visualRef.current ?? {
-          key: event.seq, attackDef: event.def ?? "", attacker: event.p,
-          power: event.from, prevention: event.to, damage: 0, phase: "impact" as const,
-        };
-        const resolved: ArenaVisual = { ...base, power: event.from, prevention: event.to, damage: event.n, outcome: event.s, phase: "impact" };
-        const impactAt = base.guardDef ? timing.guardedImpactMs : timing.directImpactMs;
-        const settleAt = base.guardDef ? timing.guardedSettleMs : timing.directSettleMs;
-        after(impactAt, () => {
-          if (visualRef.current?.key === resolved.key) update(resolved);
-        });
-        after(settleAt, () => {
-          if (visualRef.current?.key === resolved.key) update({ ...resolved, phase: "settled" });
-        });
-      }
-      // A troca anterior nunca some sozinha: ao virar o turno ela apenas vira
-      // histórico na mesa e só é substituída pelo próximo confronto.
-      if (event.kind === "turn_started" || event.kind === "round_started") {
-        const current = visualRef.current;
-        if (current && (current.phase === "impact" || current.phase === "settled")) {
-          update({ ...current, phase: "settled", stale: true });
-        }
-      }
-    }
-  }, [events, pace, reducedMotion]);
-
-  return visual;
 }
 
 // A mesa espera este tanto antes de passar sozinha por falta de carta. O
