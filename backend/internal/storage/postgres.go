@@ -85,6 +85,36 @@ var migration11Up string
 //go:embed migrations/000011_feedback.down.sql
 var migration11Down string
 
+//go:embed migrations/000012_password_reset.up.sql
+var migration12Up string
+
+//go:embed migrations/000012_password_reset.down.sql
+var migration12Down string
+
+//go:embed migrations/000013_email_delivery_events.up.sql
+var migration13Up string
+
+//go:embed migrations/000013_email_delivery_events.down.sql
+var migration13Down string
+
+//go:embed migrations/000015_account_progression.up.sql
+var migration15Up string
+
+//go:embed migrations/000015_account_progression.down.sql
+var migration15Down string
+
+//go:embed migrations/000016_password_reset_single_active.up.sql
+var migration16Up string
+
+//go:embed migrations/000016_password_reset_single_active.down.sql
+var migration16Down string
+
+//go:embed migrations/000017_profile_oauth.up.sql
+var migration17Up string
+
+//go:embed migrations/000017_profile_oauth.down.sql
+var migration17Down string
+
 type migration struct {
 	version int64
 	up      string
@@ -103,6 +133,11 @@ var migrations = []migration{
 	{version: 9, up: migration9Up, down: migration9Down},
 	{version: 10, up: migration10Up, down: migration10Down},
 	{version: 11, up: migration11Up, down: migration11Down},
+	{version: 12, up: migration12Up, down: migration12Down},
+	{version: 13, up: migration13Up, down: migration13Down},
+	{version: 15, up: migration15Up, down: migration15Down},
+	{version: 16, up: migration16Up, down: migration16Down},
+	{version: 17, up: migration17Up, down: migration17Down},
 }
 
 type Postgres struct {
@@ -421,6 +456,9 @@ func (p *Postgres) CreateUser(ctx context.Context, user domain.User, starterRule
 	if _, err := tx.ExecContext(ctx, `INSERT INTO player_profiles(user_id,display_name) VALUES($1,$2)`, user.ID, user.DisplayName); err != nil {
 		return domain.User{}, mapError(err)
 	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO player_account_progress(user_id,xp) VALUES($1,0)`, user.ID); err != nil {
+		return domain.User{}, mapError(err)
+	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO player_cards(user_id,card_id,ruleset_version,quantity)
 		SELECT $1,id,ruleset_version,CASE WHEN rarity='Lendária' THEN 1 ELSE 2 END
 		FROM card_definitions WHERE ruleset_version=$2`, user.ID, starterRuleset); err != nil {
@@ -483,18 +521,90 @@ func (p *Postgres) CreateUser(ctx context.Context, user domain.User, starterRule
 
 func scanUser(row interface{ Scan(...any) error }) (domain.User, error) {
 	var user domain.User
-	err := row.Scan(&user.ID, &user.Email, &user.DisplayName, &user.Role, &user.PasswordHash, &user.CreatedAt)
+	err := row.Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarID, &user.Role, &user.PasswordHash, &user.CreatedAt)
+	user.PasswordSet = strings.HasPrefix(user.PasswordHash, "pbkdf2-sha256$")
 	return user, mapError(err)
 }
 
 func (p *Postgres) UserByEmail(ctx context.Context, email string) (domain.User, error) {
-	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,u.role,u.password_hash,u.created_at
+	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,u.created_at
 		FROM users u JOIN player_profiles p ON p.user_id=u.id WHERE u.email=$1`, email))
 }
 
 func (p *Postgres) UserByID(ctx context.Context, id string) (domain.User, error) {
-	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,u.role,u.password_hash,u.created_at
+	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,u.created_at
 		FROM users u JOIN player_profiles p ON p.user_id=u.id WHERE u.id=$1`, id))
+}
+
+func (p *Postgres) UserByOAuth(ctx context.Context, provider, subject string) (domain.User, error) {
+	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,u.created_at
+		FROM oauth_identities o JOIN users u ON u.id=o.user_id
+		JOIN player_profiles p ON p.user_id=u.id
+		WHERE o.provider=$1 AND o.subject=$2`, provider, subject))
+}
+
+func (p *Postgres) LinkOAuth(ctx context.Context, provider, subject, userID string) error {
+	_, err := p.db.ExecContext(ctx, `INSERT INTO oauth_identities(provider,subject,user_id)
+		VALUES($1,$2,$3) ON CONFLICT(provider,subject) DO NOTHING`, provider, subject, userID)
+	return mapError(err)
+}
+
+func (p *Postgres) SaveOAuthTicket(ctx context.Context, tokenHash []byte, userID string, expiresAt time.Time) error {
+	_, err := p.db.ExecContext(ctx, `INSERT INTO oauth_login_tickets(token_hash,user_id,expires_at)
+		VALUES($1,$2,$3)`, tokenHash, userID, expiresAt)
+	return mapError(err)
+}
+
+func (p *Postgres) ConsumeOAuthTicket(ctx context.Context, tokenHash []byte, now time.Time) (string, error) {
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	var userID string
+	err = tx.QueryRowContext(ctx, `UPDATE oauth_login_tickets SET used_at=$2
+		WHERE token_hash=$1 AND used_at IS NULL AND expires_at>$2 RETURNING user_id`, tokenHash, now).Scan(&userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", domain.ErrInvalidCredentials
+	}
+	if err != nil {
+		return "", mapError(err)
+	}
+	if err := tx.Commit(); err != nil {
+		return "", mapError(err)
+	}
+	return userID, nil
+}
+
+func (p *Postgres) UpdateProfileAvatar(ctx context.Context, userID, avatarID string) (domain.User, error) {
+	result, err := p.db.ExecContext(ctx, `UPDATE player_profiles SET avatar_id=$2,updated_at=now() WHERE user_id=$1`, userID, avatarID)
+	if err != nil {
+		return domain.User{}, mapError(err)
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return domain.User{}, domain.ErrNotFound
+	}
+	return p.UserByID(ctx, userID)
+}
+
+func (p *Postgres) ChangePassword(ctx context.Context, userID, passwordHash string, now time.Time) error {
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `UPDATE users SET password_hash=$2,updated_at=$3 WHERE id=$1`, userID, passwordHash, now)
+	if err != nil {
+		return mapError(err)
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return domain.ErrNotFound
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE auth_sessions SET revoked_at=$2
+		WHERE user_id=$1 AND revoked_at IS NULL`, userID, now); err != nil {
+		return mapError(err)
+	}
+	return mapError(tx.Commit())
 }
 
 func (p *Postgres) CreateSession(ctx context.Context, s domain.NewSession) error {
@@ -506,10 +616,12 @@ func (p *Postgres) CreateSession(ctx context.Context, s domain.NewSession) error
 
 func (p *Postgres) AccessToken(ctx context.Context, hash []byte, now time.Time) (domain.TokenRecord, error) {
 	var token domain.TokenRecord
-	err := p.db.QueryRowContext(ctx, `SELECT u.id,u.role,p.display_name,s.access_expires_at
+	err := p.db.QueryRowContext(ctx, `SELECT u.id,u.role,p.display_name,COALESCE(p.avatar_id,''),
+		(u.password_hash LIKE 'pbkdf2-sha256$%'),s.access_expires_at
 		FROM auth_sessions s JOIN users u ON u.id=s.user_id JOIN player_profiles p ON p.user_id=u.id
 		WHERE s.access_hash=$1 AND s.revoked_at IS NULL AND s.access_expires_at>$2`, hash, now).
-		Scan(&token.Principal.UserID, &token.Principal.Role, &token.Principal.DisplayName, &token.ExpiresAt)
+		Scan(&token.Principal.UserID, &token.Principal.Role, &token.Principal.DisplayName, &token.Principal.AvatarID,
+			&token.Principal.PasswordSet, &token.ExpiresAt)
 	return token, mapError(err)
 }
 
@@ -559,6 +671,74 @@ func (p *Postgres) RotateSession(ctx context.Context, old []byte, next domain.Ro
 func (p *Postgres) RevokeSession(ctx context.Context, refreshHash []byte) error {
 	_, err := p.db.ExecContext(ctx, `UPDATE auth_sessions SET revoked_at=now() WHERE refresh_hash=$1`, refreshHash)
 	return err
+}
+
+func (p *Postgres) SavePasswordReset(ctx context.Context, reset domain.PasswordResetToken) error {
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	// Somente o pedido mais recente permanece utilizável. A atualização e a
+	// inserção são atômicas. O lock do usuário serializa pedidos concorrentes;
+	// o índice parcial também prova o invariante no banco.
+	var lockedUserID string
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users WHERE id=$1 FOR UPDATE`, reset.UserID).
+		Scan(&lockedUserID); err != nil {
+		return mapError(err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE password_reset_tokens SET used_at=now()
+		WHERE user_id=$1 AND used_at IS NULL`, reset.UserID); err != nil {
+		return mapError(err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO password_reset_tokens
+		(id,user_id,token_hash,expires_at) VALUES($1,$2,$3,$4)`,
+		reset.ID, reset.UserID, reset.TokenHash, reset.ExpiresAt); err != nil {
+		return mapError(err)
+	}
+	return mapError(tx.Commit())
+}
+
+func (p *Postgres) ConsumePasswordReset(ctx context.Context, tokenHash []byte, now time.Time, passwordHash string) error {
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var resetID, userID string
+	err = tx.QueryRowContext(ctx, `SELECT id,user_id FROM password_reset_tokens
+		WHERE token_hash=$1 AND used_at IS NULL AND expires_at>$2 FOR UPDATE`, tokenHash, now).
+		Scan(&resetID, &userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.ErrInvalidResetToken
+	}
+	if err != nil {
+		return mapError(err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE users SET password_hash=$2,updated_at=$3 WHERE id=$1`,
+		userID, passwordHash, now); err != nil {
+		return mapError(err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE password_reset_tokens SET used_at=$2
+		WHERE user_id=$1 AND used_at IS NULL`, userID, now); err != nil {
+		return mapError(err)
+	}
+	// Uma troca de senha encerra também sessões roubadas ou esquecidas.
+	if _, err := tx.ExecContext(ctx, `UPDATE auth_sessions SET revoked_at=$2
+		WHERE user_id=$1 AND revoked_at IS NULL`, userID, now); err != nil {
+		return mapError(err)
+	}
+	return mapError(tx.Commit())
+}
+
+func (p *Postgres) SaveEmailDeliveryEvent(ctx context.Context, event domain.EmailDeliveryEvent) error {
+	// O ID assinado pelo provedor torna retries idempotentes e impede que o
+	// mesmo evento gere múltiplos registros depois de passar pela verificação.
+	_, err := p.db.ExecContext(ctx, `INSERT INTO email_delivery_events
+		(provider_event_id,provider_message_id,event_type,event_created_at)
+		VALUES($1,$2,$3,$4) ON CONFLICT(provider_event_id) DO NOTHING`,
+		event.ProviderEventID, event.ProviderMessageID, event.EventType, event.EventCreatedAt)
+	return mapError(err)
 }
 
 func (p *Postgres) Collection(ctx context.Context, userID, ruleset string) (domain.Collection, error) {

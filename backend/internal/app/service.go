@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -14,13 +15,15 @@ import (
 
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
+	accountprogress "veurubro/backend/internal/progression"
 	"veurubro/backend/internal/security"
 )
 
 const (
-	AccessTTL       = 15 * time.Minute
-	RefreshTTL      = 30 * 24 * time.Hour
-	DefaultDeckLock = 24 * time.Hour
+	AccessTTL        = 15 * time.Minute
+	RefreshTTL       = 30 * 24 * time.Hour
+	DefaultDeckLock  = 24 * time.Hour
+	PasswordResetTTL = 30 * time.Minute
 )
 
 type Clock func() time.Time
@@ -29,7 +32,14 @@ type Service struct {
 	store domain.Store
 	now   Clock
 
-	onRulesetActivated OnRulesetActivated
+	onRulesetActivated  OnRulesetActivated
+	passwordResetSender PasswordResetSender
+	publicAppURL        *url.URL
+	googleOAuth         googleOAuthProvider
+}
+
+type PasswordResetSender interface {
+	SendPasswordReset(ctx context.Context, to, link, locale string, ttl time.Duration) error
 }
 
 func New(store domain.Store) *Service {
@@ -38,6 +48,75 @@ func New(store domain.Store) *Service {
 
 func NewWithClock(store domain.Store, now Clock) *Service {
 	return &Service{store: store, now: now}
+}
+
+func (s *Service) ConfigurePasswordRecovery(sender PasswordResetSender, publicAppURL string) error {
+	parsed, err := url.Parse(strings.TrimSpace(publicAppURL))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+		return errors.New("PUBLIC_APP_URL deve ser uma URL HTTP(S) absoluta")
+	}
+	if sender == nil {
+		return errors.New("serviço de e-mail ausente")
+	}
+	parsed.RawQuery, parsed.Fragment = "", ""
+	s.passwordResetSender, s.publicAppURL = sender, parsed
+	return nil
+}
+
+// RequestPasswordReset sempre mantém a mesma resposta pública. ErrNotFound é
+// absorvido para que a rota não revele quais endereços possuem conta.
+func (s *Service) RequestPasswordReset(ctx context.Context, email, locale string) error {
+	normalized, err := normalizeEmail(email)
+	if err != nil {
+		return nil
+	}
+	user, err := s.store.UserByEmail(ctx, normalized)
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if user.ID == domain.BotUserID {
+		return nil
+	}
+	if s.passwordResetSender == nil || s.publicAppURL == nil {
+		return errors.New("recuperação de senha não configurada")
+	}
+	plain, tokenHash, err := security.NewToken()
+	if err != nil {
+		return err
+	}
+	id, err := security.NewID()
+	if err != nil {
+		return err
+	}
+	now := s.now().UTC()
+	if err := s.store.SavePasswordReset(ctx, domain.PasswordResetToken{ID: id, UserID: user.ID,
+		TokenHash: tokenHash, ExpiresAt: now.Add(PasswordResetTTL)}); err != nil {
+		return err
+	}
+	link := *s.publicAppURL
+	link.Path = "/reset-password"
+	query := link.Query()
+	query.Set("token", plain)
+	link.RawQuery = query.Encode()
+	return s.passwordResetSender.SendPasswordReset(ctx, user.Email, link.String(), locale, PasswordResetTTL)
+}
+
+func (s *Service) ResetPassword(ctx context.Context, token, password string) error {
+	if len(token) < 32 || len(token) > 256 {
+		return domain.ErrInvalidResetToken
+	}
+	passwordHash, err := security.HashPassword(password)
+	if err != nil {
+		return fmt.Errorf("%w: %v", domain.ErrInvalid, err)
+	}
+	return s.store.ConsumePasswordReset(ctx, security.TokenHash(token), s.now().UTC(), passwordHash)
+}
+
+func (s *Service) RecordEmailDeliveryEvent(ctx context.Context, event domain.EmailDeliveryEvent) error {
+	return s.store.SaveEmailDeliveryEvent(ctx, event)
 }
 
 type RegisterInput struct {
@@ -72,7 +151,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (domain.Use
 		return domain.User{}, domain.SessionTokens{}, err
 	}
 	user, err := s.store.CreateUser(ctx, domain.User{ID: id, Email: email, DisplayName: username,
-		Role: domain.RolePlayer, PasswordHash: passwordHash}, engine.CompetitiveRulesetVersion)
+		Role: domain.RolePlayer, PasswordHash: passwordHash, PasswordSet: true}, engine.CompetitiveRulesetVersion)
 	if err != nil {
 		return domain.User{}, domain.SessionTokens{}, err
 	}
@@ -164,7 +243,63 @@ func (s *Service) Logout(ctx context.Context, refresh string) error {
 }
 
 func (s *Service) Collection(ctx context.Context, principal domain.Principal) (domain.Collection, error) {
-	return s.store.Collection(ctx, principal.UserID, engine.CompetitiveRulesetVersion)
+	collection, err := s.store.Collection(ctx, principal.UserID, engine.CompetitiveRulesetVersion)
+	if err != nil {
+		return domain.Collection{}, err
+	}
+	account, err := s.AccountProgress(ctx, principal)
+	if err != nil {
+		return domain.Collection{}, err
+	}
+	collection.Cards = cardsAvailableAtLevel(collection.Cards, account.Level)
+	return collection, nil
+}
+
+func cardsAvailableAtLevel(cards []domain.CollectionCard, level int) []domain.CollectionCard {
+	ruleset := engine.CompetitiveRuleset()
+	available := make([]domain.CollectionCard, 0, len(cards))
+	for _, owned := range cards {
+		card := ruleset.Cards[owned.CardID]
+		if card != nil && card.Rarity == engine.RarityLendaria &&
+			level < accountprogress.LegendaryUnlockLevel(card.ID) {
+			continue
+		}
+		available = append(available, owned)
+	}
+	return available
+}
+
+// BattleDeck carrega um baralho e revalida a progressão imediatamente antes
+// de treino/PvP. Isso bloqueia também composições antigas que contenham uma
+// Lendária hoje acima do nível da conta.
+func (s *Service) BattleDeck(ctx context.Context, principal domain.Principal, id string) (domain.Deck, int, error) {
+	deck, err := s.store.Deck(ctx, principal.UserID, id)
+	if err != nil {
+		return domain.Deck{}, 0, err
+	}
+	account, err := s.AccountProgress(ctx, principal)
+	if err != nil {
+		return domain.Deck{}, 0, err
+	}
+	collection, err := s.Collection(ctx, principal)
+	if err != nil {
+		return domain.Deck{}, 0, err
+	}
+	owned := make(map[string]int, len(collection.Cards))
+	for _, card := range collection.Cards {
+		owned[card.CardID] = card.Quantity
+	}
+	for _, selected := range deck.Cards {
+		if owned[selected.CardID] >= selected.Quantity {
+			continue
+		}
+		if card := engine.CompetitiveRuleset().Cards[selected.CardID]; card != nil && card.Rarity == engine.RarityLendaria {
+			return domain.Deck{}, 0, fmt.Errorf("%w: %s é Lendária e desbloqueia no nível %d",
+				domain.ErrInvalid, card.Name, accountprogress.LegendaryUnlockLevel(card.ID))
+		}
+		return domain.Deck{}, 0, fmt.Errorf("%w: baralho usa carta indisponível %s", domain.ErrInvalid, selected.CardID)
+	}
+	return deck, account.Level, nil
 }
 
 func (s *Service) ListDecks(ctx context.Context, principal domain.Principal) ([]domain.Deck, error) {
@@ -200,7 +335,7 @@ func (s *Service) SaveDeck(ctx context.Context, principal domain.Principal, deck
 	if err := ValidateDeck(deck); err != nil {
 		return domain.Deck{}, false, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
 	}
-	collection, err := s.store.Collection(ctx, principal.UserID, engine.CompetitiveRulesetVersion)
+	collection, err := s.Collection(ctx, principal)
 	if err != nil {
 		return domain.Deck{}, false, err
 	}

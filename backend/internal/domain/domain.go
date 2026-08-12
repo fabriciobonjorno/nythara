@@ -14,6 +14,7 @@ var (
 	ErrUnauthorized        = errors.New("não autenticado")
 	ErrForbidden           = errors.New("não autorizado")
 	ErrInvalidCredentials  = errors.New("credenciais inválidas")
+	ErrInvalidResetToken   = errors.New("link de recuperação inválido ou expirado")
 	ErrInvalid             = errors.New("dados inválidos")
 	ErrIdempotencyConflict = errors.New("chave de idempotência reutilizada com conteúdo diferente")
 )
@@ -33,8 +34,10 @@ type User struct {
 	ID           string    `json:"id"`
 	Email        string    `json:"email"`
 	DisplayName  string    `json:"display_name"`
+	AvatarID     string    `json:"avatar_id,omitempty"`
 	Role         Role      `json:"role"`
 	PasswordHash string    `json:"-"`
+	PasswordSet  bool      `json:"password_set"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -42,6 +45,17 @@ type Principal struct {
 	UserID      string `json:"user_id"`
 	Role        Role   `json:"role"`
 	DisplayName string `json:"display_name"`
+	AvatarID    string `json:"avatar_id,omitempty"`
+	PasswordSet bool   `json:"password_set"`
+}
+
+type OAuthIdentity struct {
+	Provider      string
+	Subject       string
+	Email         string
+	EmailVerified bool
+	HostedDomain  string
+	DisplayName   string
 }
 
 type SessionTokens struct {
@@ -122,6 +136,24 @@ type RotatedSession struct {
 	RefreshUntil time.Time
 }
 
+// PasswordResetToken guarda somente o hash do segredo enviado por e-mail.
+// O token em texto puro existe apenas durante a composição da mensagem.
+type PasswordResetToken struct {
+	ID        string
+	UserID    string
+	TokenHash []byte
+	ExpiresAt time.Time
+}
+
+// EmailDeliveryEvent registra somente metadados operacionais do provedor.
+// Destinatário, assunto e corpo não são persistidos pelo webhook.
+type EmailDeliveryEvent struct {
+	ProviderEventID   string
+	ProviderMessageID string
+	EventType         string
+	EventCreatedAt    time.Time
+}
+
 type Mutation struct {
 	Key         string
 	Operation   string
@@ -162,6 +194,7 @@ type PlayerMatchProgress struct {
 	ChampionID string            `json:"champion_id"`
 	Won        bool              `json:"won"`
 	MasteryXP  int               `json:"mastery_xp"`
+	AccountXP  int               `json:"account_xp"`
 	RitualDay  string            `json:"ritual_day"`
 	Rituals    []RitualIncrement `json:"rituals"`
 }
@@ -193,6 +226,16 @@ type ChampionMastery struct {
 	Title      string `json:"title,omitempty"` // derivado de Level (ranks.go)
 	Games      int    `json:"games"`
 	Wins       int    `json:"wins"`
+}
+
+// AccountProgress é sempre derivado do XP total authoritative. Level nunca é
+// recebido do cliente nem persistido como uma segunda fonte de verdade.
+type AccountProgress struct {
+	XP              int `json:"xp"`
+	Level           int `json:"level"`
+	LevelXP         int `json:"level_xp"`
+	LevelXPRequired int `json:"level_xp_required"`
+	MaxLevel        int `json:"max_level"`
 }
 
 // RankedStanding é o rating do jogador na temporada.
@@ -259,6 +302,7 @@ type MatchReplayData struct {
 // ProgressSummary alimenta a Home: rituais do dia, carteira, maestria, rating.
 type ProgressSummary struct {
 	Day       string            `json:"day"`
+	Account   AccountProgress   `json:"account"`
 	Rituals   []RitualState     `json:"rituals"`
 	Fragments int               `json:"fragments"`
 	Mastery   []ChampionMastery `json:"mastery"`
@@ -360,11 +404,20 @@ type Store interface {
 	CreateUser(ctx context.Context, user User, starterRuleset string) (User, error)
 	UserByEmail(ctx context.Context, email string) (User, error)
 	UserByID(ctx context.Context, id string) (User, error)
+	UserByOAuth(ctx context.Context, provider, subject string) (User, error)
+	LinkOAuth(ctx context.Context, provider, subject, userID string) error
+	SaveOAuthTicket(ctx context.Context, tokenHash []byte, userID string, expiresAt time.Time) error
+	ConsumeOAuthTicket(ctx context.Context, tokenHash []byte, now time.Time) (string, error)
+	UpdateProfileAvatar(ctx context.Context, userID, avatarID string) (User, error)
+	ChangePassword(ctx context.Context, userID, passwordHash string, now time.Time) error
 
 	CreateSession(ctx context.Context, session NewSession) error
 	AccessToken(ctx context.Context, hash []byte, now time.Time) (TokenRecord, error)
 	RotateSession(ctx context.Context, oldRefreshHash []byte, next RotatedSession, now time.Time) (string, error)
 	RevokeSession(ctx context.Context, refreshHash []byte) error
+	SavePasswordReset(ctx context.Context, reset PasswordResetToken) error
+	ConsumePasswordReset(ctx context.Context, tokenHash []byte, now time.Time, passwordHash string) error
+	SaveEmailDeliveryEvent(ctx context.Context, event EmailDeliveryEvent) error
 
 	Collection(ctx context.Context, userID, ruleset string) (Collection, error)
 	ListDecks(ctx context.Context, userID string) ([]Deck, error)
@@ -407,6 +460,7 @@ type Store interface {
 	RitualsFor(ctx context.Context, userID, day string) ([]RitualState, error)
 	SaveRitualStates(ctx context.Context, userID, day string, states []RitualState) error
 	Fragments(ctx context.Context, userID string) (int, error)
+	AccountXP(ctx context.Context, userID string) (int, error)
 	MasteryFor(ctx context.Context, userID string) ([]ChampionMastery, error)
 	RankedStandingFor(ctx context.Context, userID, seasonID string) (RankedStanding, error)
 	Leaderboard(ctx context.Context, seasonID string, limit int) ([]LeaderboardEntry, error)

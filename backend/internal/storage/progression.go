@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"veurubro/backend/internal/domain"
+	"veurubro/backend/internal/progression"
 )
 
 // P1 — progressão. RecordMatchProgress grava tudo numa transação com trava de
@@ -13,6 +14,11 @@ import (
 // economy_transactions), maestria e rating (lido com FOR UPDATE).
 
 func (p *Postgres) RecordMatchProgress(ctx context.Context, progress domain.MatchProgress) (bool, error) {
+	for _, player := range progress.Players {
+		if player.AccountXP < 0 || player.AccountXP > progression.MaxAccountXPPerMatch {
+			return false, fmt.Errorf("%w: XP de conta por partida fora do limite", domain.ErrInvalid)
+		}
+	}
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		return false, err
@@ -80,6 +86,14 @@ func (p *Postgres) RecordMatchProgress(ctx context.Context, progress domain.Matc
 			    updated_at = now()`,
 			player.UserID, player.ChampionID, player.MasteryXP, winInc); err != nil {
 			return false, mapError(err)
+		}
+		if player.AccountXP > 0 {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO player_account_progress(user_id,xp)
+				VALUES($1,$2) ON CONFLICT (user_id) DO UPDATE
+				SET xp = LEAST(player_account_progress.xp + $2, $3), updated_at = now()`,
+				player.UserID, player.AccountXP, progression.MaxAccountXP); err != nil {
+				return false, mapError(err)
+			}
 		}
 	}
 
@@ -162,6 +176,13 @@ func (p *Postgres) Fragments(ctx context.Context, userID string) (int, error) {
 		`SELECT COALESCE((SELECT fragments FROM player_wallets WHERE user_id=$1), 0)`, userID).
 		Scan(&fragments)
 	return fragments, mapError(err)
+}
+
+func (p *Postgres) AccountXP(ctx context.Context, userID string) (int, error) {
+	var xp int
+	err := p.db.QueryRowContext(ctx, `SELECT COALESCE(
+		(SELECT xp FROM player_account_progress WHERE user_id=$1), 0)`, userID).Scan(&xp)
+	return xp, mapError(err)
 }
 
 func (p *Postgres) MasteryFor(ctx context.Context, userID string) ([]domain.ChampionMastery, error) {

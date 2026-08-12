@@ -11,6 +11,7 @@ import { CronicaPage } from "./pages/Cronica";
 import { AdminPage } from "./pages/Admin";
 import { BattlePage } from "./pages/Battle";
 import { ReplayPage } from "./pages/Replay";
+import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordRecovery";
 import { Missing, ProfilePage, ResultPage, SettingsPage, TutorialPage } from "./pages/Secondary";
 import { usePreferencesStore, useSessionStore } from "./store";
 import { installDocumentLocalization } from "./documentLocalization";
@@ -39,6 +40,8 @@ export default function App() {
 
   return <><ScrollToTop /><Routes>
     <Route path="/" element={<Landing />} />
+    <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+    <Route path="/reset-password" element={<ResetPasswordPage />} />
     <Route path="/battle/:matchId" element={<Protected><BattlePage /></Protected>} />
     <Route element={<Protected><Shell /></Protected>}>
       <Route path="/app" element={<Home />} />

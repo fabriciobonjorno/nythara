@@ -4,7 +4,7 @@ import { CardTile } from "../components/CardTile";
 import { ChampionEmblem } from "../components/ChampionEmblem";
 import { DataLoadError } from "../components/DataLoadError";
 import { UiIcon } from "../components/UiIcon";
-import { useCards, useChampions, useCollection, useRuleset } from "../queries";
+import { useCards, useChampions, useCollection, useProgress, useRuleset } from "../queries";
 import type { Champion } from "../types";
 import { translateText } from "../i18n";
 import { usePreferencesStore } from "../store";
@@ -12,8 +12,10 @@ import { usePreferencesStore } from "../store";
 export function CollectionPage() {
   const cardsQuery = useCards();
   const collectionQuery = useCollection();
+	const progressQuery = useProgress();
   const { data: catalog, isLoading } = cardsQuery;
   const { data: collection } = collectionQuery;
+	const accountLevel = progressQuery.data?.account.level ?? 1;
   const [search, setSearch] = useState("");
   const [type, setType] = useState("Todos");
   const [faction, setFaction] = useState("Todas");
@@ -32,10 +34,10 @@ export function CollectionPage() {
   const legalCount = catalog?.cards.filter((card) => card.confront?.legal).length ?? 0;
   return <div className="page catalog-page"><PageHeader eyebrow="ARQUIVO DO VÉU" title="Coleção" copy={`${catalog?.cards.length ?? 130} cartas ilustradas no catálogo; ${legalCount} formam o pool competitivo do Modo Confronto.`} count={`${cards.length} exibidas`} />
     <div className="filter-bar"><label className="search-field"><span className="sr-only">Buscar carta</span><input type="search" placeholder="Buscar por nome, ação ou texto…" value={search} onChange={(event) => setSearch(event.target.value)} /></label><label>Modo<select value={mode} onChange={(event) => setMode(event.target.value)}><option value="Competitivas">Competitivas</option><option value="Arquivo">Arquivo</option><option value="Todas">Todas</option></select></label><label>Tipo<select value={type} onChange={(event) => setType(event.target.value)}><option value="Todos">Todos</option>{["Assalto", "Guarda", "Rito", "Relíquia", "Manifestação"].map((item) => <option value={item} key={item}>{item}</option>)}</select></label><label>Facção<select value={faction} onChange={(event) => setFaction(event.target.value)}><option value="Todas">Todas</option>{factions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label></div>
-    {cardsQuery.isError || collectionQuery.isError
-      ? <DataLoadError onRetry={() => { void cardsQuery.refetch(); void collectionQuery.refetch(); }} />
-      : isLoading || collectionQuery.isLoading ? <LoadingGrid /> : <>
-        <div className="card-grid">{visibleCards.map((card) => <CardTile key={card.id} card={card} quantity={owned.get(card.id) ?? 0} />)}</div>
+    {cardsQuery.isError || collectionQuery.isError || progressQuery.isError
+	  ? <DataLoadError onRetry={() => { void cardsQuery.refetch(); void collectionQuery.refetch(); void progressQuery.refetch(); }} />
+	  : isLoading || collectionQuery.isLoading || progressQuery.isLoading ? <LoadingGrid /> : <>
+		<div className="card-grid">{visibleCards.map((card) => <CardTile key={card.id} card={card} quantity={owned.get(card.id) ?? 0} currentLevel={accountLevel} />)}</div>
         {visibleCards.length < cards.length && <button className="secondary-button card-load-more" type="button" onClick={() => setVisibleCount((count) => count + 30)}>Carregar mais cartas ({cards.length - visibleCards.length} restantes)</button>}
       </>}
   </div>;

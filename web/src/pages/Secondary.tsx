@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { AlphaNote } from "../components/AlphaNote";
 import { ChampionEmblem } from "../components/ChampionEmblem";
@@ -8,7 +9,7 @@ import { UiIcon } from "../components/UiIcon";
 import { VeilGlyph } from "../components/VeilGlyph";
 import { LanguageSelector } from "../components/LanguageSelector";
 import { buildGuidedProgress } from "../guidedTraining";
-import { useActiveRulesetVersion, useCards, useChampions, useDecks, useMe, useSeason } from "../queries";
+import { useActiveRulesetVersion, useCards, useChampions, useDecks, useMatchReplay, useMe, useProgress, useSeason } from "../queries";
 import { usePreferencesStore, useSessionStore } from "../store";
 import type { QueueResult } from "../types";
 
@@ -21,6 +22,8 @@ export function ResultPage() {
   const { data: deckData } = useDecks();
   const { data: cardData } = useCards();
   const { data: championData } = useChampions();
+	const { data: me } = useMe();
+	const { data: replay } = useMatchReplay(battle?.matchId ?? "");
   const [practiceBusy, setPracticeBusy] = useState(false);
   const [practiceError, setPracticeError] = useState("");
   const [shareStatus, setShareStatus] = useState("");
@@ -60,6 +63,8 @@ export function ResultPage() {
   const rivalCardsPlayed = cardsPlayed.filter((event) => event.p === 1 - battle.slot).length;
   const myChampion = championData?.champions.find((champion) => champion.id === mine.champion);
   const rivalChampion = championData?.champions.find((champion) => champion.id === rival.champion);
+	const myNickname = replay?.players[battle.slot]?.display_name ?? me?.display_name ?? "Você";
+	const rivalNickname = replay?.players[1 - battle.slot]?.display_name ?? "Rival";
   const resultReason = resultEndReason(battle.state.end_reason);
   const lesson = battle.state.end_reason === "timeout"
     ? "O relógio competitivo encerrou a partida. Use 1–7 para jogar rapidamente ou Espaço para passar; uma decisão simples preserva a disputa. No treino, a expiração apenas avança a janela."
@@ -85,13 +90,13 @@ export function ResultPage() {
       <div className="result-duelists" aria-label="Placar final do duelo">
         <article className={`result-duelist ${victory ? "is-winner" : ""}`}>
           <span className="result-duelist__emblem">{myChampion ? <ChampionEmblem id={myChampion.id} faction={myChampion.faction} /> : <UiIcon name="champion" />}</span>
-          <div><small>VOCÊ</small><strong>{myChampion?.name?.split(",")[0] ?? "Seu Avatar"}</strong><em>{currentDeck?.name ?? "Baralho competitivo"}</em></div>
+		  <div><small>VOCÊ</small><strong>{myNickname}</strong><em>{myChampion?.name?.split(",")[0] ?? "Seu Avatar"} · {currentDeck?.name ?? "Baralho competitivo"}</em></div>
           <span className="result-duelist__vitality"><UiIcon name="heart" /><b>{Math.max(0, mine.vitality)}</b><small>DE {mine.max_vitality}</small><i><i style={{ width: `${Math.max(0, Math.min(100, (mine.vitality / Math.max(1, mine.max_vitality)) * 100))}%` }} /></i></span>
         </article>
         <div className="result-verdict"><span>{victory ? "VITÓRIA" : "DERROTA"}</span><UiIcon name="versus" /><small>RODADA {battle.state.round}</small></div>
         <article className={`result-duelist is-rival ${!victory ? "is-winner" : ""}`}>
           <span className="result-duelist__emblem">{rivalChampion ? <ChampionEmblem id={rivalChampion.id} faction={rivalChampion.faction} /> : <UiIcon name="champion" />}</span>
-          <div><small>RIVAL</small><strong>{rivalChampion?.name?.split(",")[0] ?? "Avatar rival"}</strong><em>Baralho oculto</em></div>
+		  <div><small>RIVAL</small><strong>{rivalNickname}</strong><em>{rivalChampion?.name?.split(",")[0] ?? "Avatar rival"} · Baralho oculto</em></div>
           <span className="result-duelist__vitality"><UiIcon name="heart" /><b>{Math.max(0, rival.vitality)}</b><small>DE {rival.max_vitality}</small><i><i style={{ width: `${Math.max(0, Math.min(100, (rival.vitality / Math.max(1, rival.max_vitality)) * 100))}%` }} /></i></span>
         </article>
       </div>
@@ -149,9 +154,51 @@ async function copyText(text: string) {
 export function ProfilePage() {
   const rulesetVersion = useActiveRulesetVersion();
   const { data: me } = useMe();
+	const { data: champions } = useChampions();
   const { data: season } = useSeason();
   const { data: decks } = useDecks();
-  return <div className="page profile-page"><section className="profile-hero"><div className="profile-avatar">{me?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</div><div><p className="eyebrow">PERFIL DO DUELISTA</p><h1>{me?.display_name ?? "Viajante"}</h1><p>Participante do Alpha · {me?.role === "admin" ? "Guardião" : "Jogador"}</p></div><span className="season-seal"><NytharaMark /><small>{season?.name ?? "Alpha"}</small></span></section><section className="profile-grid"><article className="rank-card"><p className="eyebrow">RANKED</p><h2>Pré-temporada</h2><div className="rank-emblem"><UiIcon name="rank" /></div><strong>Sem colocação</strong><p>Jogue partidas ranqueadas para registrar rating, patente e posição na temporada.</p></article><article className="panel"><h2>Conta competitiva</h2><dl className="profile-details"><div><dt>Ruleset</dt><dd>{season?.ruleset_version ?? rulesetVersion}</dd></div><div><dt>Baralho atual</dt><dd>{decks?.decks.some((deck) => deck.ruleset_version === rulesetVersion) ? "Pronto" : "Pendente"}</dd></div><div><dt>Catálogo</dt><dd>130 cartas · pool competitivo curado</dd></div><div><dt>Temporada</dt><dd>{season?.name ?? "Alpha"}</dd></div></dl></article></section></div>;
+	const { data: progress } = useProgress();
+	const queryClient = useQueryClient();
+	const setPrincipal = useSessionStore((state) => state.setPrincipal);
+	const clear = useSessionStore((state) => state.clear);
+	const navigate = useNavigate();
+	const [avatarID, setAvatarID] = useState("");
+	const [profileBusy, setProfileBusy] = useState(false);
+	const [profileStatus, setProfileStatus] = useState("");
+	const [profileError, setProfileError] = useState("");
+	const [currentPassword, setCurrentPassword] = useState("");
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [passwordBusy, setPasswordBusy] = useState(false);
+	const [passwordError, setPasswordError] = useState("");
+	const chosenAvatarID = avatarID || me?.avatar_id || "";
+	const chosenAvatar = champions?.champions.find((champion) => champion.id === chosenAvatarID);
+	const saveAvatar = async () => {
+		if (!chosenAvatarID) return;
+		setProfileBusy(true); setProfileError(""); setProfileStatus("");
+		try {
+			const updated = await api<NonNullable<typeof me>>("/v1/me/profile", { method: "PUT", body: JSON.stringify({ avatar_id: chosenAvatarID }) });
+			setPrincipal(updated); queryClient.setQueryData(["me"], updated); setProfileStatus("Imagem de perfil atualizada em todo o jogo.");
+		} catch (caught) { setProfileError(caught instanceof Error ? caught.message : "Não foi possível salvar a imagem."); }
+		finally { setProfileBusy(false); }
+	};
+	const changePassword = async (event: FormEvent) => {
+		event.preventDefault(); setPasswordError("");
+		if (newPassword !== confirmPassword) { setPasswordError("A confirmação não corresponde à nova senha."); return; }
+		setPasswordBusy(true);
+		try {
+			await api<void>("/v1/me/password", { method: "PUT", body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
+			clear(); navigate("/?password=changed", { replace: true });
+		} catch (caught) { setPasswordError(caught instanceof Error ? caught.message : "Não foi possível trocar a senha."); setPasswordBusy(false); }
+	};
+	return <div className="page profile-page">
+		<section className="profile-hero"><div className="profile-avatar">{chosenAvatar ? <ChampionEmblem id={chosenAvatar.id} faction={chosenAvatar.faction} /> : me?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</div><div><p className="eyebrow">PERFIL DO DUELISTA</p><h1>{me?.display_name ?? "Viajante"}</h1><p>Este é o nickname mostrado na Arena · {me?.role === "admin" ? "Guardião" : "Jogador"}</p></div><span className="season-seal"><NytharaMark /><small>{season?.name ?? "Alpha"}</small></span></section>
+		<section className="profile-grid"><article className="rank-card"><p className="eyebrow">NÍVEL DA CONTA</p><h2>Nível {progress?.account.level ?? 1}</h2><div className="rank-emblem"><UiIcon name="mastery" /></div><strong>{progress?.account.level_xp_required ? `${progress.account.level_xp}/${progress.account.level_xp_required} XP` : "Nível máximo"}</strong><p>Suba no PvP contra jogadores para liberar Lendárias. Treinos e bots não concedem XP.</p></article><article className="panel"><h2>Conta competitiva</h2><dl className="profile-details"><div><dt>Nickname público</dt><dd>{me?.display_name ?? "—"}</dd></div><div><dt>Ruleset</dt><dd>{season?.ruleset_version ?? rulesetVersion}</dd></div><div><dt>Baralho atual</dt><dd>{decks?.decks.some((deck) => deck.ruleset_version === rulesetVersion) ? "Pronto" : "Pendente"}</dd></div><div><dt>Temporada</dt><dd>{season?.name ?? "Alpha"}</dd></div></dl></article></section>
+		<section className="profile-settings-grid">
+		  <article className="panel profile-editor"><header><p className="eyebrow">SUA IDENTIDADE VISUAL</p><h2>Imagem de perfil</h2><p>Escolha um emblema original. Ele aparece no topo e acompanha sua identidade, sem alterar o Avatar do baralho.</p></header><div className="profile-avatar-options">{champions?.champions.map((champion) => <button type="button" className={chosenAvatarID === champion.id ? "is-selected" : ""} aria-pressed={chosenAvatarID === champion.id} aria-label={`Usar ${champion.name} como imagem de perfil`} onClick={() => { setAvatarID(champion.id); setProfileStatus(""); }} key={champion.id}><ChampionEmblem id={champion.id} faction={champion.faction} /><span>{champion.name.split(",")[0]}</span></button>)}</div>{profileError && <p className="form-error" role="alert">{profileError}</p>}{profileStatus && <p className="form-success" role="status">{profileStatus}</p>}<button className="primary-button" type="button" disabled={profileBusy || !chosenAvatarID || chosenAvatarID === me?.avatar_id} onClick={saveAvatar}>{profileBusy ? "Salvando…" : "Salvar imagem"}</button></article>
+		  <form className="panel profile-editor password-editor" onSubmit={changePassword}><header><p className="eyebrow">SEGURANÇA DA CONTA</p><h2>{me?.password_set ? "Trocar senha" : "Criar uma senha"}</h2><p>{me?.password_set ? "Confirme a credencial atual. Depois da troca, todas as sessões serão encerradas." : "Sua conta entrou pelo Google. Crie uma senha se também quiser usar e-mail e senha."}</p></header>{me?.password_set && <label>Senha atual<input required type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>}<label>Nova senha<input required minLength={12} maxLength={256} type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><small>Use de 12 a 256 caracteres.</small></label><label>Confirmar nova senha<input required minLength={12} maxLength={256} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>{passwordError && <p className="form-error" role="alert">{passwordError}</p>}<button className="secondary-button" type="submit" disabled={passwordBusy}>{passwordBusy ? "Protegendo a conta…" : me?.password_set ? "Trocar senha e sair" : "Criar senha e sair"}</button></form>
+		</section>
+	</div>;
 }
 
 const tutorialSteps = [

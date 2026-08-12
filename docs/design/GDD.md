@@ -66,6 +66,9 @@ primeiras N opções para que a partida e o replay não travem.
   de confronto sem tirar a autoria do jogador.
 - Sem Campeão e sem restrição de facção: qualquer combinação do pool.
 - Máximo de **2 cópias** por carta; Lendárias, **1 cópia**.
+- Cartas Lendárias são marcos de progressão: permanecem visíveis no catálogo,
+  mas só podem entrar no baralho quando a conta alcança o nível indicado na
+  carta. A primeira liberação ocorre no nível 10.
 - **Um deck ativo por conta.** Salvar o deck inicia uma **trava de edição de 24h** — o deck é um compromisso, não um ajuste entre partidas. O deck inicial gerado pelo sistema não trava.
 - Mão inicial: 5 cartas. Sem mulligan. A Compra acontece inclusive no
   primeiro turno; quem tem a iniciativa toma sua primeira ação com 6 e o
@@ -208,6 +211,18 @@ Arquivos: `cards_alpha.json`, `cards_alpha.csv`.
 ## 13. Progressão e monetização
 
 **Não vender vantagem competitiva.** Monetizar: cosméticos (avatares, molduras, versos de carta, animações, arenas, emotes, foils), campanhas PvE, bundles com proteção de duplicata. Caminho realista de aquisição de cartas jogando.
+
+- Toda conta começa no **nível 1** e o teto global é **50**.
+- XP de conta e XP de maestria são concedidos exclusivamente em PvP entre dois
+  jogadores humanos finalizado pelo servidor: 15 XP por partida e +15 por
+  vitória. Treino, tutorial e qualquer luta contra bot concedem 0 XP e nunca
+  alteram nível global ou de maestria. A mesma partida nunca credita duas
+  vezes.
+- A curva custa 100 XP para chegar ao nível 2 e cresce 20 XP a cada nível.
+- Lendárias Alpha: VR-012 no nível 10; VR-024 no 15; VR-036 no 20; VR-048 no
+  25; VR-060 no 30; VR-079 no 35; VR-080 no 40; VR-130 no 50.
+- PvP só pareia contas com diferença máxima de **5 níveis**. A faixa nunca é
+  ampliada silenciosamente; treino contra o bot continua disponível.
 
 ---
 

@@ -24,6 +24,7 @@ export function Home() {
   const championName = (id: string) => champions?.champions.find((champion) => champion.id === id)?.name ?? id;
   const ritualsDone = progress?.rituals.filter((ritual) => ritual.completed_at).length ?? 0;
   const topMastery = progress?.mastery?.[0];
+	const account = progress?.account;
   const rulesetVersion = useActiveRulesetVersion();
   const currentDeck = decks?.decks.find((deck) => deck.ruleset_version === rulesetVersion && deck.active)
     ?? decks?.decks.find((deck) => deck.ruleset_version === rulesetVersion);
@@ -62,7 +63,8 @@ export function Home() {
       </section>}
 
       <section className="stat-grid" aria-label="Resumo da conta">
-        <article><span className="stat-icon"><UiIcon name="deck" /></span><div><small>BARALHO COMPETITIVO</small><strong>{decks ? (currentDeck ? "Pronto" : "Pendente") : "—"}</strong></div><Link to="/decks">Editar</Link></article>
+		<article><span className="stat-icon"><UiIcon name="mastery" /></span><div><small>NÍVEL DA CONTA</small><strong>{account ? `Nível ${account.level}` : "—"}</strong>{account && <em>{account.level_xp_required ? `${account.level_xp}/${account.level_xp_required} XP` : "Nível máximo"}</em>}</div><Link to="/collection">Lendárias</Link></article>
+		<article><span className="stat-icon"><UiIcon name="deck" /></span><div><small>BARALHO COMPETITIVO</small><strong>{decks ? (currentDeck ? "Pronto" : "Pendente") : "—"}</strong></div><Link to="/decks">Editar</Link></article>
         <article><span className="stat-icon"><UiIcon name="fragment" /></span><div><small>FRAGMENTOS DO VÉU</small><strong>{progress ? progress.fragments : "—"}</strong></div><Link to="/collection">Coleção</Link></article>
         <article><span className="stat-icon"><UiIcon name="rank" /></span><div><small>RANKED</small><strong>{progress?.ranked && progress.ranked.games > 0 ? `${progress.ranked.rating} · #${progress.ranked.position || "—"}` : "Estreie no ranking"}</strong></div><Link to="/queue">Duelar</Link></article>
       </section>

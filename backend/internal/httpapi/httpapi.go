@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"expvar"
@@ -10,6 +11,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +23,8 @@ import (
 	"veurubro/backend/internal/battle"
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
+	"veurubro/backend/internal/mailer"
+	accountprogress "veurubro/backend/internal/progression"
 	"veurubro/backend/internal/security"
 )
 
@@ -37,6 +42,7 @@ type API struct {
 	authLimiter    *security.RateLimiter
 	wsLimiter      *security.RateLimiter
 	trustedProxies []*net.IPNet
+	resendWebhook  *mailer.ResendWebhookVerifier
 }
 
 func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, ready func(context.Context) error) http.Handler {
@@ -51,6 +57,9 @@ type Options struct {
 	// TrustedProxyCIDRs permite usar X-Forwarded-For somente quando o peer TCP
 	// pertence explicitamente a uma rede de proxy confiável.
 	TrustedProxyCIDRs string
+	// ResendWebhookSecret habilita o endpoint somente quando há um segredo de
+	// assinatura válido, obtido ao registrar o webhook no Resend.
+	ResendWebhookSecret string
 }
 
 func NewWithOptions(service *app.Service, battles *battle.Manager, logger *slog.Logger, ready func(context.Context) error, options Options) (http.Handler, error) {
@@ -58,9 +67,17 @@ func NewWithOptions(service *app.Service, battles *battle.Manager, logger *slog.
 	if err != nil {
 		return nil, err
 	}
+	var resendWebhook *mailer.ResendWebhookVerifier
+	if strings.TrimSpace(options.ResendWebhookSecret) != "" {
+		resendWebhook, err = mailer.NewResendWebhookVerifier(options.ResendWebhookSecret)
+		if err != nil {
+			return nil, err
+		}
+	}
 	api := &API{service: service, battles: battles, logger: logger, ready: ready,
 		generalLimiter: newGeneralLimiter(), authLimiter: newAuthLimiter(),
-		wsLimiter: newWSCommandLimiter(), trustedProxies: trustedProxies}
+		wsLimiter: newWSCommandLimiter(), trustedProxies: trustedProxies,
+		resendWebhook: resendWebhook}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
 	mux.HandleFunc("GET /readyz", api.readiness)
@@ -71,12 +88,23 @@ func NewWithOptions(service *app.Service, battles *battle.Manager, logger *slog.
 	mux.HandleFunc("POST /v1/auth/login", api.strictLimit(api.login))
 	mux.HandleFunc("POST /v1/auth/refresh", api.strictLimit(api.refresh))
 	mux.HandleFunc("POST /v1/auth/logout", api.logout)
+	mux.HandleFunc("POST /v1/auth/forgot-password", api.strictLimit(api.forgotPassword))
+	mux.HandleFunc("POST /v1/auth/reset-password", api.strictLimit(api.resetPassword))
+	mux.HandleFunc("GET /v1/auth/providers", api.authProviders)
+	mux.HandleFunc("GET /v1/auth/google/start", api.strictLimit(api.googleOAuthStart))
+	mux.HandleFunc("GET /v1/auth/google/callback", api.strictLimit(api.googleOAuthCallback))
+	mux.HandleFunc("POST /v1/auth/oauth/exchange", api.strictLimit(api.exchangeOAuthTicket))
+	if resendWebhook != nil {
+		mux.HandleFunc("POST /v1/webhooks/resend", api.resendWebhookEvent)
+	}
 	mux.HandleFunc("GET /v1/catalog/cards", api.cards)
 	mux.HandleFunc("GET /v1/catalog/champions", api.champions)
 	mux.HandleFunc("GET /v1/catalog/precons", api.precons)
 	mux.HandleFunc("GET /v1/rulesets/current", api.ruleset)
 	mux.HandleFunc("GET /v1/seasons/current", api.season)
 	mux.Handle("GET /v1/me", api.auth(http.HandlerFunc(api.me)))
+	mux.Handle("PUT /v1/me/profile", api.auth(http.HandlerFunc(api.updateProfile)))
+	mux.Handle("PUT /v1/me/password", api.auth(http.HandlerFunc(api.changePassword)))
 	mux.Handle("GET /v1/collection", api.auth(http.HandlerFunc(api.collection)))
 	mux.Handle("GET /v1/decks", api.auth(http.HandlerFunc(api.listDecks)))
 	mux.Handle("POST /v1/decks", api.auth(http.HandlerFunc(api.createDeck)))
@@ -122,12 +150,12 @@ func (a *API) enqueueMatchmaking(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	deck, err := a.service.Deck(r.Context(), principal(r), input.DeckID)
+	deck, accountLevel, err := a.service.BattleDeck(r.Context(), principal(r), input.DeckID)
 	if err != nil {
 		a.respondError(w, err)
 		return
 	}
-	result, err := a.battles.Queue(r.Context(), principal(r), deck)
+	result, err := a.battles.Queue(r.Context(), principal(r), deck, accountLevel)
 	if err != nil {
 		a.respondError(w, err)
 		return
@@ -143,7 +171,7 @@ func (a *API) startPractice(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	deck, err := a.service.Deck(r.Context(), principal(r), input.DeckID)
+	deck, _, err := a.service.BattleDeck(r.Context(), principal(r), input.DeckID)
 	if err != nil {
 		a.respondError(w, err)
 		return
@@ -511,6 +539,64 @@ func (a *API) login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": user, "tokens": tokens})
 }
 
+func (a *API) authProviders(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{"google": a.service.GoogleOAuthEnabled()})
+}
+
+func (a *API) googleOAuthStart(w http.ResponseWriter, r *http.Request) {
+	authorizationURL, state, verifier, err := a.service.BeginGoogleOAuth()
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+	maxAge := int(app.OAuthCookieTTL().Seconds())
+	setOAuthCookie(w, "nythara_oauth_state", state, maxAge, secure)
+	setOAuthCookie(w, "nythara_oauth_verifier", verifier, maxAge, secure)
+	http.Redirect(w, r, authorizationURL, http.StatusFound)
+}
+
+func (a *API) googleOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	stateCookie, stateErr := r.Cookie("nythara_oauth_state")
+	verifierCookie, verifierErr := r.Cookie("nythara_oauth_verifier")
+	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+	setOAuthCookie(w, "nythara_oauth_state", "", -1, secure)
+	setOAuthCookie(w, "nythara_oauth_verifier", "", -1, secure)
+	state := r.URL.Query().Get("state")
+	if stateErr != nil || verifierErr != nil || state == "" ||
+		subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(state)) != 1 || r.URL.Query().Get("error") != "" {
+		http.Redirect(w, r, "/#oauth_error=invalid_state", http.StatusSeeOther)
+		return
+	}
+	ticket, err := a.service.CompleteGoogleOAuth(r.Context(), r.URL.Query().Get("code"), verifierCookie.Value)
+	if err != nil {
+		a.logger.Warn("login Google recusado", "error", err)
+		http.Redirect(w, r, "/#oauth_error=oauth_failed", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/#oauth_ticket="+url.QueryEscape(ticket), http.StatusSeeOther)
+}
+
+func setOAuthCookie(w http.ResponseWriter, name, value string, maxAge int, secure bool) {
+	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/v1/auth/google/callback",
+		MaxAge: maxAge, HttpOnly: true, Secure: secure, SameSite: http.SameSiteLaxMode})
+}
+
+func (a *API) exchangeOAuthTicket(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Ticket string `json:"ticket"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	user, tokens, err := a.service.ExchangeOAuthTicket(r.Context(), input.Ticket)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": user, "tokens": tokens})
+}
+
 func (a *API) refresh(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		RefreshToken string `json:"refresh_token"`
@@ -540,8 +626,90 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (a *API) forgotPassword(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Email  string `json:"email"`
+		Locale string `json:"locale"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	// A resposta não confirma cadastro nem disponibilidade do provedor.
+	if err := a.service.RequestPasswordReset(r.Context(), input.Email, input.Locale); err != nil {
+		a.logger.Error("pedido de recuperação não enviado", "error", err)
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (a *API) resetPassword(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	if err := a.service.ResetPassword(r.Context(), input.Token, input.Password); err != nil {
+		a.respondError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+var resendEventTypePattern = regexp.MustCompile(`^email\.[a-z_]+$`)
+
+func (a *API) resendWebhookEvent(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	raw, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_webhook", "webhook inválido")
+		return
+	}
+	eventID := r.Header.Get("svix-id")
+	if err := a.resendWebhook.Verify(raw, eventID, r.Header.Get("svix-timestamp"),
+		r.Header.Get("svix-signature"), time.Now()); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_webhook", "webhook inválido")
+		return
+	}
+	var event struct {
+		Type      string    `json:"type"`
+		CreatedAt time.Time `json:"created_at"`
+		Data      struct {
+			EmailID string `json:"email_id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &event); err != nil || !resendEventTypePattern.MatchString(event.Type) ||
+		event.CreatedAt.IsZero() || event.Data.EmailID == "" || len(event.Data.EmailID) > 200 {
+		writeError(w, http.StatusBadRequest, "invalid_webhook", "webhook inválido")
+		return
+	}
+	if err := a.service.RecordEmailDeliveryEvent(r.Context(), domain.EmailDeliveryEvent{
+		ProviderEventID: eventID, ProviderMessageID: event.Data.EmailID,
+		EventType: event.Type, EventCreatedAt: event.CreatedAt.UTC(),
+	}); err != nil {
+		a.logger.Error("evento do Resend não persistido", "event_id", eventID, "event_type", event.Type, "error", err)
+		writeError(w, http.StatusInternalServerError, "internal_error", "erro interno")
+		return
+	}
+	// Resend documenta 200 como confirmação de entrega; qualquer falha acima
+	// retorna não-2xx para que o provedor tente novamente.
+	w.WriteHeader(http.StatusOK)
+}
+
 func (a *API) cards(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.CompetitiveRulesetVersion, "cards": engine.CompetitiveRuleset().CardList})
+	type catalogCard struct {
+		*engine.CardDef
+		UnlockLevel int `json:"unlock_level,omitempty"`
+	}
+	cards := make([]catalogCard, 0, len(engine.CompetitiveRuleset().CardList))
+	for _, card := range engine.CompetitiveRuleset().CardList {
+		entry := catalogCard{CardDef: card}
+		if card.Rarity == engine.RarityLendaria {
+			entry.UnlockLevel = accountprogress.LegendaryUnlockLevel(card.ID)
+		}
+		cards = append(cards, entry)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.CompetitiveRulesetVersion, "cards": cards})
 }
 
 func (a *API) champions(w http.ResponseWriter, _ *http.Request) {
@@ -584,6 +752,36 @@ func (a *API) season(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, principal(r))
+}
+
+func (a *API) updateProfile(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		AvatarID string `json:"avatar_id"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	updated, err := a.service.UpdateProfileAvatar(r.Context(), principal(r), input.AvatarID)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	if err := a.service.ChangePassword(r.Context(), principal(r), input.CurrentPassword, input.NewPassword); err != nil {
+		a.respondError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) collection(w http.ResponseWriter, r *http.Request) {
@@ -705,6 +903,8 @@ func (a *API) grantReward(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) respondError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, domain.ErrInvalidResetToken):
+		writeError(w, http.StatusBadRequest, "reset_token_invalid", err.Error())
 	case errors.Is(err, domain.ErrInvalid), errors.Is(err, domain.ErrInvalidCredentials):
 		status := http.StatusBadRequest
 		code := "invalid_request"

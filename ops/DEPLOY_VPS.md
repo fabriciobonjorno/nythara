@@ -10,7 +10,8 @@ e renova o certificado TLS automaticamente quando o DNS já aponta para a VPS.
 - Docker Engine com o plugin Compose;
 - portas TCP 22, 80 e 443 e UDP 443 liberadas no firewall;
 - registro DNS A (e AAAA, se a VPS tiver IPv6 funcional) apontando o domínio
-  para a VPS;
+  raiz para a VPS; `www` pode ser um CNAME para o domínio raiz e será
+  redirecionado para a origem canônica;
 - usuário de deploy sem login direto como root e com acesso controlado ao
   Docker.
 
@@ -27,16 +28,64 @@ cp .env.production.example .env.production
 ./ops/bootstrap-vps-secrets.sh
 ```
 
-Edite apenas `NYTHARA_DOMAIN` e um identificador imutável de imagem em
-`.env.production`. O bootstrap cria dois arquivos `0600` em `secrets/`:
+Edite `NYTHARA_DOMAIN`, `PUBLIC_APP_URL`, `RESEND_FROM_EMAIL`,
+`RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `GOOGLE_OAUTH_CLIENT_ID`,
+`GOOGLE_OAUTH_CLIENT_SECRET` e um identificador imutável de imagem
+em `.env.production`. Verifique o domínio de envio no Resend antes de publicar o remetente. O
+bootstrap cria dois arquivos em `secrets/`:
 
 - `postgres_password`: senha aleatória do usuário do PostgreSQL;
 - `database_url`: URL interna completa consumida pela API e pelo migrador.
+
+Quando executado por `root` em Linux, o bootstrap mantém
+`postgres_password` como `root:root`/`0600` e entrega `database_url` ao
+UID/GID não privilegiado `10001:10001` da imagem com modo `0400`. Isso é
+necessário porque os secrets do Compose são bind mounts e preservam o
+proprietário do host.
 
 Esses arquivos e `.env.production` são ignorados pelo Git. Em uma instalação
 mais rígida, defina `NYTHARA_SECRETS_DIR=/etc/nythara/secrets`, mantenha o
 diretório fora do checkout e ajuste proprietário/permissões para o operador do
 Compose. Nunca copie os valores para issue, log, chat ou linha de comando.
+
+A chave do Resend é injetada somente na API. Proteja `.env.production` com
+modo `0600`, exclua-o de backups do código e rotacione a chave se houver
+qualquer exposição.
+
+No Google Cloud Console, configure a origem JavaScript `https://nythara.fun`
+e a URI de redirecionamento `https://nythara.fun/v1/auth/google/callback`.
+O botão social só aparece quando as duas credenciais OAuth estão presentes.
+
+### Webhook do Resend
+
+Depois que `https://nythara.fun` estiver publicado, crie no painel do Resend um
+webhook com esta URL exata:
+
+```text
+https://nythara.fun/v1/webhooks/resend
+```
+
+Assine os eventos `email.sent`, `email.delivered`, `email.delivery_delayed`,
+`email.bounced`, `email.complained`, `email.failed` e `email.suppressed`. Copie
+o signing secret `whsec_...` retornado pelo Resend para
+`RESEND_WEBHOOK_SECRET` em `.env.production`, aplique modo `0600` e recrie a
+API. Não confunda esse segredo com `RESEND_API_KEY`.
+
+Como alternativa ao painel, depois de preencher a chave e a URL pública use:
+
+```bash
+./ops/configure-resend-webhook.sh .env.production
+```
+
+O script cadastra exatamente os eventos acima e grava o signing secret no
+arquivo sem imprimi-lo. Ele atualiza o registro existente para a mesma URL, se
+houver, em vez de criar uma duplicata.
+
+A API verifica `svix-id`, `svix-timestamp` e `svix-signature` sobre o corpo
+bruto, rejeita assinaturas fora da janela de cinco minutos e trata retries pelo
+ID assinado. O banco guarda somente ID da mensagem, tipo e horários. Use o
+botão de teste do webhook no painel e confirme uma resposta HTTP `200`; `400`
+indica segredo/assinatura inválidos e `500` provoca retry do provedor.
 
 ## 3. Validar e subir
 

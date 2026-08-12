@@ -204,6 +204,21 @@ func TestMasteryLevelCurve(t *testing.T) {
 	}
 }
 
+func TestMasteryXPOnlyComesFromHumanPvP(t *testing.T) {
+	if got := MasteryXPFor(true, false); got != 0 {
+		t.Fatalf("treino venceu e recebeu %d XP de maestria; esperado 0", got)
+	}
+	if got := MasteryXPFor(false, false); got != 0 {
+		t.Fatalf("treino perdeu e recebeu %d XP de maestria; esperado 0", got)
+	}
+	if got := MasteryXPFor(false, true); got != 15 {
+		t.Fatalf("derrota PvP recebeu %d XP de maestria; esperado 15", got)
+	}
+	if got := MasteryXPFor(true, true); got != 30 {
+		t.Fatalf("vitória PvP recebeu %d XP de maestria; esperado 30", got)
+	}
+}
+
 // fake mínimo: captura a gravação de progresso.
 type progressFake struct {
 	domain.Store
@@ -246,11 +261,38 @@ func TestRecordFinishedMatchBuildsProgress(t *testing.T) {
 		t.Fatal("treino jamais é ranqueado")
 	}
 	entry := got.Players[0]
-	if entry.UserID != "humano-1" || !entry.Won || entry.MasteryXP != MasteryXPFor(true, false) {
+	if entry.UserID != "humano-1" || !entry.Won || entry.MasteryXP != 0 || entry.AccountXP != 0 {
 		t.Fatalf("entrada inesperada: %+v", entry)
 	}
 	if entry.RitualDay != "2026-08-10" {
 		t.Fatalf("dia do ritual: %s", entry.RitualDay)
+	}
+}
+
+func TestRecordFinishedPvPIsTheOnlySourceOfAccountXP(t *testing.T) {
+	fake := &progressFake{}
+	service := New(fake)
+	winner := 0
+	players := [2]FinishedPlayer{
+		{UserID: "humano-1", ChampionID: "CH-VH-01"},
+		{UserID: "humano-2", ChampionID: "CH-SO-01"},
+	}
+	if err := service.RecordFinishedMatch(context.Background(), "match-pvp", "pvp",
+		engine.CompetitiveRulesetVersion, players, &winner, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.captured; got == nil || len(got.Players) != 2 ||
+		got.Players[0].AccountXP != 30 || got.Players[1].AccountXP != 15 {
+		t.Fatalf("XP PvP inesperado: %+v", got)
+	}
+
+	if err := service.RecordFinishedMatch(context.Background(), "match-bot", "bot_custom",
+		engine.CompetitiveRulesetVersion, players, &winner, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.captured; got.Players[0].MasteryXP != 0 || got.Players[1].MasteryXP != 0 ||
+		got.Players[0].AccountXP != 0 || got.Players[1].AccountXP != 0 || got.Ranked {
+		t.Fatalf("modo não-PvP concedeu XP/rating: %+v", got)
 	}
 }
 

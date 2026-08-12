@@ -13,6 +13,40 @@ import (
 	"veurubro/backend/internal/engine"
 )
 
+func TestQueueMatchesOnlyAccountsWithinFiveLevels(t *testing.T) {
+	ctx := context.Background()
+	store := newMemoryBattleStore()
+	manager := NewManager(store)
+	manager.SetActiveRuleset(engine.RulesetVersion)
+	manager.readyTimeout = time.Hour
+
+	newPlayer := func(suffix, deckSuffix, champion string) (domain.Principal, domain.Deck) {
+		principal := domain.Principal{UserID: "00000000-0000-4000-8000-000000000" + suffix, Role: domain.RolePlayer}
+		deck := testDeck(t, principal.UserID, "00000000-0000-4000-8000-000000000"+deckSuffix, champion)
+		return principal, deck
+	}
+	levelOne, deckOne := newPlayer("111", "211", "CH-VH-01")
+	levelSeven, deckSeven := newPlayer("117", "217", "CH-SO-01")
+	levelSix, deckSix := newPlayer("116", "216", "CH-CI-01")
+
+	if result, err := manager.Queue(ctx, levelOne, deckOne, 1); err != nil || result.Status != "queued" {
+		t.Fatalf("nível 1 não entrou na fila: result=%+v err=%v", result, err)
+	}
+	if result, err := manager.Queue(ctx, levelSeven, deckSeven, 7); err != nil || result.Status != "queued" {
+		t.Fatalf("diferença 6 deveria aguardar: result=%+v err=%v", result, err)
+	}
+	if result, err := manager.Queue(ctx, levelSix, deckSix, 6); err != nil || result.Status != "matched" {
+		t.Fatalf("diferença 5 deveria parear: result=%+v err=%v", result, err)
+	}
+	if result, err := manager.QueueStatus(ctx, levelSeven.UserID); err != nil || result.Status != "queued" {
+		t.Fatalf("nível 7 deveria continuar aguardando: result=%+v err=%v", result, err)
+	}
+	invalid, invalidDeck := newPlayer("199", "299", "CH-VA-01")
+	if _, err := manager.Queue(ctx, invalid, invalidDeck, 100); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("nível forjado deveria ser rejeitado: %v", err)
+	}
+}
+
 func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) {
 	ctx := context.Background()
 	store := newMemoryBattleStore()
@@ -24,12 +58,15 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 	p1 := domain.Principal{UserID: "00000000-0000-4000-8000-000000000102", Role: domain.RolePlayer}
 	d0 := testDeck(t, p0.UserID, "00000000-0000-4000-8000-000000000201", "CH-VH-01")
 	d1 := testDeck(t, p1.UserID, "00000000-0000-4000-8000-000000000202", "CH-SO-01")
-	if result, err := manager.Queue(ctx, p0, d0); err != nil || result.Status != "queued" {
+	if result, err := manager.Queue(ctx, p0, d0, 1); err != nil || result.Status != "queued" {
 		t.Fatalf("primeiro na fila: result=%+v err=%v", result, err)
 	}
-	matched, err := manager.Queue(ctx, p1, d1)
+	matched, err := manager.Queue(ctx, p1, d1, 1)
 	if err != nil || matched.Status != "matched" {
 		t.Fatalf("match: result=%+v err=%v", matched, err)
+	}
+	if stored := store.matches[matched.MatchID].Match; stored.Mode != ModePvP {
+		t.Fatalf("partida da fila sem modo PvP explícito: %q", stored.Mode)
 	}
 	ticket0, err := manager.IssueTicket(ctx, p0, matched.MatchID, TicketPlayer)
 	if err != nil {
@@ -448,13 +485,13 @@ func TestQueueRejectsBannedCards(t *testing.T) {
 	deck := testDeck(t, p0.UserID, "deck-ban", "CH-VH-01")
 
 	store.bans = []domain.CardBan{{CardID: deck.Cards[0].CardID, Reason: "loop reportado"}}
-	if _, err := manager.Queue(ctx, p0, deck); err == nil ||
+	if _, err := manager.Queue(ctx, p0, deck, 1); err == nil ||
 		!strings.Contains(err.Error(), "desativada do competitivo") {
 		t.Fatalf("fila deveria recusar carta banida; err=%v", err)
 	}
 
 	store.bans = nil
-	if result, err := manager.Queue(ctx, p0, deck); err != nil || result.Status != "queued" {
+	if result, err := manager.Queue(ctx, p0, deck, 1); err != nil || result.Status != "queued" {
 		t.Fatalf("fila deveria aceitar após o lift; %+v err=%v", result, err)
 	}
 }
@@ -467,11 +504,11 @@ func TestQueueFollowsActiveRuleset(t *testing.T) {
 	deck := testDeck(t, p0.UserID, "deck-vs", "CH-VH-01")
 
 	manager.SetActiveRuleset("alpha-9.9.9")
-	if _, err := manager.Queue(ctx, p0, deck); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := manager.Queue(ctx, p0, deck, 1); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("deck de versão antiga deveria ser recusado; err=%v", err)
 	}
 	manager.SetActiveRuleset(engine.RulesetVersion)
-	if result, err := manager.Queue(ctx, p0, deck); err != nil || result.Status != "queued" {
+	if result, err := manager.Queue(ctx, p0, deck, 1); err != nil || result.Status != "queued" {
 		t.Fatalf("rollback deveria reabilitar o deck; %+v err=%v", result, err)
 	}
 }

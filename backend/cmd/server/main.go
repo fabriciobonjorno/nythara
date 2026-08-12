@@ -16,6 +16,7 @@ import (
 	"veurubro/backend/internal/config"
 	"veurubro/backend/internal/engine"
 	"veurubro/backend/internal/httpapi"
+	"veurubro/backend/internal/mailer"
 	"veurubro/backend/internal/storage"
 	"veurubro/backend/internal/telemetry"
 )
@@ -53,6 +54,35 @@ func main() {
 	}()
 
 	service := app.New(db)
+	if resendAPIKey := os.Getenv("RESEND_API_KEY"); resendAPIKey != "" {
+		sender, err := mailer.NewResend(resendAPIKey, os.Getenv("RESEND_FROM_EMAIL"))
+		if err != nil {
+			logger.Error("configuração do Resend inválida", "error", err)
+			os.Exit(1)
+		}
+		if err := service.ConfigurePasswordRecovery(sender, os.Getenv("PUBLIC_APP_URL")); err != nil {
+			logger.Error("configuração da recuperação de senha inválida", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("recuperação de senha configurada")
+	} else {
+		logger.Warn("recuperação de senha desativada; RESEND_API_KEY ausente")
+	}
+	googleClientID, googleClientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_ID"), os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+	if googleClientID != "" || googleClientSecret != "" {
+		if err := service.ConfigureGoogleOAuth(googleClientID, googleClientSecret, os.Getenv("PUBLIC_APP_URL")); err != nil {
+			logger.Error("configuração do Google OAuth inválida", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("Google OAuth configurado")
+	} else {
+		logger.Warn("Google OAuth desativado; credenciais ausentes")
+	}
+	if os.Getenv("RESEND_WEBHOOK_SECRET") == "" {
+		logger.Warn("webhook do Resend desativado; RESEND_WEBHOOK_SECRET ausente")
+	} else {
+		logger.Info("webhook do Resend configurado")
+	}
 	battleManager := battle.NewManager(db)
 
 	// Fase 7: versões publicadas ficam executáveis (replays históricos) e o
@@ -85,7 +115,8 @@ func main() {
 	})
 
 	handler, err := httpapi.NewWithOptions(service, battleManager, logger, db.Ping, httpapi.Options{
-		TrustedProxyCIDRs: os.Getenv("TRUSTED_PROXY_CIDRS"),
+		TrustedProxyCIDRs:   os.Getenv("TRUSTED_PROXY_CIDRS"),
+		ResendWebhookSecret: os.Getenv("RESEND_WEBHOOK_SECRET"),
 	})
 	if err != nil {
 		logger.Error("configuração HTTP inválida", "error", err)

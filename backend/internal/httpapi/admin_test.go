@@ -449,6 +449,8 @@ func (f *fakeStore) SaveRitualStates(_ context.Context, userID, day string, stat
 
 func (f *fakeStore) Fragments(context.Context, string) (int, error) { return 120, nil }
 
+func (f *fakeStore) AccountXP(context.Context, string) (int, error) { return 0, nil }
+
 func (f *fakeStore) MasteryFor(context.Context, string) ([]domain.ChampionMastery, error) {
 	return []domain.ChampionMastery{{ChampionID: "CH-VH-01", XP: 150, Games: 5, Wins: 3}}, nil
 }

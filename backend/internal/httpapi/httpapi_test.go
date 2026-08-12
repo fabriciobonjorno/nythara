@@ -3,12 +3,16 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -57,6 +61,109 @@ func TestAuthorizationGate(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("admin autenticado: status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
+func TestCatalogPublishesLegendaryUnlockLevels(t *testing.T) {
+	handler, _ := testHandler()
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v1/catalog/cards", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+	var payload struct {
+		Cards []struct {
+			ID          string `json:"id"`
+			Rarity      string `json:"rarity"`
+			UnlockLevel int    `json:"unlock_level"`
+		} `json:"cards"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, card := range payload.Cards {
+		if card.ID == "VR-012" {
+			found = card.Rarity == "Lendária" && card.UnlockLevel == 10
+		}
+		if card.Rarity != "Lendária" && card.UnlockLevel != 0 {
+			t.Fatalf("carta não-Lendária %s recebeu nível %d", card.ID, card.UnlockLevel)
+		}
+	}
+	if !found {
+		t.Fatalf("VR-012 sem marco de nível: %+v", payload.Cards)
+	}
+}
+
+func TestResendWebhookVerifiesRawBodyAndPersistsMinimalMetadata(t *testing.T) {
+	key := []byte("0123456789abcdef0123456789abcdef")
+	secret := "whsec_" + base64.StdEncoding.EncodeToString(key)
+	store := &fakeStore{tokens: map[string]domain.Principal{}}
+	service := app.New(store)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	handler, err := NewWithOptions(service, nil, logger, func(context.Context) error { return nil },
+		Options{ResendWebhookSecret: secret})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte(`{"type":"email.delivered","created_at":"2026-08-12T17:00:00Z","data":{"email_id":"email_123","to":["private@example.test"]}}`)
+	id := "msg_webhook_123"
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	signature := signWebhookHTTPTest(key, id, timestamp, raw)
+	request := httptest.NewRequest(http.MethodPost, "/v1/webhooks/resend", bytes.NewReader(raw))
+	request.Header.Set("svix-id", id)
+	request.Header.Set("svix-timestamp", timestamp)
+	request.Header.Set("svix-signature", "v1,"+signature)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || len(store.emailEvents) != 1 {
+		t.Fatalf("status=%d body=%s eventos=%+v", response.Code, response.Body.String(), store.emailEvents)
+	}
+	event := store.emailEvents[0]
+	if event.ProviderEventID != id || event.ProviderMessageID != "email_123" || event.EventType != "email.delivered" {
+		t.Fatalf("metadados inesperados: %+v", event)
+	}
+
+	tampered := httptest.NewRequest(http.MethodPost, "/v1/webhooks/resend", bytes.NewReader(append(raw, ' ')))
+	tampered.Header = request.Header.Clone()
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, tampered)
+	if response.Code != http.StatusBadRequest || len(store.emailEvents) != 1 {
+		t.Fatalf("payload adulterado: status=%d eventos=%d", response.Code, len(store.emailEvents))
+	}
+}
+
+func signWebhookHTTPTest(key []byte, id, timestamp string, raw []byte) string {
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write([]byte(id + "." + timestamp + "." + string(raw)))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+type noopRecoverySender struct{}
+
+func (noopRecoverySender) SendPasswordReset(context.Context, string, string, string, time.Duration) error {
+	return nil
+}
+
+func TestPasswordRecoveryHTTPDoesNotEnumerateAndConsumesValidToken(t *testing.T) {
+	handler, store := testHandler()
+	store.resetErr = domain.ErrNotFound
+	request := httptest.NewRequest(http.MethodPost, "/v1/auth/forgot-password",
+		bytes.NewBufferString(`{"email":"missing@example.test","locale":"pt-BR"}`))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("conta ausente foi enumerada: status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	store.resetErr = nil
+	token, _, _ := security.NewToken()
+	request = httptest.NewRequest(http.MethodPost, "/v1/auth/reset-password",
+		bytes.NewBufferString(`{"token":"`+token+`","password":"nova-senha-segura-2026"}`))
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || !store.resetPassword {
+		t.Fatalf("reset válido: status=%d body=%s consumed=%t", response.Code, response.Body.String(), store.resetPassword)
 	}
 }
 
@@ -176,14 +283,37 @@ type fakeStore struct {
 	liveops       *liveopsState
 	replay        *domain.MatchReplayData
 	feedback      []domain.Feedback
+	resetUser     domain.User
+	resetErr      error
+	resetSaved    domain.PasswordResetToken
+	resetPassword bool
+	emailEvents   []domain.EmailDeliveryEvent
 }
 
 func (*fakeStore) CreateUser(context.Context, domain.User, string) (domain.User, error) {
 	panic("not used")
 }
-func (*fakeStore) UserByEmail(context.Context, string) (domain.User, error) { panic("not used") }
-func (*fakeStore) UserByID(context.Context, string) (domain.User, error)    { panic("not used") }
-func (*fakeStore) CreateSession(context.Context, domain.NewSession) error   { panic("not used") }
+func (f *fakeStore) UserByEmail(context.Context, string) (domain.User, error) {
+	return f.resetUser, f.resetErr
+}
+func (*fakeStore) UserByID(context.Context, string) (domain.User, error) { panic("not used") }
+func (*fakeStore) UserByOAuth(context.Context, string, string) (domain.User, error) {
+	panic("not used")
+}
+func (*fakeStore) LinkOAuth(context.Context, string, string, string) error { panic("not used") }
+func (*fakeStore) SaveOAuthTicket(context.Context, []byte, string, time.Time) error {
+	panic("not used")
+}
+func (*fakeStore) ConsumeOAuthTicket(context.Context, []byte, time.Time) (string, error) {
+	panic("not used")
+}
+func (*fakeStore) UpdateProfileAvatar(context.Context, string, string) (domain.User, error) {
+	panic("not used")
+}
+func (*fakeStore) ChangePassword(context.Context, string, string, time.Time) error {
+	panic("not used")
+}
+func (*fakeStore) CreateSession(context.Context, domain.NewSession) error { panic("not used") }
 func (f *fakeStore) AccessToken(_ context.Context, hash []byte, _ time.Time) (domain.TokenRecord, error) {
 	principal, ok := f.tokens[string(hash)]
 	if !ok {
@@ -195,6 +325,18 @@ func (*fakeStore) RotateSession(context.Context, []byte, domain.RotatedSession, 
 	panic("not used")
 }
 func (*fakeStore) RevokeSession(context.Context, []byte) error { panic("not used") }
+func (f *fakeStore) SavePasswordReset(_ context.Context, reset domain.PasswordResetToken) error {
+	f.resetSaved = reset
+	return nil
+}
+func (f *fakeStore) ConsumePasswordReset(context.Context, []byte, time.Time, string) error {
+	f.resetPassword = true
+	return f.resetErr
+}
+func (f *fakeStore) SaveEmailDeliveryEvent(_ context.Context, event domain.EmailDeliveryEvent) error {
+	f.emailEvents = append(f.emailEvents, event)
+	return nil
+}
 func (*fakeStore) Collection(context.Context, string, string) (domain.Collection, error) {
 	return domain.Collection{}, nil
 }
