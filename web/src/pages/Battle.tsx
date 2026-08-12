@@ -17,6 +17,7 @@ import { usePreferencesStore, useSessionStore } from "../store";
 import type { BattleEvent, BattleState, CardDefinition, Champion, PlayerView } from "../types";
 import { useBattleSocket } from "../useBattleSocket";
 import { translateText } from "../i18n";
+import { battleTiming, paceScale, type AnimationPace } from "../battleTiming";
 
 // Mesa de duelo. A regra continua inteiramente na engine: esta tela só desenha
 // o estado publicado. A permanência das cartas na arena é apresentação — nada
@@ -36,8 +37,6 @@ interface ArenaVisual {
   phase: ArenaPhase;
   stale?: boolean;
 }
-
-type Pace = "cinematic" | "normal" | "quick";
 
 export function BattlePage() {
   const { matchId = "" } = useParams();
@@ -59,7 +58,7 @@ export function BattlePage() {
     baseLoss: rulesetData?.pressure_base_loss ?? 0,
   }), [rulesetData?.pressure_base_loss, rulesetData?.pressure_start_turn]);
   const battle = useBattleSocket(matchId);
-  const fx = useBattleFx(battle.events, battle.slot, { reducedMotion, sound, haptics });
+  const fx = useBattleFx(battle.events, battle.slot, { reducedMotion, sound, haptics, animationPace });
   const arena = useArena(battle.events, reducedMotion, animationPace);
   const [zoomed, setZoomed] = useState<CardDefinition | null>(null);
   const [logOpen, setLogOpen] = useState(false);
@@ -305,9 +304,12 @@ function ArenaTable({ visual, cards, mySlot, state, events, dragging, clock }: {
 }) {
   const attack = visual ? cards.get(visual.attackDef) : undefined;
   const guard = visual?.guardDef ? cards.get(visual.guardDef) : undefined;
-  const resolved = visual?.phase === "impact" || visual?.phase === "settled";
-  const attackBroken = resolved && visual?.outcome === "guard";
-  const guardBroken = resolved && visual?.outcome === "assault";
+  // O impacto primeiro revela a conta. A rachadura e o carimbo só entram no
+  // assentamento, depois da pausa de leitura, para a carta não explodir junto
+  // com o primeiro frame do choque.
+  const settled = visual?.phase === "settled";
+  const attackBroken = settled && visual?.outcome === "guard";
+  const guardBroken = settled && visual?.outcome === "assault";
   const attackerIsMe = visual?.attacker === mySlot;
   // O relógio da Pressão é regra do ruleset ativo. Fixá-lo aqui já fez a mesa
   // anunciar pressão em um turno em que a engine não aplicava nada.
@@ -335,7 +337,7 @@ function ArenaTable({ visual, cards, mySlot, state, events, dragging, clock }: {
         card={attack}
         broken={Boolean(attackBroken)}
         side={attackerIsMe ? "own" : "rival"}
-        stamp={visual && resolved ? (attackBroken ? "ESTILHAÇADA" : "ATRAVESSOU") : undefined}
+        stamp={visual && settled ? (attackBroken ? "ESTILHAÇADA" : "ATRAVESSOU") : undefined}
         idleTitle={visual ? (attackerIsMe ? "SEU ASSALTO" : "ASSALTO DO RIVAL") : "ASSALTO"}
         idleHint="A carta atacante fica aqui"
       />
@@ -347,7 +349,7 @@ function ArenaTable({ visual, cards, mySlot, state, events, dragging, clock }: {
         card={guard}
         broken={Boolean(guardBroken)}
         side={attackerIsMe ? "rival" : "own"}
-        stamp={visual && resolved && !guard ? "SEM GUARDA" : visual && resolved ? (guardBroken ? "ROMPIDA" : "SEGUROU") : undefined}
+        stamp={visual && settled && !guard ? "SEM GUARDA" : visual && settled ? (guardBroken ? "ROMPIDA" : "SEGUROU") : undefined}
         idleTitle={visual ? (attackerIsMe ? "GUARDA DO RIVAL" : "SUA GUARDA") : "GUARDA"}
         idleHint={visual && visual.phase === "waiting" ? "Aguardando a resposta" : "A resposta defensiva fica aqui"}
         waiting={visual?.phase === "waiting"}
@@ -823,7 +825,7 @@ function GuidedCoach({ lesson, progress, onClose }: { lesson: GuidedLesson; prog
   return <aside className={`guided-coach is-${lesson.tone}`} aria-live="polite" aria-label="Treino guiado"><header><span><UiIcon name="guide" /><small>TREINO GUIADO · {progress.completed}/3</small></span><button type="button" onClick={onClose} aria-label="Encerrar treino guiado"><UiIcon name="close" /></button></header><p className="eyebrow">{lesson.eyebrow}</p><strong>{lesson.title}</strong><p>{lesson.copy}</p><div>{steps.map(([label, done]) => <span className={done ? "is-done" : ""} key={label}><i>{done ? "✓" : ""}</i>{label}</span>)}</div></aside>;
 }
 
-function useFreshHandCards(ids: string[], reducedMotion: boolean, pace: Pace) {
+function useFreshHandCards(ids: string[], reducedMotion: boolean, pace: AnimationPace) {
   const [fresh, setFresh] = useState<Set<string>>(() => new Set());
   const previous = useRef<Set<string> | null>(null);
   const signature = ids.join("|");
@@ -846,7 +848,7 @@ function useFreshHandCards(ids: string[], reducedMotion: boolean, pace: Pace) {
 
 // A arena guarda o confronto na mesa até que outro comece ou o turno vire.
 // Quem some sem aviso é quem cria ambiguidade — aqui nada evapora sozinho.
-function useArena(events: BattleEvent[], reducedMotion: boolean, pace: Pace) {
+function useArena(events: BattleEvent[], reducedMotion: boolean, pace: AnimationPace) {
   const [visual, setVisual] = useState<ArenaVisual | null>(null);
   const visualRef = useRef<ArenaVisual | null>(null);
   const lastSeq = useRef(-1);
@@ -867,16 +869,16 @@ function useArena(events: BattleEvent[], reducedMotion: boolean, pace: Pace) {
     lastSeq.current = events[events.length - 1].seq;
 
     const update = (next: ArenaVisual | null) => { visualRef.current = next; setVisual(next); };
+    const timing = battleTiming(pace, reducedMotion);
     const after = (ms: number, run: () => void) => {
-      const delay = reducedMotion ? Math.min(ms, 140) : ms * paceScale(pace);
-      const timer = window.setTimeout(run, delay);
+      const timer = window.setTimeout(run, ms);
       timers.current.push(timer);
     };
 
     for (const event of fresh) {
       if (event.kind === "confrontation_opened" && event.def) {
         update({ key: event.seq, attackDef: event.def, attacker: event.p, power: event.n, prevention: 0, damage: 0, phase: "attack" });
-        after(620, () => { if (visualRef.current?.key === event.seq) update({ ...visualRef.current, phase: "waiting" }); });
+        after(timing.attackToWaitingMs, () => { if (visualRef.current?.key === event.seq) update({ ...visualRef.current, phase: "waiting" }); });
       }
       if (event.kind === "guard_committed" && event.def && visualRef.current) {
         update({ ...visualRef.current, guardDef: event.def, prevention: event.n, phase: "guard" });
@@ -887,8 +889,14 @@ function useArena(events: BattleEvent[], reducedMotion: boolean, pace: Pace) {
           power: event.from, prevention: event.to, damage: 0, phase: "impact" as const,
         };
         const resolved: ArenaVisual = { ...base, power: event.from, prevention: event.to, damage: event.n, outcome: event.s, phase: "impact" };
-        after(base.guardDef ? 620 : 320, () => update(resolved));
-        after(base.guardDef ? 1500 : 1200, () => update({ ...resolved, phase: "settled" }));
+        const impactAt = base.guardDef ? timing.guardedImpactMs : timing.directImpactMs;
+        const settleAt = base.guardDef ? timing.guardedSettleMs : timing.directSettleMs;
+        after(impactAt, () => {
+          if (visualRef.current?.key === resolved.key) update(resolved);
+        });
+        after(settleAt, () => {
+          if (visualRef.current?.key === resolved.key) update({ ...resolved, phase: "settled" });
+        });
       }
       // A troca anterior nunca some sozinha: ao virar o turno ela apenas vira
       // histórico na mesa e só é substituída pelo próximo confronto.
@@ -908,10 +916,6 @@ function useArena(events: BattleEvent[], reducedMotion: boolean, pace: Pace) {
 // painel desenha a mesma duração como barra, então o número vive num lugar só.
 function autoPassDelay(reducedMotion: boolean) {
   return reducedMotion ? 350 : 1050;
-}
-
-function paceScale(pace: Pace) {
-  return pace === "quick" ? .6 : pace === "normal" ? .82 : 1;
 }
 
 function Deadline({ value }: { value: string | null }) {

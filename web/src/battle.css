@@ -300,14 +300,27 @@
 /* Pouso curto e direcional: o deslocamento é pequeno de propósito — se a
    animação encalhar (aba oculta, motion reduzido), a carta continua dentro
    da mesa em vez de ficar parada fora dela. */
-.arena-slot.from-own .arena-slot__card { animation: land-own .5s cubic-bezier(.16, .9, .28, 1) backwards; }
-.arena-slot.from-rival .arena-slot__card { animation: land-rival .5s cubic-bezier(.16, .9, .28, 1) backwards; }
+.arena-slot.is-assault.from-own .arena-slot__card { animation: land-own var(--card-flight-duration) cubic-bezier(.16, .9, .28, 1) backwards; }
+.arena-slot.is-assault.from-rival .arena-slot__card { animation: land-rival var(--card-flight-duration) cubic-bezier(.16, .9, .28, 1) backwards; }
+.arena-slot.is-guard.from-own .arena-slot__card { animation: land-own var(--guard-flight-duration) cubic-bezier(.16, .9, .28, 1) backwards; }
+.arena-slot.is-guard.from-rival .arena-slot__card { animation: land-rival var(--guard-flight-duration) cubic-bezier(.16, .9, .28, 1) backwards; }
 @keyframes land-own { from { opacity: 0; transform: translateY(3rem) rotate(-5deg) scale(.88); } to { opacity: 1; transform: none; } }
 @keyframes land-rival { from { opacity: 0; transform: translateY(-3rem) rotate(5deg) scale(.88); } to { opacity: 1; transform: none; } }
 /* O impacto anima a carta interna: se sobrescrevesse a animação de pouso, a
    troca de fase reiniciaria o voo e a carta sairia da mesa. */
-.arena.is-impact .arena-slot__card .duel-card { animation: card-hit .42s ease both; }
+.arena.is-impact .arena-slot__card .duel-card { animation: card-hit var(--impact-duration) ease both; }
 @keyframes card-hit { 40% { transform: scale(1.06); filter: brightness(1.45); } }
+.arena.is-settled .arena-slot__card .duel-card.is-broken {
+  transform-origin: center;
+  animation: card-shatter var(--shatter-duration) cubic-bezier(.18, .72, .2, 1) both;
+}
+@keyframes card-shatter {
+  0% { transform: scale(1.04); filter: brightness(1.55) saturate(1.1); }
+  14% { transform: translateX(-2px) rotate(-.8deg) scale(1.025); }
+  25% { transform: translateX(2px) rotate(.8deg) scale(1.015); }
+  42% { transform: none; filter: brightness(.88) saturate(.62); }
+  100% { transform: scale(.98); filter: brightness(.72) saturate(.45); }
+}
 
 .arena-slot__stamp {
   position: absolute;
