@@ -8,7 +8,10 @@ import "./battle.css";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+const root = document.getElementById("root")!;
+root.replaceChildren();
+
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter><App /></BrowserRouter>

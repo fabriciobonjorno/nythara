@@ -76,8 +76,8 @@ export function CardTile({ card, quantity, selected, compact = false, disabled =
       <p className={compact ? "card-rules-preview" : undefined}>{tacticalText}</p>
       <div className="card-tile__bottom">
         <footer><span>{card.id}</span><span>{metric}</span></footer>
-        {typeof quantity === "number" && <span className="card-owned" aria-label={typeof selected === "number" ? `${selected} de ${quantity} cópias no deck` : `${quantity} cópias disponíveis`}>
-          <small>{typeof selected === "number" ? "NO DECK" : "COLEÇÃO"}</small>
+        {typeof quantity === "number" && <span className="card-owned" aria-label={typeof selected === "number" ? `${selected} de ${quantity} cópias no baralho` : `${quantity} cópias disponíveis`}>
+          <small>{typeof selected === "number" ? "NO BARALHO" : "COLEÇÃO"}</small>
           <strong>{typeof selected === "number" ? `${selected}/${quantity}` : `×${quantity}`}</strong>
         </span>}
       </div>
@@ -88,7 +88,7 @@ export function CardTile({ card, quantity, selected, compact = false, disabled =
     <>
       <div className={`card-tile-wrap ${levelLocked ? "is-level-locked" : ""}`}>
         {body}
-        <button className="card-tile-main-action" type="button" disabled={disabled} onClick={onSelect ?? (() => setZoomed(true))} aria-label={onSelect ? `${card.name}, adicionar ao deck` : `${card.name}, ampliar`} />
+        <button className="card-tile-main-action" type="button" disabled={disabled} onClick={onSelect ?? (() => setZoomed(true))} aria-label={onSelect ? `${card.name}, adicionar ao baralho` : `${card.name}, ampliar`} />
         {onSelect && <button className="card-zoom-button" type="button" onClick={() => setZoomed(true)} aria-label={`Ampliar ${card.name}`}><CardZoomIcon /></button>}
       </div>
       {zoomed && (

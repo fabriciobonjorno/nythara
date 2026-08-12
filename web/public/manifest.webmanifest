@@ -1,12 +1,17 @@
 {
   "name": "Nythara",
   "short_name": "Nythara",
-  "description": "Card game PvP original de confronto central.",
+  "description": "Jogo de cartas online PvP gratuito com duelos estratégicos 1v1 em tempo real.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#09070a",
   "theme_color": "#1a0b12",
   "lang": "pt-BR",
+  "categories": ["games", "entertainment", "strategy"],
+  "scope": "/",
+  "id": "/",
+  "orientation": "any",
+  "prefer_related_applications": false,
   "icons": [
     { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }

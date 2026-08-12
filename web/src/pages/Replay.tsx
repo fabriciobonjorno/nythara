@@ -105,9 +105,9 @@ export function ReplayPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [cursor, maximum]);
 
-  if (matchId && replayQuery.isLoading) return <ReplayLoadState title="Abrindo replay" copy="Reconstruindo a mesa a partir dos eventos autorizados da partida…" />;
-  if (matchId && (replayQuery.error || !replayQuery.data)) return <Missing title="Replay indisponível" copy={replayQuery.error instanceof Error ? replayQuery.error.message : "Não foi possível abrir o registro desta partida."} action="Voltar à Arena" to="/arena" />;
-  if (!source || !frame) return <Missing title="Replay indisponível" copy="Conclua uma partida ou escolha um duelo no histórico da Arena." action="Abrir Arena" to="/arena" />;
+  if (matchId && replayQuery.isLoading) return <ReplayLoadState title="Abrindo repetição" copy="Reconstruindo a mesa a partir dos eventos autorizados da partida…" />;
+  if (matchId && (replayQuery.error || !replayQuery.data)) return <Missing title="Repetição indisponível" copy={replayQuery.error instanceof Error ? replayQuery.error.message : "Não foi possível abrir o registro desta partida."} action="Voltar à Arena" to="/arena" />;
+  if (!source || !frame) return <Missing title="Repetição indisponível" copy="Conclua uma partida ou escolha um duelo no histórico da Arena." action="Abrir Arena" to="/arena" />;
   const mine = source.slot;
   const rival = 1 - mine;
   const currentCard = frame.event.def ? cards.get(frame.event.def) : undefined;
@@ -124,7 +124,7 @@ export function ReplayPage() {
   };
 
   return <div className="page replay-page">
-    <header className="page-header replay-header"><div><p className="eyebrow">REPRODUÇÃO VISUAL · LOG REDIGIDO</p><h1>{matchId ? "Replay da partida" : "Replay da sessão"}</h1><p>Veja a mesa mudar evento por evento, no mesmo resultado confirmado pelo servidor.</p></div><div className="replay-header__status"><span className={playing ? "is-live" : ""}>{playing ? "REPRODUZINDO" : "PAUSADO"}</span><b>{frames.length} eventos</b><nav aria-label="Outras leituras da partida"><Link to={`/cronica/${source.matchId}`}>Crônica</Link><Link to="/arena">Arena</Link></nav></div></header>
+    <header className="page-header replay-header"><div><p className="eyebrow">REPRODUÇÃO VISUAL · REGISTRO REDIGIDO</p><h1>{matchId ? "Repetição da partida" : "Repetição da sessão"}</h1><p>Veja a mesa mudar evento por evento, no mesmo resultado confirmado pelo servidor.</p></div><div className="replay-header__status"><span className={playing ? "is-live" : ""}>{playing ? "REPRODUZINDO" : "PAUSADO"}</span><b>{frames.length} eventos</b><nav aria-label="Outras leituras da partida"><Link to={`/cronica/${source.matchId}`}>Crônica</Link><Link to="/arena">Arena</Link></nav></div></header>
 
     <div className="replay-layout">
       <section className="replay-player is-rival" aria-label="Estado do rival">
@@ -133,7 +133,7 @@ export function ReplayPage() {
         <ReplayHand label="Mão do rival" items={frame.handCards[rival]} count={frame.hand[rival]} currentSeq={frame.event.seq} cards={cards} />
       </section>
 
-      <section className={`replay-board phase-${frame.phase}`} aria-label={`Mesa do replay, rodada ${frame.round}`}>
+      <section className={`replay-board phase-${frame.phase}`} aria-label={`Mesa da repetição, rodada ${frame.round}`}>
         <ReplayPhaseRail phase={frame.phase} active={frame.active === mine ? "SUA AÇÃO" : "AÇÃO DO RIVAL"} />
         <div className="replay-confront" key={`${frame.event.seq}-${cursor}`}>
           <div className="replay-slot is-assault">
@@ -159,11 +159,11 @@ export function ReplayPage() {
 
       <section className="replay-transport" aria-label="Controles de reprodução">
         <button type="button" aria-label="Evento anterior" onClick={() => seek(cursor - 1)} disabled={cursor === 0}><UiIcon name="arrow-left" /><span>Anterior</span></button>
-        <button className="replay-play" type="button" onClick={togglePlayback} aria-label={playing ? "Pausar replay" : "Reproduzir replay"}><b>{playing ? "Ⅱ" : "▶"}</b><span>{playing ? "Pausar" : cursor >= maximum ? "Recomeçar" : "Reproduzir"}</span></button>
+        <button className="replay-play" type="button" onClick={togglePlayback} aria-label={playing ? "Pausar repetição" : "Reproduzir repetição"}><b>{playing ? "Ⅱ" : "▶"}</b><span>{playing ? "Pausar" : cursor >= maximum ? "Recomeçar" : "Reproduzir"}</span></button>
         <button type="button" aria-label="Próximo evento" onClick={() => seek(cursor + 1)} disabled={cursor >= maximum}><span>Próximo</span><UiIcon name="arrow-right" /></button>
         <label><span>Velocidade</span><select value={speed} onChange={(event) => setSpeed(Number(event.target.value))}><option value={0.75}>0,75×</option><option value={1}>1×</option><option value={1.5}>1,5×</option><option value={2}>2×</option></select></label>
-        <div className="replay-scrubber"><input aria-label="Posição do replay" type="range" min="0" max={maximum} value={cursor} onChange={(event) => seek(Number(event.target.value))} /><small>Evento {cursor + 1} de {frames.length}</small></div>
-        <p><kbd>Espaço</kbd> play/pausa <kbd>←</kbd><kbd>→</kbd> navegar</p>
+        <div className="replay-scrubber"><input aria-label="Posição da repetição" type="range" min="0" max={maximum} value={cursor} onChange={(event) => seek(Number(event.target.value))} /><small>Evento {cursor + 1} de {frames.length}</small></div>
+        <p><kbd>Espaço</kbd> reproduzir/pausar <kbd>←</kbd><kbd>→</kbd> navegar</p>
       </section>
 
       <aside className="replay-timeline"><header><div><p className="eyebrow">CRÔNICA VISUAL</p><h2>Linha do tempo</h2></div><span>{cursor + 1}/{frames.length}</span></header><div>{frames.map((item, index) => {
@@ -171,7 +171,7 @@ export function ReplayPage() {
         return <button type="button" className={`${index === cursor ? "is-current" : ""} ${index < cursor ? "is-past" : ""}`} aria-current={index === cursor ? "step" : undefined} onClick={() => seek(index)} key={item.event.seq}><span>{item.event.seq + 1}</span><div><strong>{eventTitle(item.event, card)}</strong><small>Rodada {item.round} · {item.phase}</small></div></button>;
       })}</div></aside>
     </div>
-    <p className="honesty-note"><strong>Replay fiel ao registro visível.</strong> A mesa usa somente eventos redigidos recebidos por você durante esta partida; cartas que o servidor manteve ocultas continuam ocultas.</p>
+    <p className="honesty-note"><strong>Repetição fiel ao registro visível.</strong> A mesa usa somente eventos redigidos recebidos por você durante esta partida; cartas que o servidor manteve ocultas continuam ocultas.</p>
   </div>;
 }
 
@@ -404,7 +404,7 @@ function eventTitle(event: BattleEvent, card?: CardDefinition) {
 
 function eventDetail(event: BattleEvent, card: CardDefinition | undefined, mine: number) {
   const actor = event.p === mine ? "Você" : event.p >= 0 ? "O rival" : "A Arena";
-  if (event.kind === "match_started") return `Ruleset ${event.s ?? "competitivo"} carregado; a ordem inicial foi confirmada.`;
+  if (event.kind === "match_started") return `Conjunto de regras ${event.s ?? "competitivo"} carregado; a ordem inicial foi confirmada.`;
   if (event.kind === "confrontation_opened") return `${actor} colocou ${card?.name ?? "um Assalto"} no centro com Poder ${event.n}.`;
   if (event.kind === "guard_committed") return `${actor} respondeu com ${card?.name ?? "uma Guarda"} e ${event.n} de Prevenção.`;
   if (event.kind === "confrontation_resolved") return `Poder ${event.from} contra Prevenção ${event.to}: ${event.n ? `${event.n} de dano atravessou.` : "o golpe foi bloqueado."}`;

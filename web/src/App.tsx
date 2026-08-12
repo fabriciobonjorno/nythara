@@ -15,6 +15,7 @@ import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordRecovery"
 import { Missing, ProfilePage, ResultPage, SettingsPage, TutorialPage } from "./pages/Secondary";
 import { usePreferencesStore, useSessionStore } from "./store";
 import { installDocumentLocalization } from "./documentLocalization";
+import { applyRouteMetadata } from "./seo";
 import { ReactivationDecisionModal } from "./components/ReactivationDecisionModal";
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,12 @@ function Protected({ children }: { children: React.ReactNode }) {
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
+
+function RouteMetadata({ locale }: { locale: "pt-BR" | "es" | "en" }) {
+  const { pathname, search } = useLocation();
+  useEffect(() => applyRouteMetadata(pathname, search, locale), [locale, pathname, search]);
   return null;
 }
 
@@ -39,7 +46,7 @@ export default function App() {
     document.documentElement.dataset.pace = preferences.animationPace;
   }, [preferences.animationPace, preferences.combatHints, preferences.highContrast, preferences.largeText, preferences.reducedMotion]);
 
-  return <><ScrollToTop /><Routes>
+  return <><ScrollToTop /><RouteMetadata locale={preferences.locale} /><Routes>
     <Route path="/" element={<Landing />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
     <Route path="/reset-password" element={<ResetPasswordPage />} />

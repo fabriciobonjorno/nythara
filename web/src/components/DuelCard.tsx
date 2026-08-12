@@ -39,7 +39,13 @@ export function DuelCard({ card, size, broken, dimmed, banner }: {
     >
       <div className="duel-card__art" aria-hidden="true">
         <span className="duel-card__fallback"><CardSigil sigil={card.sigil} /></span>
-        <img src={artworkPath(card)} alt="" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true; }} />
+        <img
+          src={artworkPath(card)}
+          alt=""
+          loading={size === "hand" ? "lazy" : "eager"}
+          decoding="async"
+          onError={(event) => { event.currentTarget.hidden = true; }}
+        />
       </div>
       {banner && <span className="duel-card__banner">{banner}</span>}
       <header className="duel-card__head">

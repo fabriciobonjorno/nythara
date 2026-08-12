@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { api } from "../api";
-import { AlphaNotesPanel } from "./Admin";
+import { AlphaNotesPanel, endReasonLabel } from "./Admin";
 
 vi.mock("../api", () => ({ api: vi.fn() }));
 
@@ -41,5 +41,12 @@ describe("caixa de sugestões do Salão", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(await screen.findByText(suggestion.message)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+});
+
+describe("motivos de encerramento no Salão", () => {
+  it("distingue espera expirada e preserva motivos ainda não mapeados", () => {
+    expect(endReasonLabel("ready_timeout")).toBe("tempo de prontidão esgotado");
+    expect(endReasonLabel("maintenance_cancelled")).toBe("maintenance_cancelled");
   });
 });

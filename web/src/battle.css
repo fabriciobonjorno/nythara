@@ -14,11 +14,14 @@
   --assault: #b8455c;
   --guard: #6f9ec0;
   --rite: #b98fd0;
-  --hand-w: clamp(7.4rem, 9.2vw, 9.1rem);
+  --hand-w: clamp(8rem, min(10.2vw, 20vh), 11rem);
 
   position: relative;
   isolation: isolate;
+  width: 100%;
+  min-width: 0;
   height: 100svh;
+  overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   background:
@@ -57,6 +60,7 @@
 /* ------------------------------------------------------------- topo */
 
 .duel-topbar {
+  min-width: 0;
   z-index: 8;
   height: 2.8rem;
   display: grid;
@@ -86,17 +90,19 @@
 /* ------------------------------------------------------- mesa + trilho */
 
 .duel-frame {
+  width: 100%;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(14rem, 20vw, 18.5rem);
   gap: .6rem;
   padding: .6rem;
 }
-.duel-board { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .5rem; }
+.duel-board { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: .5rem; }
 
 /* ------------------------------------------------------------ duelista */
 
 .duelist {
+  min-width: 0;
   display: grid;
   grid-template-columns: minmax(9rem, 1.1fr) auto auto minmax(0, 1fr);
   align-items: center;
@@ -264,11 +270,63 @@
 .arena__lane {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(10rem, .85fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) clamp(10rem, 12vw, 13rem) minmax(0, 1fr);
   align-items: center;
   justify-items: center;
   gap: clamp(.5rem, 2vw, 1.6rem);
 }
+
+/* Ritos, Relíquias e Manifestações também ocupam fisicamente o centro. A
+   engine pode resolver o efeito no mesmo pacote de rede; a mesa, porém,
+   conserva pouso -> leitura -> impacto para o jogador nunca receber apenas
+   uma subtração sem saber qual carta a provocou. */
+.arena-effect {
+  min-height: 0;
+  align-self: center;
+  justify-self: center;
+  display: grid;
+  grid-template-columns: auto clamp(9rem, 13vw, 12rem);
+  grid-template-areas: "label label" "card result";
+  align-items: center;
+  gap: .45rem 1.4rem;
+  padding: .5rem 1.2rem;
+}
+.arena-effect__label {
+  grid-area: label;
+  justify-self: center;
+  color: #c9a8d5;
+  font-size: .46rem;
+  font-weight: 800;
+  letter-spacing: .3em;
+}
+.arena-effect__card { grid-area: card; position: relative; }
+.arena-effect__card .duel-card { width: clamp(9rem, min(13vw, 22vh), 12rem); }
+.arena-effect.from-own .arena-effect__card { animation: land-own var(--card-flight-duration) cubic-bezier(.16, .9, .28, 1) backwards; }
+.arena-effect.from-rival .arena-effect__card { animation: land-rival var(--card-flight-duration) cubic-bezier(.16, .9, .28, 1) backwards; }
+.arena-effect__result {
+  grid-area: result;
+  width: clamp(9rem, 13vw, 12rem);
+  display: grid;
+  justify-items: center;
+  gap: .35rem;
+  padding: 1rem .75rem;
+  color: var(--gold-bright);
+  text-align: center;
+  background: radial-gradient(circle, #3b203b99, #100a10e6);
+  border: 1px solid #6b496f;
+  box-shadow: inset 0 0 28px #000a;
+}
+.arena-effect__result .ui-icon { width: 1.8rem; height: 1.8rem; color: #caa3da; }
+.arena-effect__result strong { font: 400 .82rem Georgia, serif; letter-spacing: .1em; }
+.arena-effect__result small { color: var(--muted); font-size: .46rem; line-height: 1.35; }
+.arena-effect__result.is-resolved {
+  color: #ff98a6;
+  background: radial-gradient(circle, #541d2c99, #100a10e6);
+  border-color: #a53b4d;
+  animation: verdict-pop var(--impact-duration) cubic-bezier(.2, 1.35, .4, 1) both;
+}
+.arena.is-impact .arena-effect__card .duel-card { animation: card-hit var(--impact-duration) ease both; }
+.arena.is-stale .arena-effect { opacity: .68; transition: opacity .5s ease; }
 
 .arena-slot { position: relative; display: grid; justify-items: center; gap: .35rem; }
 .arena-slot__label {
@@ -280,7 +338,7 @@
 .arena-slot.is-assault .arena-slot__label { color: #c1808e; }
 .arena-slot.is-guard .arena-slot__label { color: #8fadc4; }
 .arena-slot__ghost {
-  width: clamp(7rem, 11vw, 9.6rem);
+  width: clamp(9rem, min(13vw, 22vh), 12rem);
   aspect-ratio: 5 / 7;
   display: grid; place-content: center; justify-items: center; gap: .4rem;
   padding: .8rem;
@@ -296,7 +354,7 @@
 @keyframes slot-waiting { to { box-shadow: inset 0 0 30px #b5813a3d, 0 0 22px #b5813a3d; } }
 
 .arena-slot__card { position: relative; }
-.arena-slot__card .duel-card { width: clamp(7rem, 11vw, 9.6rem); }
+.arena-slot__card .duel-card { width: clamp(9rem, min(13vw, 22vh), 12rem); }
 /* Pouso curto e direcional: o deslocamento é pequeno de propósito — se a
    animação encalhar (aba oculta, motion reduzido), a carta continua dentro
    da mesa em vez de ficar parada fora dela. */
@@ -377,7 +435,7 @@
 
 /* Crônica no feltro: as três últimas coisas que aconteceram, por extenso. */
 .arena__chronicle { margin: 0; padding: 0; list-style: none; display: grid; gap: .12rem; justify-items: center; }
-.arena__chronicle li { color: #d8a05e; font: italic .55rem/1.4 Georgia, serif; letter-spacing: .02em; text-shadow: 0 1px 6px #000; }
+.arena__chronicle li { color: #d8a05e; font: italic clamp(.58rem, .68vw, .78rem)/1.4 Georgia, serif; letter-spacing: .02em; text-shadow: 0 1px 6px #000; }
 .arena__chronicle li:last-child { color: #f3cf94; }
 
 /* A troca resolvida vira histórico visível: esmaece, mas não desaparece. */
@@ -404,7 +462,7 @@
 .inspector__eyebrow { margin: 0; color: var(--gold); font-size: .46rem; font-weight: 800; letter-spacing: .26em; }
 /* Altura limitada com proporção 2:3 preservada: a carta cabe no trilho e a
    ilustração continua inteira, sem recorte e sem tarjas. */
-.inspector .duel-card { align-self: center; width: auto; height: clamp(9.5rem, 28vh, 14rem); }
+.inspector .duel-card { align-self: center; width: auto; height: clamp(11rem, 30vh, 16rem); }
 /* No inspetor a ilustração aparece inteira: o texto vai para fora da carta. */
 .size-inspect .duel-card__text { display: none; }
 .inspector__stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .3rem; margin: 0; }
@@ -522,6 +580,7 @@
 /* --------------------------------------------------------------- rodapé */
 
 .duel-base {
+  min-width: 0;
   position: relative;
   z-index: 4;
   display: grid;
@@ -938,14 +997,24 @@
      clipping é intencional: conteúdo da arena jamais pinta sobre as barras. */
   .arena { padding: .45rem .45rem .55rem; gap: .3rem; overflow: hidden; }
   .arena__lane {
+    width: 100%;
     grid-template-columns: 1fr 1fr;
     grid-template-areas: "assault guard" "verdict verdict";
     gap: .5rem;
   }
+  .arena-effect { width: 100%; grid-template-columns: 1fr 1fr; gap: .4rem; padding: .25rem; }
+  .arena-effect__card { justify-self: end; }
+  .arena-effect__card .duel-card { width: min(100%, clamp(5.4rem, 27vw, 6.6rem)); }
+  .arena-effect__result { justify-self: start; width: min(100%, 8rem); padding: .55rem .4rem; }
+  .arena-effect__result .ui-icon { width: 1.2rem; height: 1.2rem; }
+  .arena-effect__result strong { font-size: .62rem; }
+  .arena-effect__result small { font-size: .38rem; }
   .arena-slot.is-assault { grid-area: assault; }
   .arena-slot.is-guard { grid-area: guard; }
+  .arena-slot { width: 100%; min-width: 0; }
+  .arena-slot__card { max-width: 100%; min-width: 0; }
   .arena-slot__label { font-size: .36rem; letter-spacing: .2em; }
-  .arena-slot__card .duel-card, .arena-slot__ghost { width: clamp(5.4rem, 27vw, 6.6rem); }
+  .arena-slot__card .duel-card, .arena-slot__ghost { width: min(100%, clamp(5.4rem, 27vw, 6.6rem)); }
   .arena-slot__ghost { aspect-ratio: 5 / 6; padding: .4rem; }
   .arena-slot__ghost .ui-icon { width: 1.2rem; height: 1.2rem; }
   .arena-slot__ghost small { font-size: .38rem; }
@@ -1015,14 +1084,107 @@
 }
 
 @media (max-width: 560px) {
-  .duel-topbar { height: 3rem; gap: .2rem; padding: 0 .25rem; font-size: .5rem; }
+  .duel-topbar { height: 3rem; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: .2rem; padding: 0 .25rem; font-size: .5rem; }
   .duel-topbar > a .nythara-mark { width: 1.5rem; height: 1.5rem; }
+  .duel-topbar__link { display: none; }
   .duel-topbar__turn { font-size: .6rem; letter-spacing: .16em; white-space: nowrap; }
   .duel-topbar__label { display: none; }
   .duel-topbar button span { display: none; }
+  .duelist {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "identity vitality" "seals seals" "piles piles";
+  }
+  .duelist__identity { grid-area: identity; }
+  .vial { grid-area: vitality; }
+  .seals { grid-area: seals; grid-column: auto; }
+  .duelist__piles {
+    grid-area: piles;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .25rem;
+  }
+  .pile, .hidden-hand { width: 100%; min-width: 0; }
   .fx-banner strong { font-size: .95rem; letter-spacing: .16em; }
   .fx-floater.is-crit { font-size: 1.6rem; }
   .guided-coach { width: min(15rem, 78vw); top: 2.9rem; left: .5rem; }
+}
+
+@media (max-width: 360px) {
+  .duel-room { --hand-w: clamp(4.8rem, 44vw, 5.8rem); }
+  .duel-frame { padding: .22rem; gap: .22rem; }
+  .duel-topbar > a, .duel-topbar button { min-width: 1.65rem; padding-inline: .15rem; }
+  .duel-topbar__turn { font-size: .52rem; letter-spacing: .1em; }
+  .duel-board { gap: .22rem; }
+  .duelist { gap: .2rem; padding: .2rem .28rem; }
+  .duelist__portrait { width: 1.65rem; height: 1.65rem; }
+  .duelist__portrait svg { width: 1rem; height: 1rem; }
+  .duelist__identity { gap: .3rem; }
+  .duelist__identity small { font-size: .3rem; }
+  .duelist__identity strong { font-size: .58rem; }
+  .duelist__identity em { max-width: 7rem; font-size: .32rem; }
+  .vial { gap: .2rem; }
+  .vial__glass { width: .62rem; height: 1.55rem; }
+  .vial__read b { font-size: .9rem; }
+  .seals { gap: .55rem; padding: 0; }
+  .seal i { width: 1rem; height: 1rem; }
+  .seal i::after { inset: .2rem; }
+  .duelist__piles { gap: .12rem; }
+  .pile, .hidden-hand { min-height: 1.55rem; padding: .08rem; }
+  .pile b, .hidden-hand b { font-size: .5rem; }
+  .pile small, .hidden-hand::after { font-size: .2rem; }
+  .arena { padding: .25rem; gap: .18rem; }
+  .arena__lane { gap: .25rem; }
+  .arena-effect { gap: .25rem; padding: .1rem; }
+  .arena-effect__label { font-size: .28rem; }
+  .arena-effect__card .duel-card { width: min(100%, 4.8rem); }
+  .arena-effect__result { padding: .3rem .2rem; }
+  .arena-effect__result strong { font-size: .48rem; }
+  .arena-effect__result small { font-size: .3rem; }
+  .arena-slot__label { font-size: .28rem; letter-spacing: .12em; }
+  .arena-slot__card .duel-card, .arena-slot__ghost { width: min(100%, 4.8rem); }
+  .arena-slot__ghost { padding: .2rem; }
+  .arena-slot__ghost small { font-size: .28rem; }
+  .arena-slot__stamp { max-width: 100%; padding: .1rem .22rem; overflow: hidden; font-size: .27rem; text-overflow: ellipsis; }
+  .verdict { padding: .24rem .3rem; }
+  .verdict__math span { min-width: 2rem; padding: .16rem; }
+  .verdict__math b { font-size: .72rem; }
+  .verdict__result { padding: .22rem .35rem; font-size: .48rem; }
+  .arena__chronicle { height: 1.35rem; }
+  .arena__chronicle li { font-size: .34rem; }
+  .duel-base { gap: .2rem; padding: .22rem .28rem max(.22rem, env(safe-area-inset-bottom)); }
+  .phase-panel { gap: .35rem; padding: .2rem .35rem; }
+  .phase-panel__orbs { gap: .42rem; }
+  .action-panel { padding: .4rem .42rem .36rem; }
+  .action-panel__copy strong { font-size: .62rem; }
+  .action-panel__copy small { font-size: .38rem; }
+  .action-panel__options { margin-top: .25rem; }
+  .action-panel__pass { min-height: 2.2rem; margin-top: .22rem; }
+  .duel-hand { padding-top: .3rem; }
+}
+
+@media (min-width: 1181px) {
+  .arena__lane { width: min(100%, 76rem); justify-self: center; }
+  .arena-slot__label { font-size: .52rem; }
+  .size-table .duel-card__head strong, .size-table .duel-card__ratio { font-size: .78rem; }
+  .size-table .duel-card__text { font-size: .58rem; }
+  .size-table .duel-card__foot { font-size: .48rem; }
+  .size-table .duel-card__stat b { font-size: .6rem; }
+  .size-hand .duel-card__head strong, .size-hand .duel-card__ratio { font-size: .68rem; }
+  .size-hand .duel-card__text { font-size: .52rem; }
+  .size-hand .duel-card__foot { font-size: .42rem; }
+  .verdict strong { font-size: .92rem; }
+  .verdict__math b { font-size: 1.55rem; }
+  .verdict__math small { font-size: .42rem; }
+  .verdict__result { font-size: .76rem; }
+  .duelist__identity strong { font-size: 1.05rem; }
+  .duelist__identity em { font-size: .55rem; }
+  .vial__read b { font-size: 1.75rem; }
+  .pile { width: 3.25rem; min-height: 3rem; }
+  .pile b { font-size: .9rem; }
+  .inspector__rule { font-size: .6rem; }
+  .inspector__stats dt { font-size: .4rem; }
+  .inspector__stats dd { font-size: .72rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

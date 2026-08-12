@@ -32,6 +32,9 @@ describe("catálogo de apresentação", () => {
     expect(translateText("Declare este Assalto com Poder 9. O rival pode responder com uma Guarda.", "es"))
       .toContain("Declara este Asalto con Poder 9");
     expect(translateText("Corte Rubro", "en")).toBe("Corte Rubro");
+    expect(translateText("Um jogo de cartas competitivo, gratuito e original.", "en"))
+      .toBe("A free, original competitive card game.");
+    expect(translateText("Treine sem espera", "es")).toBe("Entrena sin esperar");
   });
 
   it("traduz todas as descrições de acessibilidade sem misturar idiomas", () => {
@@ -57,10 +60,10 @@ describe("catálogo de apresentação", () => {
       .toBe("No se pudieron cargar las sugerencias:");
   });
 
-  it("localiza erros conhecidos por código e preserva diagnóstico desconhecido", () => {
+  it("localiza erros conhecidos e impede vazamento de idioma em códigos desconhecidos", () => {
     expect(translateError("subscriber_too_slow", "texto do servidor", "en"))
       .toBe("The connection fell behind the match. Reconnecting…");
-    expect(translateError("custom_code", "diagnóstico 42", "es")).toBe("diagnóstico 42");
+    expect(translateError("custom_code", "diagnóstico 42", "es")).toBe("No se pudo completar la solicitud.");
   });
 
   it("formata números no locale ativo", () => {
@@ -70,11 +73,18 @@ describe("catálogo de apresentação", () => {
 });
 
 describe("troca de idioma", () => {
+  it("traduz frases separadas por valores dinâmicos sem misturar idiomas", () => {
+    document.body.innerHTML = "<p>Você está no nível <strong>1</strong>. O servidor só forma partidas com diferença máxima de 5 níveis. Somente PvP contra jogadores concede XP.</p>";
+    localizeDocument("en");
+    expect(document.querySelector("p")).toHaveTextContent("You are level 1. The server only forms matches within a 5-level difference. Only PvP against real players grants XP.");
+  });
+
   it("restaura o texto-fonte ao alternar sem recarregar", () => {
-    document.body.innerHTML = '<button aria-label="Buscar rival">Buscar rival</button>';
+    document.body.innerHTML = '<button aria-label="Buscar rival">Buscar rival</button><img alt="Nythara — jogo de cartas online PvP">';
     localizeDocument("en");
     expect(document.querySelector("button")).toHaveTextContent("Find rival");
     expect(document.querySelector("button")).toHaveAttribute("aria-label", "Find rival");
+    expect(document.querySelector("img")).toHaveAttribute("alt", "Nythara — online PvP card game");
     localizeDocument("es");
     expect(document.querySelector("button")).toHaveTextContent("Buscar rival");
     localizeDocument("pt-BR");

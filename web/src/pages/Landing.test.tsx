@@ -83,3 +83,17 @@ describe("entrada com provedores externos", () => {
 		expect(sessionStorage.getItem("nythara-account-deactivated")).toBeNull();
 	});
 });
+
+describe("composição da home", () => {
+  it("limita a arte de fundo ao primeiro bloco da página", () => {
+    vi.mocked(api).mockResolvedValueOnce({ google: false });
+
+    const { container } = render(<MemoryRouter><Landing /></MemoryRouter>);
+    const hero = container.querySelector<HTMLElement>(".landing-hero");
+    const art = container.querySelector<HTMLElement>(".landing-art");
+    const showcase = container.querySelector<HTMLElement>(".landing-showcase");
+
+    expect(hero).toContainElement(art);
+    expect(hero).not.toContainElement(showcase);
+  });
+});

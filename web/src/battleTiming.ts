@@ -1,11 +1,15 @@
 export type AnimationPace = "cinematic" | "normal" | "quick";
 
-interface BattleTiming {
+export interface BattleTiming {
   attackToWaitingMs: number;
+  guardRevealMs: number;
   guardedImpactMs: number;
   directImpactMs: number;
   guardedSettleMs: number;
   directSettleMs: number;
+  effectToImpactMs: number;
+  effectSettleMs: number;
+  resultHoldMs: number;
   shatterFxMs: number;
 }
 
@@ -14,37 +18,53 @@ interface BattleTiming {
 // leitura do resultado -> estilhaço. Nenhum destes tempos bloqueia comandos.
 const TIMING_BY_PACE: Record<AnimationPace, BattleTiming> = {
   cinematic: {
-    attackToWaitingMs: 920,
-    guardedImpactMs: 1050,
-    directImpactMs: 520,
-    guardedSettleMs: 2650,
-    directSettleMs: 1550,
-    shatterFxMs: 2650,
+    attackToWaitingMs: 1100,
+    guardRevealMs: 900,
+    guardedImpactMs: 950,
+    directImpactMs: 1050,
+    guardedSettleMs: 2900,
+    directSettleMs: 2500,
+    effectToImpactMs: 1250,
+    effectSettleMs: 2800,
+    resultHoldMs: 650,
+    shatterFxMs: 2900,
   },
   normal: {
-    attackToWaitingMs: 700,
-    guardedImpactMs: 820,
-    directImpactMs: 420,
-    guardedSettleMs: 2100,
-    directSettleMs: 1200,
-    shatterFxMs: 2100,
+    attackToWaitingMs: 850,
+    guardRevealMs: 700,
+    guardedImpactMs: 750,
+    directImpactMs: 800,
+    guardedSettleMs: 2300,
+    directSettleMs: 1900,
+    effectToImpactMs: 950,
+    effectSettleMs: 2200,
+    resultHoldMs: 500,
+    shatterFxMs: 2300,
   },
   quick: {
-    attackToWaitingMs: 480,
-    guardedImpactMs: 560,
-    directImpactMs: 300,
-    guardedSettleMs: 1450,
-    directSettleMs: 850,
-    shatterFxMs: 1450,
+    attackToWaitingMs: 620,
+    guardRevealMs: 480,
+    guardedImpactMs: 520,
+    directImpactMs: 600,
+    guardedSettleMs: 1550,
+    directSettleMs: 1350,
+    effectToImpactMs: 700,
+    effectSettleMs: 1550,
+    resultHoldMs: 350,
+    shatterFxMs: 1550,
   },
 };
 
 const REDUCED_MOTION_TIMING: BattleTiming = {
   attackToWaitingMs: 100,
+  guardRevealMs: 80,
   guardedImpactMs: 120,
   directImpactMs: 100,
   guardedSettleMs: 180,
   directSettleMs: 160,
+  effectToImpactMs: 100,
+  effectSettleMs: 180,
+  resultHoldMs: 80,
   shatterFxMs: 180,
 };
 

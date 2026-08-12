@@ -165,7 +165,7 @@ export function CronicaPage() {
           <div><strong>Rodada {moment.round}</strong><small>{moment.text}</small></div>
         </li>)}
       </ul> : <p className="arena-empty">Um duelo direto, sem reviravoltas registradas.</p>}
-      <footer><small>{replay.events.length} eventos authoritative · fim: {endReasonLabel(replay.end_reason)}</small>
+      <footer><small>{replay.events.length} eventos confirmados pelo servidor · fim: {endReasonLabel(replay.end_reason)}</small>
         <nav aria-label="Navegação da partida"><Link className="secondary-button" to={`/replay/${replay.match_id}`}><UiIcon name="versus" /> Rever duelo</Link><Link className="ghost-button" to="/arena">Voltar à Arena</Link></nav></footer>
     </section>
   </div>;
