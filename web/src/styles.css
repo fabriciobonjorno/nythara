@@ -823,8 +823,8 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 @keyframes replay-event-in { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 .honesty-note { margin-top: 1rem; padding: .8rem; border-left: 2px solid var(--gold); color: var(--muted); font-size: .75rem; line-height: 1.5; }
 .profile-hero { display: flex; align-items: center; gap: 1rem; padding: 1.5rem; background: var(--panel); border: 1px solid var(--line); }
-.profile-avatar { width: 4.5rem; height: 4.5rem; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--gold); border-radius: 50%; background: var(--wine); font: 400 2rem Georgia, serif; }
-.profile-avatar .champion-emblem { width: 5rem; height: 4.6rem; }
+.profile-avatar { position: relative; width: 4.5rem; height: 4.5rem; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--gold); border-radius: 50%; background: var(--wine); font: 400 2rem Georgia, serif; }
+.profile-avatar .champion-emblem { position: absolute; top: 50%; left: 50%; width: 5rem; max-width: none; height: auto; display: block; transform: translate(-50%, -50%); }
 .profile-hero h1 { margin: 0 0 .3rem; font-size: clamp(2rem, 5vw, 3.5rem); }
 .profile-hero p:not(.eyebrow) { margin: 0; color: var(--muted); }
 .season-seal { margin-left: auto; display: none; text-align: center; color: var(--gold); }
@@ -847,7 +847,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .profile-avatar-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
 .profile-avatar-options button { min-width: 0; display: grid; justify-items: center; gap: .25rem; padding: .5rem .3rem; background: #100c10; border: 1px solid var(--line); color: var(--muted); cursor: pointer; }
 .profile-avatar-options button.is-selected { color: var(--gold-bright); border-color: var(--gold); background: #2b1d23; box-shadow: inset 0 0 0 1px #bda36333; }
-.profile-avatar-options .champion-emblem { width: 3.5rem; height: 3.1rem; }
+.profile-avatar-options .champion-emblem { width: 3.5rem; max-width: none; height: auto; display: block; }
 .profile-avatar-options span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .62rem; }
 .password-editor label { display: grid; gap: .4rem; color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 
