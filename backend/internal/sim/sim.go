@@ -32,8 +32,8 @@ type Config struct {
 	// RulesetVersion escolhe a versão registrada na engine (vazio = embutida).
 	RulesetVersion string `json:"ruleset_version,omitempty"`
 	// DeckMode: "precon" (padrão; a régua do gate de balanceamento) ou
-	// "varied" — decks legais sorteados por partida sobre o catálogo INTEIRO
-	// (Sets 1+2, com facção aliada), o gate de saúde das expansões (ADR-032).
+	// "varied" — decks legais sorteados por partida sobre todo o pool do modo,
+	// respeitando composição e cópias; é o gate de combinações fora do inicial.
 	DeckMode DeckMode `json:"deck_mode,omitempty"`
 }
 
@@ -50,6 +50,37 @@ const (
 // ValidateDeck confere o resultado — um deck ilegal aqui é bug, e o sim
 // contaria como rejeição.
 func variedDeck(rs *engine.Ruleset, championID string, rng *engine.RNG) []string {
+	if rs.IsConfront() {
+		byType := map[engine.CardType][]string{}
+		for _, card := range rs.CardList {
+			if card.Confront == nil || !card.Confront.Legal {
+				continue
+			}
+			copies := engine.MaxCopies
+			if card.Rarity == engine.RarityLendaria {
+				copies = engine.MaxLegendary
+			}
+			for range copies {
+				byType[card.Type] = append(byType[card.Type], card.ID)
+			}
+		}
+		minimums := map[engine.CardType]int{
+			engine.TypeAssalto: rs.ConfrontRules.MinAssaults,
+			engine.TypeGuarda:  rs.ConfrontRules.MinGuards,
+			engine.TypeRito:    rs.ConfrontRules.MinRites,
+		}
+		deck := make([]string, 0, engine.ConfrontDeckSize)
+		var rest []string
+		for _, cardType := range []engine.CardType{engine.TypeAssalto, engine.TypeGuarda, engine.TypeRito} {
+			pool := byType[cardType]
+			rng.Shuffle(len(pool), func(a, b int) { pool[a], pool[b] = pool[b], pool[a] })
+			minimum := minimums[cardType]
+			deck = append(deck, pool[:minimum]...)
+			rest = append(rest, pool[minimum:]...)
+		}
+		rng.Shuffle(len(rest), func(a, b int) { rest[a], rest[b] = rest[b], rest[a] })
+		return append(deck, rest[:engine.ConfrontDeckSize-len(deck)]...)
+	}
 	champ := rs.Champions[championID]
 	var factions []string
 	for _, other := range []string{"Casa Vhal", "Ordem Solara", "Conclave Mirr", "Matilha Varka", "Sínodo Cinéreo"} {
@@ -106,6 +137,7 @@ type Report struct {
 	Config        Config            `json:"config"`
 	Health        HealthMetric      `json:"health"`
 	Duration      DurationMetric    `json:"duration"`
+	EndReasons    []EndReasonMetric `json:"end_reasons"`
 	FirstPlayer   FirstPlayerMetric `json:"first_player"`
 	Champions     []ChampionMetric  `json:"champions"`
 	Matchups      []MatchupMetric   `json:"matchups"`
@@ -113,6 +145,27 @@ type Report struct {
 	DominantCards []CardMetric      `json:"dominant_cards"`
 	Failures      []FailureMetric   `json:"failures,omitempty"`
 	Warnings      []string          `json:"warnings,omitempty"`
+	Gate          BalanceGate       `json:"balance_gate"`
+}
+
+type BalanceGate struct {
+	Enabled bool        `json:"enabled"`
+	Passed  bool        `json:"passed"`
+	Checks  []GateCheck `json:"checks,omitempty"`
+}
+
+type GateCheck struct {
+	Name   string `json:"name"`
+	Passed bool   `json:"passed"`
+	Detail string `json:"detail"`
+}
+
+type EndReasonMetric struct {
+	Reason        string  `json:"reason"`
+	Games         int     `json:"games"`
+	Share         float64 `json:"share"`
+	AverageRounds float64 `json:"average_rounds"`
+	P95Rounds     int     `json:"p95_rounds"`
 }
 
 type FailureMetric struct {
@@ -159,11 +212,13 @@ type ChampionMetric struct {
 }
 
 type MatchupMetric struct {
-	Champion0 string  `json:"champion_0"`
-	Champion1 string  `json:"champion_1"`
-	Games     int     `json:"games"`
-	Wins0     int     `json:"wins_0"`
-	WinRate0  float64 `json:"win_rate_0"`
+	Champion0     string  `json:"champion_0"`
+	Champion1     string  `json:"champion_1"`
+	Games         int     `json:"games"`
+	Wins0         int     `json:"wins_0"`
+	WinRate0      float64 `json:"win_rate_0"`
+	AverageRounds float64 `json:"average_rounds"`
+	P95Rounds     int     `json:"p95_rounds"`
 }
 
 type CardMetric struct {
@@ -192,7 +247,10 @@ type CardMetric struct {
 }
 
 type rawChampion struct{ Games, Wins int }
-type rawMatchup struct{ Games, Wins0 int }
+type rawMatchup struct {
+	Games, Wins0 int
+	Rounds       []int
+}
 type rawCard struct {
 	InclusionGames, Draws, DrawnGames, DrawnWins, Plays, PlayedGames, PlayedWins int
 	MulliganSeen, MulliganKept, Damage, Prevented, EclipseDisplacement           int
@@ -208,6 +266,7 @@ type aggregate struct {
 	champions  map[string]*rawChampion
 	matchups   map[string]*rawMatchup
 	cards      map[string]*rawCard
+	endReasons map[string][]int
 	failures   []FailureMetric
 }
 
@@ -222,6 +281,7 @@ type matchResult struct {
 	champions  [2]string
 	first      int
 	winner     int
+	endReason  string
 	rounds     int
 	commands   int
 	cards      [2]map[string]*matchCard
@@ -245,7 +305,7 @@ func Run(cfg Config) (Report, error) {
 		return Report{}, err
 	}
 	if cfg.RulesetVersion == "" {
-		cfg.RulesetVersion = engine.RulesetVersion
+		cfg.RulesetVersion = engine.CompetitiveRulesetVersion
 	}
 	rs, err := engine.RulesetByVersion(cfg.RulesetVersion)
 	if err != nil {
@@ -287,6 +347,9 @@ func Run(cfg Config) (Report, error) {
 	if report.Health.Crashes+report.Health.Loops+report.Health.DeadStates+report.Health.InvalidStates+report.Health.RejectedCommands+
 		report.Health.DeterminismDivergences > 0 {
 		return report, errors.New("simulação encontrou falha de saúde/determinismo")
+	}
+	if report.Gate.Enabled && !report.Gate.Passed {
+		return report, errors.New("simulação reprovou o gate competitivo")
 	}
 	return report, nil
 }
@@ -432,6 +495,7 @@ func simulateOne(cfg Config, index int, champions []string, decks map[string][]s
 	}
 	if game.State().Over {
 		result.winner = game.State().Winner
+		result.endReason = terminalCause(game.Log, game.State().EndReason, game.Ruleset())
 		analyzeCards(game, &result)
 		if cfg.VerifyReplay {
 			replayed, replayErr := engine.Replay(gameCfg, game.CommandLog)
@@ -451,6 +515,66 @@ func simulateOne(cfg Config, index int, champions []string, decks map[string][]s
 		}
 	}
 	return result
+}
+
+func terminalCause(log []engine.Event, fallback string, rs *engine.Ruleset) string {
+	for i := len(log) - 1; i >= 0; i-- {
+		event := log[i]
+		if event.Kind == engine.EvSacrifice && event.To <= 0 {
+			return "sacrificio"
+		}
+		if event.Kind != engine.EvDamage || event.To > 0 {
+			continue
+		}
+		switch event.S {
+		case "Fadiga":
+			return "fadiga"
+		case "Sangramento":
+			return "sangramento"
+		case "Maldição":
+			return "maldicao"
+		case "Ruptura do Véu":
+			return "ruptura_do_veu"
+		case "Pressão de Nythara":
+			return "pressao_de_nythara"
+		}
+		if rs != nil {
+			if card := rs.Cards[event.Def]; card != nil {
+				switch card.Type {
+				case engine.TypeAssalto:
+					return "assalto"
+				case engine.TypeRito:
+					return "rito"
+				case engine.TypeGuarda:
+					return "guarda"
+				}
+			}
+			if card := rs.Cards[event.S]; card != nil {
+				switch card.Type {
+				case engine.TypeAssalto:
+					return "assalto"
+				case engine.TypeRito:
+					return "rito"
+				case engine.TypeGuarda:
+					return "guarda"
+				}
+			}
+		}
+		if event.Def != "" {
+			return "assalto"
+		}
+		if strings.HasPrefix(event.S, "VR-") {
+			return "efeito_de_carta"
+		}
+		if strings.HasPrefix(event.S, "CH-") {
+			return "habilidade_de_campeao"
+		}
+		return "vitalidade"
+	}
+	if fallback == "" {
+		return "desconhecido"
+	}
+	return fallback
 }
 
 func botFor(cfg Config, player int) BotKind {
@@ -580,7 +704,8 @@ func validateZones(state *engine.GameState) error {
 }
 
 func newAggregate() *aggregate {
-	return &aggregate{champions: map[string]*rawChampion{}, matchups: map[string]*rawMatchup{}, cards: map[string]*rawCard{}}
+	return &aggregate{champions: map[string]*rawChampion{}, matchups: map[string]*rawMatchup{},
+		cards: map[string]*rawCard{}, endReasons: map[string][]int{}}
 }
 
 func (a *aggregate) add(result matchResult) {
@@ -616,6 +741,7 @@ func (a *aggregate) add(result matchResult) {
 	a.health.Completed++
 	a.rounds = append(a.rounds, result.rounds)
 	a.commands = append(a.commands, result.commands)
+	a.endReasons[result.endReason] = append(a.endReasons[result.endReason], result.rounds)
 	a.firstGames++
 	if result.winner == result.first {
 		a.firstWins++
@@ -634,6 +760,7 @@ func (a *aggregate) add(result matchResult) {
 		a.matchups[key] = &rawMatchup{}
 	}
 	a.matchups[key].Games++
+	a.matchups[key].Rounds = append(a.matchups[key].Rounds, result.rounds)
 	if result.winner == 0 {
 		a.matchups[key].Wins0++
 	}
@@ -684,6 +811,9 @@ func (a *aggregate) merge(other *aggregate) {
 	a.rounds = append(a.rounds, other.rounds...)
 	a.commands = append(a.commands, other.commands...)
 	a.failures = append(a.failures, other.failures...)
+	for reason, rounds := range other.endReasons {
+		a.endReasons[reason] = append(a.endReasons[reason], rounds...)
+	}
 	for id, metric := range other.champions {
 		if a.champions[id] == nil {
 			a.champions[id] = &rawChampion{}
@@ -697,6 +827,7 @@ func (a *aggregate) merge(other *aggregate) {
 		}
 		a.matchups[key].Games += metric.Games
 		a.matchups[key].Wins0 += metric.Wins0
+		a.matchups[key].Rounds = append(a.matchups[key].Rounds, metric.Rounds...)
 	}
 	for id, metric := range other.cards {
 		if a.cards[id] == nil {
@@ -725,11 +856,22 @@ func (a *aggregate) report(cfg Config) Report {
 	if rsErr != nil {
 		rs = engine.Builtin()
 	}
-	report := Report{SchemaVersion: "balance-report.v1", Ruleset: cfg.RulesetVersion, Config: cfg, Health: a.health}
+	report := Report{SchemaVersion: "balance-report.v2", Ruleset: cfg.RulesetVersion, Config: cfg, Health: a.health}
 	sort.Slice(a.failures, func(i, j int) bool { return a.failures[i].Game < a.failures[j].Game })
 	report.Failures = append(report.Failures, a.failures...)
 	report.FirstPlayer = FirstPlayerMetric{Games: a.firstGames, Wins: a.firstWins, WinRate: rate(a.firstWins, a.firstGames)}
 	report.Duration = durationMetric(a.rounds, a.commands)
+	endReasonNames := make([]string, 0, len(a.endReasons))
+	for reason := range a.endReasons {
+		endReasonNames = append(endReasonNames, reason)
+	}
+	sort.Strings(endReasonNames)
+	for _, reason := range endReasonNames {
+		rounds := append([]int{}, a.endReasons[reason]...)
+		sort.Ints(rounds)
+		report.EndReasons = append(report.EndReasons, EndReasonMetric{Reason: reason, Games: len(rounds),
+			Share: rate(len(rounds), a.health.Completed), AverageRounds: average(rounds), P95Rounds: percentile(rounds, 0.95)})
+	}
 	for _, id := range championIDs(rs) {
 		raw := a.champions[id]
 		if raw == nil {
@@ -746,12 +888,14 @@ func (a *aggregate) report(cfg Config) Report {
 	for _, key := range keys {
 		parts := strings.Split(key, "|")
 		raw := a.matchups[key]
+		rounds := append([]int{}, raw.Rounds...)
+		sort.Ints(rounds)
 		report.Matchups = append(report.Matchups, MatchupMetric{Champion0: parts[0], Champion1: parts[1], Games: raw.Games,
-			Wins0: raw.Wins0, WinRate0: rate(raw.Wins0, raw.Games)})
+			Wins0: raw.Wins0, WinRate0: rate(raw.Wins0, raw.Games), AverageRounds: average(rounds), P95Rounds: percentile(rounds, 0.95)})
 	}
 	playerGames := max(1, a.health.Completed*2)
 	minimumDominanceGames := max(20, cfg.Games/200)
-	for _, definition := range engine.CardList {
+	for _, definition := range rs.CardList {
 		raw := a.cards[definition.ID]
 		if raw == nil {
 			raw = &rawCard{}
@@ -790,7 +934,77 @@ func (a *aggregate) report(cfg Config) Report {
 			report.Warnings = append(report.Warnings, card.ID+" excedeu 65% de played win rate")
 		}
 	}
+	report.Gate = evaluateBalanceGate(report)
 	return report
+}
+
+func evaluateBalanceGate(report Report) BalanceGate {
+	gate := BalanceGate{Enabled: report.Config.Games >= 100_000 && report.Config.Bot0 == BotHeuristic && report.Config.Bot1 == BotHeuristic, Passed: true}
+	if !gate.Enabled {
+		return gate
+	}
+	add := func(name string, passed bool, detail string) {
+		gate.Checks = append(gate.Checks, GateCheck{Name: name, Passed: passed, Detail: detail})
+		gate.Passed = gate.Passed && passed
+	}
+	add("first_player_47_5_52_5", report.FirstPlayer.WinRate >= 0.475 && report.FirstPlayer.WinRate <= 0.525,
+		fmt.Sprintf("%.2f%%", report.FirstPlayer.WinRate*100))
+	maxP95, minP50 := 40, 0
+	if rs, err := engine.RulesetByVersion(report.Ruleset); err == nil && rs.IsConfront() {
+		maxP95 = 30
+		if target := rs.ConfrontRules.TargetP95Rounds; target > 0 {
+			maxP95 = target
+		}
+		// O piso de duração vale sobre os precons, que são a régua oficial do
+		// formato. Decks sorteados existem para caçar combinações doentes do
+		// pool inteiro e correm mais rápido por construção; medir ritmo neles
+		// reprovaria o gate de expansão por um motivo que não é dele.
+		if report.Config.DeckMode == DeckPrecon || report.Config.DeckMode == "" {
+			minP50 = rs.ConfrontRules.TargetMinP50Rounds
+		}
+	}
+	add(fmt.Sprintf("p95_rounds_le_%d", maxP95), report.Duration.P95Rounds <= maxP95,
+		fmt.Sprintf("%d", report.Duration.P95Rounds))
+	if minP50 > 0 {
+		add(fmt.Sprintf("p50_rounds_ge_%d", minP50), report.Duration.P50Rounds >= minP50,
+			fmt.Sprintf("%d", report.Duration.P50Rounds))
+	}
+	champMin, champMax := 1.0, 0.0
+	for _, champion := range report.Champions {
+		champMin, champMax = math.Min(champMin, champion.WinRate), math.Max(champMax, champion.WinRate)
+	}
+	add("champions_40_60", champMin >= 0.40 && champMax <= 0.60,
+		fmt.Sprintf("%.2f%%–%.2f%%", champMin*100, champMax*100))
+	matchupLow, matchupHigh := 0.25, 0.75
+	if report.Config.DeckMode == DeckPrecon || report.Config.DeckMode == "" {
+		matchupLow, matchupHigh = 0.20, 0.80
+	}
+	matchupMin, matchupMax := 1.0, 0.0
+	for _, matchup := range report.Matchups {
+		matchupMin, matchupMax = math.Min(matchupMin, matchup.WinRate0), math.Max(matchupMax, matchup.WinRate0)
+	}
+	add("matchups_in_range", matchupMin >= matchupLow && matchupMax <= matchupHigh,
+		fmt.Sprintf("%.2f%%–%.2f%% (limite %.0f%%–%.0f%%)", matchupMin*100, matchupMax*100, matchupLow*100, matchupHigh*100))
+	minimumSample := max(500, report.Config.Games/200)
+	cardPass, cardFailures := true, 0
+	for _, card := range report.Cards {
+		if card.DrawnGames >= minimumSample && (card.DrawnWinRate < 0.35 || card.DrawnWinRate > 0.65) {
+			cardPass = false
+			cardFailures++
+		}
+	}
+	add("sampled_cards_drawn_35_65", cardPass, fmt.Sprintf("%d fora da faixa (amostra mínima %d)", cardFailures, minimumSample))
+	if rs, err := engine.RulesetByVersion(report.Ruleset); err == nil && rs.IsConfront() {
+		assaultShare := 0.0
+		for _, reason := range report.EndReasons {
+			if reason.Reason == "assalto" {
+				assaultShare = reason.Share
+				break
+			}
+		}
+		add("assault_finishes_ge_35", assaultShare >= 0.35, fmt.Sprintf("%.2f%%", assaultShare*100))
+	}
+	return gate
 }
 
 func durationMetric(rounds, commands []int) DurationMetric {

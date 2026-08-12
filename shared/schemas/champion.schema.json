@@ -1,19 +1,64 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "veurubro/champion",
-  "title": "Campeão do catálogo Véu Rubro",
+  "title": "Campeão do catálogo Nythara",
   "type": "object",
-  "required": ["id", "name", "faction", "vitality", "passive", "ultimate", "eclipse_form"],
+  "required": [
+    "id",
+    "name",
+    "faction",
+    "vitality",
+    "passive",
+    "ultimate",
+    "eclipse_form"
+  ],
   "additionalProperties": false,
   "properties": {
-    "id": { "type": "string", "pattern": "^CH-[A-Z]{2}-\\d{2}$" },
-    "name": { "type": "string", "minLength": 1 },
-    "faction": {
-      "enum": ["Casa Vhal", "Ordem Solara", "Conclave Mirr", "Matilha Varka", "Sínodo Cinéreo", "Errantes"]
+    "id": {
+      "type": "string",
+      "pattern": "^CH-[A-Z]{2}-\\d{2}$"
     },
-    "vitality": { "type": "integer", "minimum": 25, "maximum": 40 },
-    "passive": { "type": "string", "minLength": 1 },
-    "ultimate": { "type": "string", "minLength": 1 },
-    "eclipse_form": { "type": "string", "minLength": 1 }
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "faction": {
+      "enum": [
+        "Casa Vhal",
+        "Ordem Solara",
+        "Conclave Mirr",
+        "Matilha Varka",
+        "Sínodo Cinéreo",
+        "Errantes"
+      ]
+    },
+    "vitality": {
+      "type": "integer",
+      "minimum": 25,
+      "maximum": 40
+    },
+    "passive": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ultimate": {
+      "type": "string",
+      "minLength": 1
+    },
+    "eclipse_form": {
+      "type": "string",
+      "minLength": 1
+    },
+    "precon_swaps": {
+      "type": "object",
+      "description": "Cirurgia de precon deste Campeão (ADR-031): cada cópia da carta-chave é trocada pela carta-valor; o resultado passa pela validação integral de deck.",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^VR-\\d{3}$"
+      },
+      "propertyNames": {
+        "pattern": "^VR-\\d{3}$"
+      }
+    }
   }
 }

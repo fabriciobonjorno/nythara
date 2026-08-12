@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"expvar"
+	"fmt"
 	"net"
 	"net/http"
+	"strings"
 
 	"veurubro/backend/internal/security"
 )
@@ -45,7 +47,7 @@ func (a *API) harden(next http.Handler) http.Handler {
 			h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 		}
 		metricRequests.Add(1)
-		if !a.generalLimiter.Allow(clientIP(r)) {
+		if !a.generalLimiter.Allow(clientIP(r, a.trustedProxies)) {
 			metricLimited.Add(1)
 			w.Header().Set("Retry-After", "30")
 			writeError(w, http.StatusTooManyRequests, "rate_limited", "muitas requisições; aguarde")
@@ -58,7 +60,7 @@ func (a *API) harden(next http.Handler) http.Handler {
 // strictLimit protege endpoints de autenticação contra força bruta.
 func (a *API) strictLimit(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !a.authLimiter.Allow(clientIP(r)) {
+		if !a.authLimiter.Allow(clientIP(r, a.trustedProxies)) {
 			metricLimited.Add(1)
 			w.Header().Set("Retry-After", "60")
 			writeError(w, http.StatusTooManyRequests, "rate_limited",
@@ -69,15 +71,54 @@ func (a *API) strictLimit(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// clientIP extrai o host de RemoteAddr. Atrás de proxy confiável, configurar
-// o proxy para reescrever RemoteAddr (ou terminar TLS + PROXY protocol);
-// X-Forwarded-For não é confiado por padrão (spoofável).
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+// clientIP só considera X-Forwarded-For quando a conexão veio diretamente de
+// um proxy explicitamente confiável. A busca da direita para a esquerda evita
+// que um cliente injete o primeiro valor do cabeçalho para escapar do limite.
+func clientIP(r *http.Request, trustedProxies []*net.IPNet) string {
+	peer := hostOnly(r.RemoteAddr)
+	peerIP := net.ParseIP(peer)
+	if peerIP == nil || !ipInNetworks(peerIP, trustedProxies) {
+		return peer
 	}
-	return host
+	forwarded := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	for index := len(forwarded) - 1; index >= 0; index-- {
+		candidate := strings.TrimSpace(forwarded[index])
+		ip := net.ParseIP(candidate)
+		if ip != nil && !ipInNetworks(ip, trustedProxies) {
+			return candidate
+		}
+	}
+	return peer
+}
+
+func hostOnly(address string) string {
+	host, _, err := net.SplitHostPort(address)
+	if err == nil {
+		return host
+	}
+	return address
+}
+
+func ipInNetworks(ip net.IP, networks []*net.IPNet) bool {
+	for _, network := range networks {
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func parseTrustedProxyCIDRs(raw string) ([]*net.IPNet, error) {
+	fields := strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == ' ' || r == '\n' || r == '\t' })
+	networks := make([]*net.IPNet, 0, len(fields))
+	for _, field := range fields {
+		_, network, err := net.ParseCIDR(field)
+		if err != nil {
+			return nil, fmt.Errorf("TRUSTED_PROXY_CIDRS contém %q inválido: %w", field, err)
+		}
+		networks = append(networks, network)
+	}
+	return networks, nil
 }
 
 func newGeneralLimiter() *security.RateLimiter {

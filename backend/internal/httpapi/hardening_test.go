@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -59,5 +61,38 @@ func TestMetricsEndpointServesCounters(t *testing.T) {
 	handler.ServeHTTP(resp, httptest.NewRequest("GET", "/internal/metrics", nil))
 	if resp.Code != http.StatusOK || !strings.Contains(resp.Body.String(), "http_requests_total") {
 		t.Fatalf("métricas indisponíveis: %d %s", resp.Code, resp.Body.String()[:120])
+	}
+}
+
+func TestClientIPOnlyTrustsForwardingFromConfiguredProxy(t *testing.T) {
+	_, trusted, err := net.ParseCIDR("172.28.16.10/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name       string
+		remoteAddr string
+		forwarded  string
+		want       string
+	}{
+		{name: "direto ignora header", remoteAddr: "203.0.113.8:9000", forwarded: "198.51.100.9", want: "203.0.113.8"},
+		{name: "proxy confiável", remoteAddr: "172.28.16.10:9000", forwarded: "198.51.100.9", want: "198.51.100.9"},
+		{name: "injeção à esquerda", remoteAddr: "172.28.16.10:9000", forwarded: "192.0.2.55, 198.51.100.9", want: "198.51.100.9"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+			req.RemoteAddr = test.remoteAddr
+			req.Header.Set("X-Forwarded-For", test.forwarded)
+			if got := clientIP(req, []*net.IPNet{trusted}); got != test.want {
+				t.Fatalf("clientIP=%q; esperado %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestInvalidTrustedProxyConfigurationFailsClosed(t *testing.T) {
+	if _, err := NewWithOptions(nil, nil, slog.Default(), nil, Options{TrustedProxyCIDRs: "qualquer-proxy"}); err == nil {
+		t.Fatal("CIDR inválido deveria impedir o boot")
 	}
 }

@@ -1,6 +1,8 @@
 import { FormEvent, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import { NytharaBrand } from "../components/NytharaBrand";
+import { LanguageSelector } from "../components/LanguageSelector";
 import { useSessionStore } from "../store";
 import type { AuthEnvelope } from "../types";
 
@@ -11,7 +13,7 @@ export function Landing() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,7 +24,7 @@ export function Landing() {
     setBusy(true);
     setError("");
     try {
-      const body = mode === "register" ? { email, password, display_name: displayName } : { email, password };
+      const body = mode === "register" ? { email, password, username } : { email, password };
       const response = await api<AuthEnvelope>(`/v1/auth/${mode}`, { method: "POST", body: JSON.stringify(body) });
       setAuth(response.user, response.tokens);
       navigate("/app");
@@ -34,12 +36,13 @@ export function Landing() {
   return (
     <main className="landing">
       <div className="landing-art" aria-hidden="true" />
-      <header className="landing-header"><a href="#inicio" className="brand"><span className="brand-mark">◐</span><span>VÉU<br />RUBRO</span></a><span className="alpha-tag">ALPHA · RULESET 0.3</span></header>
+      <header className="landing-header"><a href="#inicio" className="brand" aria-label="Nythara — início"><NytharaBrand /></a><div className="landing-header__tools"><LanguageSelector compact /><span className="alpha-tag">ALPHA · MODO CONFRONTO</span></div></header>
       <section id="inicio" className="landing-copy">
-        <p className="eyebrow">UM DUELO SOB DOIS CÉUS</p>
-        <h1>Domine o Eclipse.<br /><em>Reescreva o destino.</em></h1>
-        <p>Um jogo de cartas competitivo, justo e inteiramente original. Conduza sua Casa, encadeie Sigilos e decida qual luz sobreviverá à rodada.</p>
-        <div className="feature-row" aria-label="Características"><span><b>80</b> cartas</span><span><b>10</b> campeões</span><span><b>1v1</b> em tempo real</span></div>
+        <img className="landing-hero-logo" src="/assets/nythara-apocalypse-logo.webp" alt="Nythara" />
+        <p className="eyebrow">UM CONFRONTO. UMA DECISÃO POR VEZ.</p>
+        <h1>Jogue sua carta.<br /><em>Veja o duelo acontecer.</em></h1>
+        <p>Assalte, defenda e use Ritos em uma mesa direta. As cartas se encontram no centro, a perdedora se estilhaça e toda escolha pesa na sua Vitalidade.</p>
+        <div className="feature-row" aria-label="Características"><span><b>30</b> cartas no baralho</span><span><b>3</b> ações claras</span><span><b>1v1</b> em tempo real</span></div>
       </section>
       <section className="auth-panel" aria-labelledby="auth-title">
         <div className="auth-tabs" role="tablist">
@@ -48,15 +51,15 @@ export function Landing() {
         </div>
         <form onSubmit={submit}>
           <div><p className="eyebrow">ABRA O VÉU</p><h2 id="auth-title">{mode === "login" ? "Retorne ao círculo" : "Escolha seu nome"}</h2></div>
-          {mode === "register" && <label>Nome de exibição<input required minLength={2} maxLength={40} autoComplete="nickname" value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label>}
+          {mode === "register" && <label>Nome de usuário<input required minLength={2} maxLength={32} pattern={"[A-Za-z0-9_\\-]+"} title="Use apenas letras, números, hífen (-) e sublinhado (_), sem espaços." autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(event) => setUsername(event.target.value)} /><small>Apenas letras, números, hífen (-) e sublinhado (_), sem espaços.</small></label>}
           <label>E-mail<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           <label>Senha<input required type="password" minLength={12} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /><small>Mínimo de 12 caracteres.</small></label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-button" disabled={busy} type="submit">{busy ? "Atravessando…" : mode === "login" ? "Entrar no Véu" : "Criar conta gratuita"}</button>
-          <p className="auth-note">O Alpha competitivo libera todas as cartas. Vitória vem das decisões, não da compra.</p>
+          <p className="auth-note">Sem venda de poder. Monte um único baralho, treine contra o bot e entre no confronto quando estiver pronto.</p>
         </form>
       </section>
-      <footer className="landing-footer">VÉU RUBRO · IP ORIGINAL · ALPHA FECHADO</footer>
+      <footer className="landing-footer">NYTHARA · IP ORIGINAL · ALPHA FECHADO</footer>
     </main>
   );
 }

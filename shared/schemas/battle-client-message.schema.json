@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://veurubro.local/schemas/battle-client-message.schema.json",
-  "title": "Véu Rubro battle client message v1",
+  "title": "Nythara battle client message v1",
   "oneOf": [
     {
       "type": "object",

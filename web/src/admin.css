@@ -1,0 +1,60 @@
+/* Painel LiveOps — estilos próprios (arquivo separado do styles.css). */
+
+.admin-page { display: flex; flex-direction: column; gap: 1rem; }
+.admin-head h1 { margin: .1rem 0 0; }
+.admin-sub { color: var(--muted); }
+.admin-grid { display: grid; gap: 1rem; }
+@media (min-width: 980px) { .admin-grid { grid-template-columns: 1fr 1fr; } }
+
+.admin-panel header { display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap; }
+.admin-panel header h2 { margin: 0; }
+.admin-panel > small { display: block; margin-top: .6rem; color: var(--muted); }
+.admin-refresh { margin-left: auto; }
+
+.admin-table { width: 100%; border-collapse: collapse; margin-top: .6rem; font-size: .78rem; }
+.admin-table th { text-align: left; color: var(--muted); font-size: .6rem; letter-spacing: .12em; padding: .3rem .5rem; border-bottom: 1px solid var(--line); }
+.admin-table td { padding: .45rem .5rem; border-bottom: 1px solid #241c22; }
+.admin-actions { display: flex; gap: .4rem; justify-content: flex-end; }
+
+.admin-badge { font-size: .58rem; letter-spacing: .12em; color: var(--muted); border: 1px solid var(--line); padding: .2rem .45rem; }
+.admin-badge.is-active { color: #8fd39a; border-color: #3f6847; }
+
+.admin-list { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .45rem; }
+.admin-list li { display: flex; align-items: center; gap: .7rem; padding: .45rem .6rem; background: #120d12; border: 1px solid var(--line); }
+.admin-list li.is-selected { border-color: var(--gold); }
+.admin-list li > div { flex: 1; min-width: 0; }
+.admin-list small { display: block; color: var(--muted); font-size: .64rem; }
+
+.admin-form { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .7rem; align-items: center; }
+.admin-form input { flex: 1; min-width: 8rem; }
+.admin-form .danger { border-color: #6d3038; color: #ff5d6e; }
+.admin-narrow { max-width: 5.5rem; flex: 0 1 auto !important; }
+
+.admin-season { display: grid; gap: .15rem; margin: .6rem 0 0; }
+.admin-season strong { font-family: Georgia, serif; font-size: 1.3rem; }
+.admin-season small { color: var(--muted); }
+
+.admin-audit { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
+.admin-audit li { display: flex; gap: .6rem; align-items: baseline; padding: .35rem .5rem; background: #120d12; border: 1px solid #241c22; font-size: .74rem; flex-wrap: wrap; }
+.admin-audit span { flex: 1; min-width: 8rem; }
+.admin-audit small { color: var(--muted); }
+
+.admin-drafts { display: grid; gap: 1rem; margin-top: .6rem; }
+@media (min-width: 980px) { .admin-drafts { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } }
+.admin-drafts label { display: block; margin-bottom: .6rem; }
+.admin-drafts textarea { width: 100%; font-family: ui-monospace, monospace; font-size: .72rem; }
+.admin-draft-pick { width: 100%; text-align: left; background: transparent; border: 0; cursor: pointer; padding: 0; color: inherit; }
+.admin-pipeline { border-top: 1px solid var(--line); padding-top: .7rem; }
+.admin-output { margin-top: .6rem; padding: .6rem; background: #0a070a; border: 1px solid var(--line); font-size: .68rem; max-height: 16rem; overflow: auto; white-space: pre-wrap; }
+
+.admin-feedback { margin: .6rem 0 0; color: #8fd39a; }
+.admin-feedback.is-error { color: #ff5d6e; }
+.admin-empty { color: var(--muted); }
+
+/* Recados do Alpha: texto de gente, então a leitura vem antes da densidade. */
+.alpha-notes { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; max-height: 26rem; overflow-y: auto; }
+.alpha-notes li { padding: .7rem; background: #120d11; border: 1px solid var(--line); border-left: 3px solid var(--gold); }
+.alpha-notes header { display: flex; align-items: center; gap: .6rem; margin-bottom: .35rem; color: var(--muted); font-size: .62rem; }
+.alpha-notes__ruleset { padding: .1rem .35rem; border: 1px solid var(--line); color: var(--gold); font-size: .58rem; }
+.alpha-notes header a { color: var(--gold-bright); }
+.alpha-notes p { margin: 0; font-size: .78rem; line-height: 1.55; white-space: pre-wrap; }

@@ -20,6 +20,7 @@ func (a *API) adminRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /v1/admin/rulesets", admin(a.adminListRulesets))
 	mux.Handle("POST /v1/admin/rulesets/{version}/activate", admin(a.adminActivateRuleset))
 	mux.Handle("POST /v1/admin/rulesets/{version}/rotate", admin(a.adminRotateRuleset))
+	mux.Handle("GET /v1/admin/feedback", admin(a.adminListFeedback))
 	mux.Handle("GET /v1/admin/drafts", admin(a.adminListDrafts))
 	mux.Handle("POST /v1/admin/drafts", admin(a.adminCreateDraft))
 	mux.Handle("GET /v1/admin/drafts/{id}", admin(a.adminGetDraft))
@@ -59,6 +60,18 @@ func (a *API) adminRotateRuleset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+// Os recados do Alpha só valem se alguém os ler. A leitura é de admin porque o
+// texto é de quem jogou, não conteúdo público.
+func (a *API) adminListFeedback(w http.ResponseWriter, r *http.Request) {
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	entries, err := a.service.RecentFeedback(r.Context(), principal(r), limit)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"feedback": entries})
 }
 
 func (a *API) adminListDrafts(w http.ResponseWriter, r *http.Request) {

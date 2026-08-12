@@ -144,7 +144,6 @@ func init() {
 				// combo produz o tempo do próximo elo em vez de consumi-lo.
 				g.drawOne(player)
 				g.gainTempEssence(player, 1, "CH-MI-01")
-				g.heal(player, 1, "CH-MI-01")
 			},
 			// alpha-0.6.0: sempre, não só em Eclipse Total (ADR-029) — os
 			// Sete Reflexos são a identidade dela; o gatilho raro deixava a
@@ -169,21 +168,20 @@ func init() {
 		// barata em Eclipse Total; ultimate: Fenda de Probabilidade.
 		"CH-MI-02": {
 			preMulliganScry: true,
-			// alpha-0.6.0 (ADR-029): quem lê o Véu não se queima nele — a
+			// alpha-0.8.0 (ADR-038): quem lê o Véu se queima um pouco menos — a
 			// Fadiga de Oren cresce 1 a menos por ciclo. O arquétipo de
 			// compra esvazia o próprio baralho primeiro e perdia a corrida
 			// de atrito que o próprio plano dele alonga.
-			fatigueStepDelta: func(g *Game, player int) int { return -2 },
+			fatigueStepDelta: func(g *Game, player int) int { return -1 },
 			onExtraDraw: func(g *Game, player int, inst string) {
 				// alpha-0.5.0: sem exigir Eclipse Total (era só em totais).
-				// alpha-0.6.0 (ADR-029): desconto de 2 — o conhecimento paga
-				// o dobro; era -1 e Oren seguia no fundo (20-24%).
+				// alpha-0.8.0 (ADR-038): desconto 1 e sem cura recorrente; os
+				// três bônus empilhados levaram Oren a 62,88% no campo variado.
 				p := g.s.Players[player]
 				p.CostMods = append(p.CostMods, CostMod{
-					Instance: inst, Delta: -2, Uses: 1, Round: g.s.Round, Source: "CH-MI-02",
+					Instance: inst, Delta: -1, Uses: 1, Round: g.s.Round, Source: "CH-MI-02",
 				})
-				g.emit(Event{Kind: EvCostModAdded, P: player, N: -2, S: "CH-MI-02"})
-				g.heal(player, 1, "CH-MI-02") // conhecimento também sustenta (ADR-029)
+				g.emit(Event{Kind: EvCostModAdded, P: player, N: -1, S: "CH-MI-02"})
 			},
 			canUltimate: func(g *Game, player int) error { return nil },
 			ultimate: func(g *Game, player int) {
@@ -252,9 +250,7 @@ func init() {
 				g.emit(Event{Kind: EvCostModAdded, P: player, N: -1, S: "CH-CI-01"})
 			},
 			onExileSelf: func(g *Game, player int) {
-				if anyTotal(g) {
-					g.gainWard(player, 1, "CH-CI-01")
-				}
+				g.gainWard(player, 1, "CH-CI-01")
 			},
 			canUltimate: func(g *Game, player int) error {
 				if len(g.s.Players[player].Discard) == 0 {
@@ -277,7 +273,7 @@ func init() {
 		"CH-CI-02": {
 			onCostDiscard: func(g *Game, player int) {
 				p := g.s.Players[player]
-				if p.CinzaMarkers < 3 {
+				if p.CinzaMarkers < 2 {
 					p.CinzaMarkers++
 					g.emit(Event{Kind: EvMarkerGained, P: player, N: p.CinzaMarkers, S: "Cinza"})
 				}
@@ -290,8 +286,8 @@ func init() {
 			},
 			canUltimate: func(g *Game, player int) error {
 				p := g.s.Players[player]
-				if p.CinzaMarkers < 3 {
-					return errCmd(ErrRequirement, "Página Reescrita exige 3 marcadores de Cinza")
+				if p.CinzaMarkers < 2 {
+					return errCmd(ErrRequirement, "Página Reescrita exige 2 marcadores de Cinza")
 				}
 				var ok bool
 				for _, id := range p.Discard {
@@ -307,7 +303,7 @@ func init() {
 			},
 			ultimate: func(g *Game, player int) {
 				p := g.s.Players[player]
-				p.CinzaMarkers -= 3
+				p.CinzaMarkers -= 2
 				var opts []string
 				for _, id := range p.Discard {
 					if g.rs.Cards[g.s.Cards[id].Def].Rarity != RarityLendaria {

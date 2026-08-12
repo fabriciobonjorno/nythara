@@ -79,8 +79,20 @@ func (p *Postgres) PublishRuleset(ctx context.Context, payload domain.RulesetPay
 	}
 	defer tx.Rollback()
 
+	var metadata struct {
+		Mode string `json:"mode"`
+	}
+	if err := json.Unmarshal(payload.Effects, &metadata); err != nil {
+		return fmt.Errorf("%w: metadados do ruleset: %v", domain.ErrInvalid, err)
+	}
+	if metadata.Mode == "" {
+		metadata.Mode = engine.RulesModeLegacy
+	}
+	if metadata.Mode != engine.RulesModeLegacy && metadata.Mode != engine.RulesModeConfront {
+		return fmt.Errorf("%w: modo do ruleset desconhecido %q", domain.ErrInvalid, metadata.Mode)
+	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO rulesets(version,active) VALUES($1,false)`, payload.Version); err != nil {
+		`INSERT INTO rulesets(version,active,mode) VALUES($1,false,$2)`, payload.Version, metadata.Mode); err != nil {
 		return mapError(err)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO ruleset_payloads(version,cards,champions,effects)
@@ -448,6 +460,32 @@ func (p *Postgres) MatchTelemetry(ctx context.Context) (domain.MatchTelemetry, e
 	err := p.db.QueryRowContext(ctx, `SELECT count(*),
 		count(*) FILTER (WHERE status='finished') FROM matches WHERE mode='pvp'`).
 		Scan(&t.TotalMatches, &t.FinishedMatches)
+	if err != nil {
+		return t, mapError(err)
+	}
+	err = p.db.QueryRowContext(ctx, `
+		WITH samples AS (
+			SELECT m.id,
+				extract(epoch FROM (m.ended_at - m.started_at))::double precision AS duration_seconds,
+				COALESCE(max((e.event->>'round')::int), 0)::double precision AS rounds
+			FROM matches m
+			LEFT JOIN match_events e ON e.match_id = m.id
+			WHERE m.mode = 'pvp' AND m.status = 'finished'
+				AND m.started_at IS NOT NULL AND m.ended_at IS NOT NULL
+			GROUP BY m.id
+		)
+		SELECT count(*),
+			COALESCE(avg(duration_seconds), 0),
+			COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_seconds), 0),
+			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_seconds), 0),
+			COALESCE(avg(rounds), 0),
+			COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY rounds), 0),
+			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY rounds), 0),
+			count(*) FILTER (WHERE duration_seconds >= 1800)
+		FROM samples`).Scan(&t.Rhythm.SampleMatches, &t.Rhythm.AverageDurationSeconds,
+		&t.Rhythm.P50DurationSeconds, &t.Rhythm.P95DurationSeconds,
+		&t.Rhythm.AverageRounds, &t.Rhythm.P50Rounds, &t.Rhythm.P95Rounds,
+		&t.Rhythm.OverThirtyMinutes)
 	if err != nil {
 		return t, mapError(err)
 	}

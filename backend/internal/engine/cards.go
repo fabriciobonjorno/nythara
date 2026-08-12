@@ -82,6 +82,27 @@ type CardDef struct {
 	// (deckbuilding). 0 = fora de sets (drafts do admin) — nunca entra em
 	// precon (ADR-032).
 	Set int `json:"set,omitempty"`
+	// Confront descreve a implementação desta carta no ruleset alpha-0.9.x.
+	// Ausente nos payloads históricos; preenchido ao compilar o modo atual.
+	Confront *ConfrontCardProfile `json:"confront,omitempty"`
+}
+
+// ConfrontCardProfile é informação pública e executável do Modo Confronto.
+// Legal=false sempre traz o motivo explícito da exclusão do pool. Texto,
+// papel e palavras-chave são derivados da mesma DSL que a engine executa.
+type ConfrontCardProfile struct {
+	Legal         bool     `json:"legal"`
+	Adapted       bool     `json:"adapted,omitempty"`
+	Reason        string   `json:"reason,omitempty"`
+	Power         int      `json:"power,omitempty"`
+	PowerMax      int      `json:"power_max,omitempty"`
+	Prevention    int      `json:"prevention,omitempty"`
+	PreventionMax int      `json:"prevention_max,omitempty"`
+	PreventAll    bool     `json:"prevent_all,omitempty"`
+	Defendable    bool     `json:"defendable,omitempty"`
+	TacticalText  string   `json:"tactical_text,omitempty"`
+	Role          string   `json:"role,omitempty"`
+	Keywords      []string `json:"keywords,omitempty"`
 }
 
 // ChampionDef é a definição estática de um Campeão.

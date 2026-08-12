@@ -20,10 +20,10 @@ func TestVR004HealShiftsNight(t *testing.T) {
 	// A Taça (shift +1) deixou o Eclipse em +1: VR-013 causa só 2.
 	h.play(1, h.handInst(1, "VR-013"))
 	h.pass(0)
-	h.assertVit(0, 28)
+	h.assertVit(0, 25)
 	h.play(1, h.handInst(1, "VR-013"))
 	h.play(0, h.handInst(0, "VR-003")) // previne tudo → cura 1 → Taça move p/ Noite
-	h.assertVit(0, 29)
+	h.assertVit(0, 26)
 	found := false
 	for _, e := range h.g.Log {
 		if e.Kind == engine.EvEclipseShifted && e.S == "VR-004" {
@@ -43,7 +43,7 @@ func TestVR007ServoReducesSacrifice(t *testing.T) {
 	h.play(0, h.handInst(0, "VR-007"))
 	h.play(0, h.handInst(0, "VR-002"))
 	// Sacrifício 2-1=1; passiva de Seris ainda conta o sacrifício.
-	h.assertVit(0, 29)
+	h.assertVit(0, 26)
 	if got := h.g.State().Players[0].TempEssence; got != 1 {
 		t.Fatalf("temp essence: %d; esperado 1", got)
 	}
@@ -74,7 +74,7 @@ func TestVR008RecoverAssaultCostsVitality(t *testing.T) {
 	if s.Cards[vr013].Zone != engine.ZoneHand {
 		t.Fatalf("VR-013 deveria ter voltado à mão; está em %s", s.Cards[vr013].Zone)
 	}
-	h.assertVit(0, 29) // perdeu Vitalidade igual ao custo (1)
+	h.assertVit(0, 26) // perdeu Vitalidade igual ao custo (1)
 }
 
 func TestVR011RequiresHighEclipse(t *testing.T) {
@@ -117,8 +117,8 @@ func TestVR012NightFinisher(t *testing.T) {
 	s.EclipseState = engine.EclipseNight
 	h.play(0, h.handInst(0, "VR-012"))
 	h.pass(1)
-	h.assertVit(1, 23) // 7 no Eclipse Noturno
-	h.assertVit(0, 28) // cura 3
+	h.assertVit(1, 20) // 7 no Eclipse Noturno
+	h.assertVit(0, 27) // cura limitada à Vitalidade máxima
 }
 
 func TestVR016ShortensCurse(t *testing.T) {
@@ -133,7 +133,7 @@ func TestVR016ShortensCurse(t *testing.T) {
 	h.passConfront()
 	// Sem o Rosário a Maldição dispararia só no fim da rodada 2; com ele,
 	// dispara já no Crepúsculo da rodada 1 (mão de p1 ≥ 5). Maldição vale 3.
-	h.assertVit(1, 27)
+	h.assertVit(1, 24)
 	if got := len(h.g.State().Players[1].Curses); got != 0 {
 		t.Fatalf("maldições restantes: %d", got)
 	}
@@ -153,7 +153,7 @@ func TestVR019WardOnFirstGuard(t *testing.T) {
 	if got := h.g.State().Players[1].Ward; got != 1 {
 		t.Fatalf("ward: %d; esperado 1", got)
 	}
-	h.assertVit(1, 30)
+	h.assertVit(1, 27)
 }
 
 func TestVR021SuppressesManifs(t *testing.T) {
@@ -198,7 +198,7 @@ func TestVR022PreventsAllOpponentDraws(t *testing.T) {
 	h.g.State().Players[1].Essence = 4 // VR-022 custa 4 no alpha-0.5.0
 	h.play(0, h.handInst(0, "VR-020"))
 	h.play(1, h.handInst(1, "VR-022"))
-	h.assertVit(1, 30)
+	h.assertVit(1, 27)
 	if got := len(h.g.State().Players[0].Hand); got != before-1+1 {
 		t.Fatalf("p0 deveria ter comprado 1 (mão %d)", got)
 	}
@@ -235,7 +235,7 @@ func TestVR024UndefendableInAurora(t *testing.T) {
 	if s.Guard != nil {
 		t.Fatal("não deveria haver janela de Guarda na Aurora Total")
 	}
-	h.assertVit(1, 23)
+	h.assertVit(1, 20)
 }
 
 func TestVR028DrawFilterOnThirdSigil(t *testing.T) {
@@ -300,9 +300,9 @@ func TestVR045BloodMoonBurst(t *testing.T) {
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-013"))
 	h.pass(1)
-	h.assertVit(0, 28) // 1 por Assalto
+	h.assertVit(0, 25) // 1 por Assalto
 	// Lua no Sangue (shift +2) tirou o bônus de eclipse dos Golpes: 2+2.
-	h.assertVit(1, 26)
+	h.assertVit(1, 23)
 	if got := h.g.State().Players[0].Essence; got != 1 {
 		t.Fatalf("essência: %d; esperado 1 (rito 2 com Arcano; assaltos grátis)", got)
 	}
@@ -329,12 +329,12 @@ func TestVR046DestroyRelicAndVR071(t *testing.T) {
 	if s.Cards[vr065].Zone != engine.ZoneDiscard || len(s.Players[1].Relics) != 0 {
 		t.Fatal("a Relíquia deveria ter sido destruída para o descarte")
 	}
-	h.assertVit(1, 30) // custo 2 < 3: sem dano ao controlador
+	h.assertVit(1, 27) // custo 2 < 3: sem dano ao controlador
 	h.pass(0)
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-013"))
 	h.play(1, h.handInst(1, "VR-071")) // Relíquia destruída nesta rodada → previne 6
-	h.assertVit(1, 30)
+	h.assertVit(1, 27)
 }
 
 func TestVR052MillOnExile(t *testing.T) {
@@ -491,13 +491,21 @@ func TestVR066OpponentPicksDiscard(t *testing.T) {
 
 func TestVR067StripsVeil(t *testing.T) {
 	h := newHarness(t, "CH-CI-01", "CH-CI-01",
-		deckWith("VR-067"), deckWith(), 0)
+		deckWith("VR-067", "VR-020"), deckWith("VR-033"), 0)
 	h.keepAll()
 	h.stances(engine.StanceVigilia, engine.StanceVigilia)
 	h.mustFail(engine.Command{Player: 0, Kind: engine.CmdKindPlay, Card: h.handInst(0, "VR-067")},
 		engine.ErrRequirement)
+	h.bothPassRite()
+	h.play(0, h.handInst(0, "VR-020"))
+	h.play(1, h.handInst(1, "VR-033"))
 	s := h.g.State()
-	s.Players[1].VeilRound = s.Round
+	h.pass(s.Active)
+	h.pass(h.g.State().Active)
+	h.stances(engine.StanceArcano, engine.StanceArcano)
+	if s.Active == 1 {
+		h.pass(1)
+	}
 	h.play(0, h.handInst(0, "VR-067"))
 	if s.Players[1].VeilRound != 0 || !s.Players[1].Exposto {
 		t.Fatal("Véu removido e Exposto aplicado eram esperados")
@@ -514,7 +522,7 @@ func TestVR070ExactTwoBonus(t *testing.T) {
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-001")) // 2 exatos → Caixa causa +1
 	h.pass(1)
-	h.assertVit(1, 27)
+	h.assertVit(1, 24)
 }
 
 func TestVR073PunishesSecondDraw(t *testing.T) {
@@ -527,7 +535,7 @@ func TestVR073PunishesSecondDraw(t *testing.T) {
 	h.play(0, h.handInst(0, "VR-049"))
 	h.choose(0, h.handInst(0, "VR-006"))
 	// A 2ª compra da rodada de p0 dispara o Cão sem Sombra.
-	h.assertVit(0, 29)
+	h.assertVit(0, 26)
 }
 
 func TestVR074RemovesCurseSmart(t *testing.T) {

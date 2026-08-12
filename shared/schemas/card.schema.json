@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "veurubro/card",
-  "title": "Carta do catálogo Véu Rubro",
+  "title": "Carta do catálogo Nythara",
   "type": "object",
   "required": ["id", "name", "faction", "type", "rarity", "cost", "eclipse_shift", "sigil", "rules_text"],
   "additionalProperties": false,

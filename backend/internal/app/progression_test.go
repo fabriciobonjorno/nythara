@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,6 +37,78 @@ func TestRitualsForDayAreDeterministicAndDistinct(t *testing.T) {
 	}
 	if same {
 		t.Fatal("dias diferentes deveriam variar o sorteio")
+	}
+}
+
+func TestRitualPoolOnlyTeachesConfrontMode(t *testing.T) {
+	for _, ritual := range RitualPool {
+		copy := strings.ToLower(ritual.Title + " " + ritual.Description)
+		for _, removed := range []string{"eclipse", "sigilo", "trilha", "relíquia", "manifestação", "postura", "ultimate"} {
+			if strings.Contains(copy, removed) {
+				t.Fatalf("ritual %s ainda ensina mecânica removida %q: %s", ritual.ID, removed, copy)
+			}
+		}
+	}
+}
+
+func TestStatsFromConfrontEventsPowerCurrentRituals(t *testing.T) {
+	rs := engine.CompetitiveRuleset()
+	var assault, guard, rite string
+	for _, card := range rs.CardList {
+		if card.Confront == nil || !card.Confront.Legal {
+			continue
+		}
+		switch card.Type {
+		case engine.TypeAssalto:
+			if assault == "" {
+				assault = card.ID
+			}
+		case engine.TypeGuarda:
+			if guard == "" {
+				guard = card.ID
+			}
+		case engine.TypeRito:
+			if rite == "" {
+				rite = card.ID
+			}
+		}
+	}
+	if assault == "" || guard == "" || rite == "" {
+		t.Fatalf("pool competitivo incompleto: assalto=%q guarda=%q rito=%q", assault, guard, rite)
+	}
+	events := []engine.Event{
+		{Kind: engine.EvCardPlayed, P: 0, Def: assault, Round: 1},
+		{Kind: engine.EvCardPlayed, P: 1, Def: guard, Round: 1},
+		{Kind: engine.EvCardPlayed, P: 0, Def: rite, Round: 1},
+		{Kind: engine.EvConfrontationResolved, P: 0, S: "assault", N: 4, Round: 1},
+		{Kind: engine.EvCardShattered, P: 1, Def: guard, Round: 1},
+		{Kind: engine.EvConfrontationResolved, P: 0, S: "guard", Round: 2},
+		{Kind: engine.EvCardShattered, P: 0, Def: assault, Round: 2},
+		{Kind: engine.EvDamage, P: 1, N: 4, S: assault, Round: 1},
+		{Kind: engine.EvDamage, P: 0, N: 2, S: "Pressão de Nythara", Round: 25},
+		{Kind: engine.EvDamage, P: 1, N: 2, S: "Pressão de Nythara", Round: 25},
+	}
+	stats := StatsFromEvents(rs, events)
+	if stats[0].AssaultsPlayed != 1 || stats[0].RitosResolved != 1 || stats[1].GuardsPlayed != 1 {
+		t.Fatalf("tipos jogados incorretos: %+v", stats)
+	}
+	if stats[0].ConfrontsWon != 1 || stats[1].ConfrontsWon != 1 {
+		t.Fatalf("vencedores de confronto incorretos: %+v", stats)
+	}
+	if stats[0].RivalCardsShattered != 1 || stats[1].RivalCardsShattered != 1 {
+		t.Fatalf("estilhaços incorretos: %+v", stats)
+	}
+	if stats[0].DamageDealt != 4 || stats[1].DamageDealt != 0 {
+		t.Fatalf("Pressão não pode contar como dano causado: %+v", stats)
+	}
+	if got := ritualProgressFor(RitualDef{ID: "win_confronts_5"}, stats[0], false, true); got != 1 {
+		t.Fatalf("progresso de confrontos: %d", got)
+	}
+	if got := ritualProgressFor(RitualDef{ID: "shatter_rival_4"}, stats[0], false, true); got != 1 {
+		t.Fatalf("progresso de estilhaços: %d", got)
+	}
+	if got := ritualProgressFor(RitualDef{ID: "play_assaults_6"}, stats[0], false, true); got != 1 {
+		t.Fatalf("progresso de Assaltos: %d", got)
 	}
 }
 
@@ -178,5 +251,35 @@ func TestRecordFinishedMatchBuildsProgress(t *testing.T) {
 	}
 	if entry.RitualDay != "2026-08-10" {
 		t.Fatalf("dia do ritual: %s", entry.RitualDay)
+	}
+}
+
+// Auditoria pós-0.8.1: perdas de sistema (Fadiga, Ruptura do Véu) e dano de
+// carta própria não são "dano causado" — rituais de dano não podem progredir
+// com eles.
+func TestStatsFromEventsDamageAuthorship(t *testing.T) {
+	rs := engine.Builtin()
+	events := []engine.Event{
+		// Assalto real do p0 contra p1: credita p0.
+		{Seq: 0, Round: 3, Kind: "damage_dealt", P: 1, N: 4, Card: "p0-c05", Def: "VR-001"},
+		// Fadiga do p1: ninguém causou.
+		{Seq: 1, Round: 20, Kind: "damage_dealt", P: 1, N: 6, S: "Fadiga"},
+		// Ruptura atinge os dois: ninguém causou.
+		{Seq: 2, Round: 25, Kind: "damage_dealt", P: 0, N: 1, S: "Ruptura do Véu"},
+		{Seq: 3, Round: 25, Kind: "damage_dealt", P: 1, N: 1, S: "Ruptura do Véu"},
+		// Trono de Espinhos do p1 machuca o próprio p1: não credita p0.
+		{Seq: 4, Round: 5, Kind: "damage_dealt", P: 1, N: 1, Card: "p1-c12", Def: "VR-088"},
+		// Sangramento aplicado pelo p0 dispara em p1: autoria real, credita p0.
+		{Seq: 5, Round: 6, Kind: "damage_dealt", P: 1, N: 2, S: "Sangramento"},
+		// A Pressão do modo Confronto é perda de sistema, como Fadiga.
+		{Seq: 6, Round: 25, Kind: "damage_dealt", P: 0, N: 2, S: "Pressão de Nythara"},
+		{Seq: 7, Round: 25, Kind: "damage_dealt", P: 1, N: 2, S: "Pressão de Nythara"},
+	}
+	stats := StatsFromEvents(rs, events)
+	if stats[0].DamageDealt != 6 {
+		t.Fatalf("p0 causou %d; esperado 6 (4 do Assalto + 2 do Sangramento)", stats[0].DamageDealt)
+	}
+	if stats[1].DamageDealt != 0 {
+		t.Fatalf("p1 causou %d; esperado 0 (Fadiga/Ruptura/auto-dano não contam)", stats[1].DamageDealt)
 	}
 }

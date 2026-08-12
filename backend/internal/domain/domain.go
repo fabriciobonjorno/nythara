@@ -75,6 +75,9 @@ type Deck struct {
 	RulesetVersion string     `json:"ruleset_version"`
 	Cards          []DeckCard `json:"cards"`
 	Version        int64      `json:"version"`
+	Active         bool       `json:"active"`
+	LockedUntil    *time.Time `json:"locked_until,omitempty"`
+	SystemProvided bool       `json:"system_provided,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 }
@@ -246,6 +249,11 @@ type MatchReplayData struct {
 	Winner         *int              `json:"winner,omitempty"`
 	EndReason      string            `json:"end_reason,omitempty"`
 	Events         []json.RawMessage `json:"events"`
+	// StartingVitality é a base do ruleset em que a partida foi jogada. Sem
+	// ela o cliente teria de adivinhar, e a Vitalidade do Campeão é um valor
+	// legado que o Modo Confronto sobrescreve: replay antigo e replay novo
+	// desenham escalas diferentes.
+	StartingVitality int `json:"starting_vitality,omitempty"`
 }
 
 // ProgressSummary alimenta a Home: rituais do dia, carteira, maestria, rating.
@@ -327,11 +335,25 @@ type ChampionMatchStats struct {
 	WinRate    float64 `json:"win_rate"`
 }
 
+// MatchRhythmStats mede duração humana sem transformar observação em regra.
+// Percentis e médias usam somente PvP encerrado com started_at/ended_at.
+type MatchRhythmStats struct {
+	SampleMatches          int     `json:"sample_matches"`
+	AverageDurationSeconds float64 `json:"average_duration_seconds"`
+	P50DurationSeconds     float64 `json:"p50_duration_seconds"`
+	P95DurationSeconds     float64 `json:"p95_duration_seconds"`
+	AverageRounds          float64 `json:"average_rounds"`
+	P50Rounds              float64 `json:"p50_rounds"`
+	P95Rounds              float64 `json:"p95_rounds"`
+	OverThirtyMinutes      int     `json:"over_thirty_minutes"`
+}
+
 // MatchTelemetry agrega as partidas persistidas pelo battle server.
 type MatchTelemetry struct {
 	TotalMatches    int                  `json:"total_matches"`
 	FinishedMatches int                  `json:"finished_matches"`
 	ByChampion      []ChampionMatchStats `json:"by_champion"`
+	Rhythm          MatchRhythmStats     `json:"rhythm"`
 }
 
 type Store interface {
@@ -392,4 +414,23 @@ type Store interface {
 	// Arena: histórico pessoal e crônica de partidas encerradas.
 	MatchHistory(ctx context.Context, userID string, limit int) ([]MatchSummary, error)
 	MatchReplay(ctx context.Context, matchID string) (MatchReplayData, error)
+
+	// Recado do Alpha: opcional, um por partida.
+	SaveFeedback(ctx context.Context, entry Feedback) error
+	RecentFeedback(ctx context.Context, limit int) ([]Feedback, error)
 }
+
+// Feedback é o recado que o jogador decide deixar depois de um duelo. Nada no
+// produto depende dele: é convite, não requisito.
+type Feedback struct {
+	ID             string    `json:"id"`
+	UserID         string    `json:"user_id"`
+	MatchID        string    `json:"match_id,omitempty"`
+	RulesetVersion string    `json:"ruleset_version"`
+	Message        string    `json:"message"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// FeedbackMaxLength mantém o recado dentro do que a coluna aceita e evita que
+// um envio acidental de arquivo vire uma linha gigante no banco.
+const FeedbackMaxLength = 2000

@@ -1,4 +1,4 @@
-# Arquitetura Técnica — Véu Rubro
+# Arquitetura Técnica — Nythara
 
 ## Direção
 

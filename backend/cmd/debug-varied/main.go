@@ -64,7 +64,17 @@ func main() {
 			pend = fmt.Sprintf(" [decisão %s de %s opções %v]", d.Kind, d.Source, d.Options)
 		}
 		if _, err := game.Apply(command); err != nil {
-			fmt.Println("rejeitado:", err)
+			fmt.Printf("REJEITADO no passo %d rodada %d\ncomando: %+v%s\nerro: %v\n",
+				step, game.State().Round, command, pend, err)
+			if d := game.State().Pending; d != nil {
+				fmt.Printf("pendente: kind=%s id=%d source=%s card=%s n=%d min=%d options=%v\n",
+					d.Kind, d.ID, d.Source, d.Card, d.N, d.MinN, d.Options)
+			}
+			log := game.Log
+			for i := max(0, len(log)-20); i < len(log); i++ {
+				fmt.Printf("  ev %d %s p%d card=%s def=%s n=%d s=%s\n", log[i].Seq, log[i].Kind,
+					log[i].P, log[i].Card, log[i].Def, log[i].N, log[i].S)
+			}
 			return
 		}
 		if zerr := sim.ValidateZonesFor(game.State()); zerr != nil {

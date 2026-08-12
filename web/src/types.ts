@@ -12,6 +12,20 @@ export interface CardDefinition {
   rules_text: string;
   flavor: string;
   design_role: string;
+  confront?: {
+    legal: boolean;
+    adapted?: boolean;
+    reason?: string;
+    power?: number;
+    power_max?: number;
+    prevention?: number;
+    prevention_max?: number;
+    prevent_all?: boolean;
+    defendable?: boolean;
+    tactical_text?: string;
+    role?: string;
+    keywords?: string[];
+  };
 }
 
 export interface Champion {
@@ -22,6 +36,8 @@ export interface Champion {
   passive: string;
   ultimate: string;
   eclipse_form: string;
+  /** Poder do Avatar no ruleset ativo; ausente quando o modo não concede um. */
+  confront_power?: string;
 }
 
 export interface Principal {
@@ -69,6 +85,9 @@ export interface Deck {
   ruleset_version: string;
   cards: DeckCard[];
   version: number;
+  active: boolean;
+  locked_until?: string;
+  system_provided?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -129,13 +148,15 @@ export interface PlayerView {
   trail: string[];
   ward: number;
   exposto: boolean;
+  assault_seal_until?: number;
+  rite_seal_until?: number;
   ultimate_used: boolean;
 }
 
 export interface BattleState {
   ruleset_version: string;
   round: number;
-  phase: "mulligan" | "postura" | "rito" | "confronto" | "crepusculo" | "fim";
+  phase: "mulligan" | "postura" | "rito" | "confronto" | "crepusculo" | "assalto" | "guarda" | "fim";
   initiative: number;
   active: number;
   eclipse: number;
@@ -144,8 +165,10 @@ export interface BattleState {
   cards: Record<string, { id: string; def: string; owner: number; zone: string }>;
   pending?: { id: number; player: number; kind: string; options?: string[]; n: number; min_n?: number; card?: string; source?: string };
   guard?: { attacker: number; defender: number; assault_inst: string; assault_def: string; base_damage: number; instances: number };
+  confront?: { attacker: number; defender: number; assault_inst: string; assault_def: string; power: number; defendable: boolean; guard_inst?: string; guard_def?: string; prevention?: number };
   rite_react?: { caster: number; inst: string; def: string; cost: number };
   extra?: { player: number; max_cost?: number; source: string };
+  playable?: string[];
   over: boolean;
   winner: number;
   end_reason?: string;
@@ -195,8 +218,16 @@ export interface ChampionMastery {
   champion_id: string;
   xp: number;
   level: number;
+  title?: string;
   games: number;
   wins: number;
+}
+
+export interface RankTier {
+  key: string;
+  name: string;
+  min_rating: number;
+  next_at?: number;
 }
 
 export interface RankedStanding {
@@ -205,6 +236,7 @@ export interface RankedStanding {
   games: number;
   wins: number;
   position?: number;
+  tier?: RankTier;
 }
 
 export interface ProgressSummary {
@@ -213,4 +245,47 @@ export interface ProgressSummary {
   fragments: number;
   mastery: ChampionMastery[];
   ranked?: RankedStanding;
+}
+
+export interface LeaderboardEntry {
+  position: number;
+  user_id: string;
+  display_name: string;
+  rating: number;
+  games: number;
+  wins: number;
+  tier?: string;
+}
+
+export interface MatchSummary {
+  match_id: string;
+  mode: string;
+  ruleset_version: string;
+  my_slot: number;
+  my_champion: string;
+  opponent: string;
+  opponent_champion: string;
+  won: boolean;
+  draw?: boolean;
+  end_reason?: string;
+  finished_at?: string;
+}
+
+export interface ReplayPlayer {
+  user_id: string;
+  display_name: string;
+  champion_id: string;
+}
+
+export interface MatchReplayData {
+  match_id: string;
+  mode: string;
+  ruleset_version: string;
+  /** Base do ruleset em que a partida foi jogada; 0 quando o servidor não publica. */
+  starting_vitality?: number;
+  status: string;
+  players: [ReplayPlayer, ReplayPlayer];
+  winner?: number;
+  end_reason?: string;
+  events: BattleEvent[];
 }

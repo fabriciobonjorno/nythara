@@ -13,14 +13,72 @@ import (
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
 	"veurubro/backend/internal/security"
-	"veurubro/backend/internal/sim"
 )
+
+func TestIdentityMigrationRenamesCaseInsensitiveDuplicatesDeterministically(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL não definido")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	db, err := Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tx.Rollback() })
+	if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE player_profiles (
+		user_id uuid PRIMARY KEY,
+		display_name text NOT NULL,
+		created_at timestamptz NOT NULL,
+		updated_at timestamptz NOT NULL
+	); SET LOCAL search_path TO pg_temp`); err != nil {
+		t.Fatal(err)
+	}
+	const olderID = "11111111-1111-4111-8111-111111111111"
+	const duplicateID = "22222222-2222-4222-8222-222222222222"
+	const blockerID = "33333333-3333-4333-8333-333333333333"
+	firstCandidate := "u_" + strings.ReplaceAll(duplicateID, "-", "")[:25] + "_0000"
+	if _, err := tx.ExecContext(ctx, `INSERT INTO player_profiles(user_id, display_name, created_at, updated_at)
+		VALUES ($1, 'Alpha', '2024-01-01', '2024-01-01'),
+		       ($2, 'alpha', '2024-02-01', '2024-02-01'),
+		       ($3, $4, '2024-03-01', '2024-03-01')`, olderID, duplicateID, blockerID, firstCandidate); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(ctx, migration6Up); err != nil {
+		t.Fatal(err)
+	}
+
+	var olderName, duplicateName, blockerName string
+	if err := tx.QueryRowContext(ctx, `SELECT
+		max(display_name) FILTER (WHERE user_id=$1),
+		max(display_name) FILTER (WHERE user_id=$2),
+		max(display_name) FILTER (WHERE user_id=$3)
+		FROM player_profiles`, olderID, duplicateID, blockerID).Scan(&olderName, &duplicateName, &blockerName); err != nil {
+		t.Fatal(err)
+	}
+	wantDuplicate := "u_" + strings.ReplaceAll(duplicateID, "-", "")[:25] + "_0001"
+	if olderName != "Alpha" || duplicateName != wantDuplicate || blockerName != firstCandidate {
+		t.Fatalf("renomeação inesperada: antigo=%q duplicado=%q bloqueador=%q",
+			olderName, duplicateName, blockerName)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO player_profiles(user_id, display_name, created_at, updated_at)
+		VALUES ('44444444-4444-4444-8444-444444444444', 'ALPHA', now(), now())`); err == nil {
+		t.Fatal("índice case-insensitive aceitou duplicata depois da correção")
+	}
+}
 
 func TestPostgresRejectsIllegalDeckAtCommit(t *testing.T) {
 	ctx, db, userID := integrationDB(t)
 	deckID, _ := security.NewID()
+	ruleset := engine.CompetitiveRuleset()
 	championID := ""
-	for id := range engine.Champions {
+	for id := range ruleset.Champions {
 		championID = id
 		break
 	}
@@ -29,12 +87,22 @@ func TestPostgresRejectsIllegalDeckAtCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO decks(id,user_id,name,champion_id,ruleset_version)
-		VALUES($1,$2,'Ilegal direto no SQL',$3,$4)`, deckID, userID, championID, engine.RulesetVersion)
+		VALUES($1,$2,'Ilegal direto no SQL',$3,$4)`, deckID, userID, championID, engine.CompetitiveRulesetVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
+	cardID := ""
+	for _, card := range ruleset.CardList {
+		if card.Confront != nil && card.Confront.Legal {
+			cardID = card.ID
+			break
+		}
+	}
+	if cardID == "" {
+		t.Fatal("catálogo competitivo sem carta legal")
+	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO deck_cards(deck_id,card_id,ruleset_version,quantity)
-		VALUES($1,$2,$3,1)`, deckID, engine.CardList[0].ID, engine.RulesetVersion)
+		VALUES($1,$2,$3,1)`, deckID, cardID, engine.CompetitiveRulesetVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,7 +114,7 @@ func TestPostgresRejectsIllegalDeckAtCommit(t *testing.T) {
 func TestPostgresSavesLegalDeckIdempotently(t *testing.T) {
 	ctx, db, userID := integrationDB(t)
 	championID := ""
-	for id := range engine.Champions {
+	for id := range engine.CompetitiveRuleset().Champions {
 		championID = id
 		break
 	}
@@ -83,8 +151,11 @@ func TestPostgresPersistsBattleSnapshotAndCatchup(t *testing.T) {
 	ctx, db, user0 := integrationDB(t)
 	user1, _ := security.NewID()
 	_, err := db.CreateUser(ctx, domain.User{ID: user1, Email: user1 + "@example.test",
-		DisplayName: "R-" + user1[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.RulesetVersion)
+		DisplayName: "R-" + user1[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `DELETE FROM decks WHERE user_id=$1`, user1); err != nil {
 		t.Fatal(err)
 	}
 	deck0 := legalIntegrationDeck(t, user0, "CH-VH-01", "Batalha 0")
@@ -97,7 +168,7 @@ func TestPostgresPersistsBattleSnapshotAndCatchup(t *testing.T) {
 		}
 	}
 	matchID, _ := security.NewID()
-	config := engine.Config{RulesetVersion: engine.RulesetVersion, Seed: 99, FirstPlayer: 0,
+	config := engine.Config{RulesetVersion: engine.CompetitiveRulesetVersion, Seed: 99, FirstPlayer: 0,
 		Players: [2]engine.PlayerSetup{{ChampionID: deck0.ChampionID, Deck: expandIntegrationDeck(deck0)},
 			{ChampionID: deck1.ChampionID, Deck: expandIntegrationDeck(deck1)}}}
 	match := battle.Match{ID: matchID, Config: config, Status: battle.StatusWaitingReady, CreatedAt: time.Now().UTC(),
@@ -121,7 +192,7 @@ func TestPostgresPersistsBattleSnapshotAndCatchup(t *testing.T) {
 	if err := db.StartMatch(ctx, matchID, game.Log, initial); err != nil {
 		t.Fatal(err)
 	}
-	command := engine.Command{Player: 0, Kind: engine.CmdKindMulligan}
+	command := engine.Command{Player: 0, Kind: engine.CmdKindPass}
 	events, err := game.Apply(command)
 	if err != nil {
 		t.Fatal(err)
@@ -217,46 +288,114 @@ func integrationDB(t *testing.T) (context.Context, *Postgres, string) {
 	userID, _ := security.NewID()
 	// Identidade (migração 000006): username sem espaços e único.
 	_, err = db.CreateUser(ctx, domain.User{ID: userID, Email: userID + "@example.test",
-		DisplayName: "T-" + userID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.RulesetVersion)
+		DisplayName: "T-" + userID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion)
 	if err != nil {
+		t.Fatal(err)
+	}
+	// A conta Confronto nasce com um baralho oficial. A maioria destes testes
+	// exercita criação explícita, então remove apenas esse fixture automático.
+	if _, err := db.db.ExecContext(ctx, `DELETE FROM decks WHERE user_id=$1`, userID); err != nil {
 		t.Fatal(err)
 	}
 	return ctx, db, userID
 }
 
+func TestSyncCatalogPropagatesAlphaCompleteGrant(t *testing.T) {
+	ctx, db, userID := integrationDB(t)
+
+	if _, err := db.db.ExecContext(ctx, `DELETE FROM player_cards
+		WHERE user_id=$1 AND card_id='VR-130' AND ruleset_version=$2`, userID, engine.CompetitiveRulesetVersion); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `DELETE FROM player_champions
+		WHERE user_id=$1 AND champion_id='CH-VH-01' AND ruleset_version=$2`, userID, engine.CompetitiveRulesetVersion); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.SyncCatalog(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// A segunda sincronização prova que a propagação é idempotente.
+	if err := db.SyncCatalog(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	var quantity int
+	if err := db.db.QueryRowContext(ctx, `SELECT quantity FROM player_cards
+		WHERE user_id=$1 AND card_id='VR-130' AND ruleset_version=$2`, userID, engine.CompetitiveRulesetVersion).Scan(&quantity); err != nil {
+		t.Fatal(err)
+	}
+	if quantity != 1 {
+		t.Fatalf("VR-130 deveria voltar como Lendária 1x, recebeu %d", quantity)
+	}
+	var champions int
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM player_champions
+		WHERE user_id=$1 AND champion_id='CH-VH-01' AND ruleset_version=$2`, userID, engine.CompetitiveRulesetVersion).Scan(&champions); err != nil {
+		t.Fatal(err)
+	}
+	if champions != 1 {
+		t.Fatalf("campeão do grant alpha completo deveria existir uma vez, recebeu %d", champions)
+	}
+	var grants int
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM economy_transactions
+		WHERE user_id=$1 AND kind='collection_grant' AND payload->>'grant'='alpha_complete'`, userID).Scan(&grants); err != nil {
+		t.Fatal(err)
+	}
+	if grants != 1 {
+		t.Fatalf("sincronização não deve duplicar a transação de grant, recebeu %d", grants)
+	}
+}
+
+func TestSyncCatalogDoesNotDuplicateConfrontStarterDeck(t *testing.T) {
+	ctx, db, _ := integrationDB(t)
+	userID, _ := security.NewID()
+	if _, err := db.CreateUser(ctx, domain.User{ID: userID, Email: userID + "@sync.test",
+		DisplayName: "S-" + userID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SyncCatalog(ctx); err != nil {
+		t.Fatalf("primeira sincronização repetida: %v", err)
+	}
+	if err := db.SyncCatalog(ctx); err != nil {
+		t.Fatalf("segunda sincronização repetida: %v", err)
+	}
+	var decks int
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM decks
+		WHERE user_id=$1 AND ruleset_version=$2`, userID, engine.CompetitiveRulesetVersion).Scan(&decks); err != nil {
+		t.Fatal(err)
+	}
+	if decks != 1 {
+		t.Fatalf("sincronização deveria preservar um único baralho inicial; recebeu %d", decks)
+	}
+}
+
 func legalIntegrationDeck(t *testing.T, userID, championID, name string) domain.Deck {
 	t.Helper()
-	faction := engine.Champions[championID].Faction
-	deck := domain.Deck{UserID: userID, Name: name, ChampionID: championID, RulesetVersion: engine.RulesetVersion}
+	ruleset := engine.CompetitiveRuleset()
+	precon, err := ruleset.PreconstructedDeck(championID)
+	if err != nil {
+		t.Fatalf("montar baralho competitivo: %v", err)
+	}
+	deck := domain.Deck{UserID: userID, Name: name, ChampionID: championID, RulesetVersion: engine.CompetitiveRulesetVersion}
 	deck.ID, _ = security.NewID()
-	total := 0
-	for _, card := range engine.CardList {
-		if card.Faction != faction && card.Faction != engine.NeutralFaction {
+	byID := map[string]int{}
+	for _, cardID := range precon {
+		index, exists := byID[cardID]
+		if !exists {
+			deck.Cards = append(deck.Cards, domain.DeckCard{CardID: cardID, Quantity: 1})
+			byID[cardID] = len(deck.Cards) - 1
 			continue
 		}
-		quantity := engine.MaxCopies
-		if card.Rarity == engine.RarityLendaria {
-			quantity = engine.MaxLegendary
-		}
-		if total+quantity > engine.DeckSize {
-			quantity = engine.DeckSize - total
-		}
-		if quantity > 0 {
-			deck.Cards = append(deck.Cards, domain.DeckCard{CardID: card.ID, Quantity: quantity})
-			total += quantity
-		}
-		if total == engine.DeckSize {
-			break
-		}
+		deck.Cards[index].Quantity++
 	}
-	if total != engine.DeckSize {
-		t.Fatalf("não foi possível montar deck legal: %d cartas", total)
+	if len(precon) != engine.ConfrontDeckSize {
+		t.Fatalf("baralho competitivo com %d cartas; esperado %d", len(precon), engine.ConfrontDeckSize)
 	}
 	return deck
 }
 
 func expandIntegrationDeck(deck domain.Deck) []string {
-	result := make([]string, 0, engine.DeckSize)
+	result := make([]string, 0, engine.ConfrontDeckSize)
 	for _, card := range deck.Cards {
 		for range card.Quantity {
 			result = append(result, card.CardID)
@@ -265,17 +404,113 @@ func expandIntegrationDeck(deck domain.Deck) []string {
 	return result
 }
 
-// Fase 9: publicar → rotacionar clona coleção e decks válidos para a nova
-// versão, com idempotência (segunda rotação não duplica).
-func TestPostgresRotateToRuleset(t *testing.T) {
-	ctx, db, userID := integrationDB(t)
-
-	// Publica uma versão nova a partir do snapshot do embutido.
-	payload, err := db.RulesetPayload(ctx, engine.RulesetVersion)
+func TestPostgresConfrontStarterDeckLocksAfterFirstEdit(t *testing.T) {
+	ctx, db, _ := integrationDB(t)
+	userID, _ := security.NewID()
+	_, err := db.CreateUser(ctx, domain.User{ID: userID, Email: userID + "@confront.test",
+		DisplayName: "C-" + userID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
-	const next = "alpha-rotate-test"
+
+	decks, err := db.ListDecks(ctx, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(decks) != 1 {
+		t.Fatalf("conta nova deveria receber um único deck ativo, recebeu %d", len(decks))
+	}
+	starter := decks[0]
+	if !starter.Active || !starter.SystemProvided || starter.LockedUntil != nil || starter.RulesetVersion != engine.CompetitiveRulesetVersion {
+		t.Fatalf("deck inicial inválido: %+v", starter)
+	}
+	if got := len(expandIntegrationDeck(starter)); got != engine.ConfrontDeckSize {
+		t.Fatalf("deck inicial deveria ter %d cartas, recebeu %d", engine.ConfrontDeckSize, got)
+	}
+	if err := engine.ValidateDeckForVersion(starter.RulesetVersion, starter.ChampionID, expandIntegrationDeck(starter)); err != nil {
+		t.Fatalf("deck inicial ilegal: %v", err)
+	}
+
+	lockedUntil := time.Now().UTC().Add(24 * time.Hour)
+	starter.Name = "Meu baralho definitivo"
+	starter.SystemProvided = false
+	starter.LockedUntil = &lockedUntil
+	expected := starter.Version
+	mutation := domain.Mutation{Key: "confront-first-edit-" + userID, Operation: "deck:update:" + starter.ID,
+		RequestHash: []byte("first-edit")}
+	saved, replayed, err := db.SaveDeck(ctx, starter, &expected, mutation)
+	if err != nil || replayed {
+		t.Fatalf("primeira edição do deck inicial: replay=%v err=%v", replayed, err)
+	}
+	if saved.SystemProvided || saved.LockedUntil == nil || !saved.Active {
+		t.Fatalf("deck editado não foi travado/ativado: %+v", saved)
+	}
+
+	replayedDeck, replayed, err := db.SaveDeck(ctx, starter, &expected, mutation)
+	if err != nil || !replayed || replayedDeck.ID != saved.ID {
+		t.Fatalf("retry idempotente durante trava: replay=%v err=%v", replayed, err)
+	}
+	secondExpected := saved.Version
+	saved.Name = "Tentativa antes de 24h"
+	if _, _, err := db.SaveDeck(ctx, saved, &secondExpected, domain.Mutation{
+		Key: "confront-second-edit-" + userID, Operation: "deck:update:" + saved.ID,
+		RequestHash: []byte("second-edit"),
+	}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("segunda edição antes do prazo deveria falhar com conflito, recebeu %v", err)
+	}
+}
+
+func TestPostgresRejectsConfrontDeckWithoutMinimumComposition(t *testing.T) {
+	ctx, db, _ := integrationDB(t)
+	userID, _ := security.NewID()
+	_, err := db.CreateUser(ctx, domain.User{ID: userID, Email: userID + "@composition.test",
+		DisplayName: "M-" + userID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decks, err := db.ListDecks(ctx, userID)
+	if err != nil || len(decks) != 1 {
+		t.Fatalf("deck inicial: %d err=%v", len(decks), err)
+	}
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM deck_cards dc USING card_definitions cd
+		WHERE dc.deck_id=$1 AND cd.id=dc.card_id AND cd.ruleset_version=dc.ruleset_version
+		  AND cd.card_type='Rito'`, decks[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO deck_cards(deck_id,card_id,ruleset_version,quantity)
+		SELECT $1,cd.id,$2,2 FROM card_definitions cd
+		WHERE cd.ruleset_version=$2 AND cd.card_type='Assalto'
+		  AND COALESCE((cd.definition->'confront'->>'legal')::boolean,false)
+		  AND NOT EXISTS (SELECT 1 FROM deck_cards dc WHERE dc.deck_id=$1 AND dc.card_id=cd.id)
+		ORDER BY cd.id LIMIT 5`, decks[0].ID, engine.CompetitiveRulesetVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err == nil {
+		t.Fatal("Postgres confirmou deck de 30 cartas sem nenhum Rito")
+	}
+}
+
+// Fase 9: publicar → rotacionar clona coleção e decks válidos para a nova
+// versão, com idempotência (segunda rotação não duplica).
+func TestPostgresRotateToRuleset(t *testing.T) {
+	ctx, db, _ := integrationDB(t)
+	userID, _ := security.NewID()
+	if _, err := db.CreateUser(ctx, domain.User{ID: userID, Email: userID + "@rotate.test",
+		DisplayName: "R-" + userID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion); err != nil {
+		t.Fatal(err)
+	}
+
+	// Publica uma versão nova a partir do snapshot do embutido.
+	payload, err := db.RulesetPayload(ctx, engine.CompetitiveRulesetVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := "alpha-rotate-" + userID[:8]
 	var fx engine.EffectsFile
 	if err := json.Unmarshal(payload.Effects, &fx); err != nil {
 		t.Fatal(err)
@@ -297,28 +532,8 @@ func TestPostgresRotateToRuleset(t *testing.T) {
 	}
 	t.Cleanup(func() { engine.UnregisterRuleset(next) })
 
-	// O usuário tem um deck legal na versão ativa (precon de Seris).
-	precon, err := sim.PreconstructedDeck("CH-VH-01")
-	if err != nil {
-		t.Fatal(err)
-	}
-	counts := map[string]int{}
-	var order []string
-	for _, id := range precon {
-		if counts[id] == 0 {
-			order = append(order, id)
-		}
-		counts[id]++
-	}
-	deck := domain.Deck{ID: "11111111-1111-4111-8111-111111111111", UserID: userID,
-		Name: "Rotação", ChampionID: "CH-VH-01", RulesetVersion: engine.RulesetVersion}
-	for _, id := range order {
-		deck.Cards = append(deck.Cards, domain.DeckCard{CardID: id, Quantity: counts[id]})
-	}
-	if _, _, err := db.SaveDeck(ctx, deck, nil, domain.Mutation{Key: "rotate-deck-1",
-		Operation: "deck:save", RequestHash: []byte("h"), ScopeUserID: userID}); err != nil {
-		t.Fatal(err)
-	}
+	// CreateUser semeou o único baralho atual de 30 cartas; ele deve continuar
+	// legal e ser clonado na versão publicada.
 
 	granted, cloned, err := db.RotateToRuleset(ctx, next, audit)
 	if err != nil {
@@ -360,7 +575,10 @@ func TestPostgresRecordMatchProgress(t *testing.T) {
 	ctx, db, userID := integrationDB(t)
 	opponentID, _ := security.NewID()
 	if _, err := db.CreateUser(ctx, domain.User{ID: opponentID, Email: opponentID + "@ex.test",
-		DisplayName: "Rival", Role: domain.RolePlayer, PasswordHash: "x"}, engine.RulesetVersion); err != nil {
+		DisplayName: "R-" + opponentID[:8], Role: domain.RolePlayer, PasswordHash: "x"}, engine.CompetitiveRulesetVersion); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `DELETE FROM decks WHERE user_id=$1`, opponentID); err != nil {
 		t.Fatal(err)
 	}
 	season, err := db.ActiveSeason(ctx)
@@ -377,7 +595,7 @@ func TestPostgresRecordMatchProgress(t *testing.T) {
 		}
 	}
 	matchID, _ := security.NewID()
-	config := engine.Config{RulesetVersion: engine.RulesetVersion, Seed: 42, FirstPlayer: 0,
+	config := engine.Config{RulesetVersion: engine.CompetitiveRulesetVersion, Seed: 42, FirstPlayer: 0,
 		Players: [2]engine.PlayerSetup{{ChampionID: deck0.ChampionID, Deck: expandIntegrationDeck(deck0)},
 			{ChampionID: deck1.ChampionID, Deck: expandIntegrationDeck(deck1)}}}
 	match := battle.Match{ID: matchID, Mode: "pvp", Config: config,
@@ -419,9 +637,21 @@ func TestPostgresRecordMatchProgress(t *testing.T) {
 	if winner.Rating != 1016 || loser.Rating != 984 {
 		t.Fatalf("elo: %d/%d; esperado 1016/984", winner.Rating, loser.Rating)
 	}
-	board, err := db.Leaderboard(ctx, season.ID, 10)
-	if err != nil || len(board) < 2 || board[0].UserID != userID {
+	board, err := db.Leaderboard(ctx, season.ID, 1000)
+	if err != nil || len(board) < 2 {
 		t.Fatalf("leaderboard: %+v err=%v", board, err)
+	}
+	foundWinner := false
+	for i, row := range board {
+		if i > 0 && board[i-1].Rating < row.Rating {
+			t.Fatalf("leaderboard fora de ordem em %d: %+v", i, board)
+		}
+		if row.UserID == userID && row.Rating == 1016 {
+			foundWinner = true
+		}
+	}
+	if !foundWinner {
+		t.Fatalf("vencedor não encontrado no leaderboard: %+v", board)
 	}
 	mastery, err := db.MasteryFor(ctx, userID)
 	if err != nil || len(mastery) != 1 || mastery[0].XP != 30 || mastery[0].Wins != 1 {
@@ -433,12 +663,33 @@ func TestPostgresRecordMatchProgress(t *testing.T) {
 // (champion_id); o campeão vem do deck. Pego pelo painel LiveOps.
 func TestPostgresMatchTelemetryQueryRuns(t *testing.T) {
 	ctx, db, _ := integrationDB(t)
+	matchID, _ := security.NewID()
+	endedAt := time.Now().UTC()
+	startedAt := endedAt.Add(-31 * time.Minute)
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO matches
+		(id,ruleset_version,seed,config,status,mode,created_at,started_at,ended_at)
+		VALUES($1,$2,1,'{}','finished','pvp',$3,$3,$4)`, matchID,
+		engine.CompetitiveRulesetVersion, startedAt, endedAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO match_commands
+		(match_id,command_index,player_slot,origin,command) VALUES($1,0,-1,'system','{}')`, matchID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO match_events
+		(match_id,event_seq,command_index,event) VALUES($1,0,0,'{"round":37}')`, matchID); err != nil {
+		t.Fatal(err)
+	}
 	telemetry, err := db.MatchTelemetry(ctx)
 	if err != nil {
 		t.Fatalf("telemetria: %v", err)
 	}
 	if telemetry.TotalMatches < 0 {
 		t.Fatal("contagem inválida")
+	}
+	if telemetry.Rhythm.SampleMatches < 1 || telemetry.Rhythm.AverageDurationSeconds <= 0 ||
+		telemetry.Rhythm.AverageRounds <= 0 || telemetry.Rhythm.OverThirtyMinutes < 1 {
+		t.Fatalf("ritmo inválido: %+v", telemetry.Rhythm)
 	}
 }
 
@@ -462,7 +713,7 @@ func TestPostgresSeasonCloseGrantsTierRewards(t *testing.T) {
 
 	newSeasonID, _ := security.NewID()
 	_, err = db.CreateSeason(ctx, domain.Season{ID: newSeasonID, Name: "Temporada Prova",
-		RulesetVersion: engine.RulesetVersion, StartsAt: time.Now().UTC()},
+		RulesetVersion: engine.CompetitiveRulesetVersion, StartsAt: time.Now().UTC()},
 		domain.AuditEntry{Actor: userID, Action: "season:create", Subject: newSeasonID})
 	if err != nil {
 		t.Fatalf("virada de temporada: %v", err)
@@ -493,7 +744,7 @@ func TestPostgresSeasonCloseGrantsTierRewards(t *testing.T) {
 	// Segunda virada: a temporada antiga já está fechada — nada é reconcedido.
 	thirdID, _ := security.NewID()
 	if _, err := db.CreateSeason(ctx, domain.Season{ID: thirdID, Name: "Temporada Prova 2",
-		RulesetVersion: engine.RulesetVersion, StartsAt: time.Now().UTC().Add(time.Second)},
+		RulesetVersion: engine.CompetitiveRulesetVersion, StartsAt: time.Now().UTC().Add(time.Second)},
 		domain.AuditEntry{Actor: userID, Action: "season:create", Subject: thirdID}); err != nil {
 		t.Fatalf("segunda virada: %v", err)
 	}

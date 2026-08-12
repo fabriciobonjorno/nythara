@@ -9,6 +9,12 @@ package engine
 // da Saela (primeiro dano da rodada → 0) e a Recusa da Morte de Kaedor
 // (uma vez por partida: fica com 1 e descarta a mão). Retorna o valor aplicado.
 func (g *Game) applyVitalityLoss(player, n int, cause, card, def string) int {
+	applied := g.applyVitalityLossWithoutWinCheck(player, n, cause, card, def)
+	g.checkWin()
+	return applied
+}
+
+func (g *Game) applyVitalityLossWithoutWinCheck(player, n int, cause, card, def string) int {
 	if n <= 0 || g.s.Over {
 		return 0
 	}
@@ -32,7 +38,6 @@ func (g *Game) applyVitalityLoss(player, n int, cause, card, def string) int {
 		}
 		return n
 	}
-	g.checkWin()
 	return n
 }
 
@@ -127,7 +132,7 @@ func (g *Game) resolveCopy(player int, defID string, depth int) {
 		if impl == nil {
 			return
 		}
-		if impl.targetsOpponent && g.s.Players[1-player].VeilRound == g.s.Round {
+		if impl.targetsOpponent && veilActive(g.s.Players[1-player], g.s.Round) {
 			g.emit(Event{Kind: EvRiteFizzled, P: player, Def: defID, S: "veu"})
 			return
 		}

@@ -17,6 +17,7 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 	ctx := context.Background()
 	store := newMemoryBattleStore()
 	manager := NewManager(store)
+	manager.SetActiveRuleset(engine.RulesetVersion)
 	manager.readyTimeout = time.Hour
 	manager.actionTimeout = time.Hour
 	p0 := domain.Principal{UserID: "00000000-0000-4000-8000-000000000101", Role: domain.RolePlayer}
@@ -121,6 +122,9 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 
 	lastSeqBefore := r.match.Players[0].LastSequence
 	c0.Close()
+	if err := c0.Submit(ctx, lastSeqBefore+1, Intent{Kind: engine.CmdKindPass}); !errors.Is(err, ErrConnectionClosed) {
+		t.Fatalf("conexão encerrada devolveu diagnóstico incorreto: %v", err)
+	}
 	reconnectTicket, err := manager.IssueTicket(ctx, p0, matched.MatchID, TicketPlayer)
 	if err != nil {
 		t.Fatal(err)
@@ -147,6 +151,7 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 	// Simula restart do processo: nova Manager restaura snapshot inicial e
 	// reaplica os comandos persistidos posteriores.
 	manager2 := NewManager(store)
+	manager2.SetActiveRuleset(engine.RulesetVersion)
 	manager2.readyTimeout = time.Hour
 	manager2.actionTimeout = time.Hour
 	restartTicket, err := manager2.IssueTicket(ctx, p0, matched.MatchID, TicketPlayer)
@@ -182,6 +187,34 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 	}
 }
 
+func TestSubscriberDisconnectReasonIsNotReportedAsSpectator(t *testing.T) {
+	r := &room{subscribers: map[string]*subscriber{}, departed: map[string]error{}}
+	slow := &subscriber{id: "slow", mode: TicketPlayer, slot: 0, out: make(chan ServerMessage, 1)}
+	r.subscribers[slow.id] = slow
+	r.send(slow, ServerMessage{Type: "first"})
+	r.send(slow, ServerMessage{Type: "overflow"})
+	if _, err := r.writableSubscriber(slow.id); !errors.Is(err, ErrSubscriberSlow) {
+		t.Fatalf("assinante lento recebeu diagnóstico %v", err)
+	} else if code := ProtocolCode(err); code != "subscriber_too_slow" {
+		t.Fatalf("código do assinante lento: %s", code)
+	}
+
+	closed := &subscriber{id: "closed", mode: TicketPlayer, slot: 0, out: make(chan ServerMessage)}
+	r.subscribers[closed.id] = closed
+	r.dropSubscriber(closed, ErrConnectionClosed)
+	if _, err := r.writableSubscriber(closed.id); !errors.Is(err, ErrConnectionClosed) {
+		t.Fatalf("conexão encerrada recebeu diagnóstico %v", err)
+	} else if code := ProtocolCode(err); code != "connection_closed" {
+		t.Fatalf("código da conexão encerrada: %s", code)
+	}
+
+	spectator := &subscriber{id: "spectator", mode: TicketSpectator, slot: -1, out: make(chan ServerMessage)}
+	r.subscribers[spectator.id] = spectator
+	if _, err := r.writableSubscriber(spectator.id); !errors.Is(err, ErrSpectatorWrite) {
+		t.Fatalf("espectador recebeu diagnóstico %v", err)
+	}
+}
+
 func TestViewAndEventsHidePrivateCards(t *testing.T) {
 	config := engine.Config{RulesetVersion: engine.RulesetVersion, Seed: 7, FirstPlayer: 0,
 		Players: [2]engine.PlayerSetup{{ChampionID: "CH-VH-01", Deck: expandDeck(testDeck(t, "u0", "d0", "CH-VH-01"))},
@@ -190,7 +223,7 @@ func TestViewAndEventsHidePrivateCards(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	view := ViewFor(game.State(), 0, false)
+	view := ViewFor(game, 0, false)
 	if len(view.Players[0].Hand) != engine.OpeningHandSize || len(view.Players[1].Hand) != 0 {
 		t.Fatalf("mãos redigidas incorretamente: própria=%d rival=%d", len(view.Players[0].Hand), len(view.Players[1].Hand))
 	}
@@ -288,7 +321,7 @@ func testDeck(t *testing.T, userID, id, championID string) domain.Deck {
 type memoryBattleStore struct {
 	mu      sync.Mutex
 	matches map[string]LoadedMatch
-	bans []domain.CardBan
+	bans    []domain.CardBan
 }
 
 func newMemoryBattleStore() *memoryBattleStore {
@@ -410,6 +443,7 @@ func TestQueueRejectsBannedCards(t *testing.T) {
 	ctx := context.Background()
 	store := newMemoryBattleStore()
 	manager := NewManager(store)
+	manager.SetActiveRuleset(engine.RulesetVersion)
 	p0 := domain.Principal{UserID: "00000000-0000-4000-8000-000000000001", Role: domain.RolePlayer}
 	deck := testDeck(t, p0.UserID, "deck-ban", "CH-VH-01")
 

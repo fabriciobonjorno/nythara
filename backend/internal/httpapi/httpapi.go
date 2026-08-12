@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,12 +36,31 @@ type API struct {
 	generalLimiter *security.RateLimiter
 	authLimiter    *security.RateLimiter
 	wsLimiter      *security.RateLimiter
+	trustedProxies []*net.IPNet
 }
 
 func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, ready func(context.Context) error) http.Handler {
+	handler, err := NewWithOptions(service, battles, logger, ready, Options{})
+	if err != nil {
+		panic(err) // Options vazio é sempre válido; preserva a API dos testes.
+	}
+	return handler
+}
+
+type Options struct {
+	// TrustedProxyCIDRs permite usar X-Forwarded-For somente quando o peer TCP
+	// pertence explicitamente a uma rede de proxy confiável.
+	TrustedProxyCIDRs string
+}
+
+func NewWithOptions(service *app.Service, battles *battle.Manager, logger *slog.Logger, ready func(context.Context) error, options Options) (http.Handler, error) {
+	trustedProxies, err := parseTrustedProxyCIDRs(options.TrustedProxyCIDRs)
+	if err != nil {
+		return nil, err
+	}
 	api := &API{service: service, battles: battles, logger: logger, ready: ready,
 		generalLimiter: newGeneralLimiter(), authLimiter: newAuthLimiter(),
-		wsLimiter: newWSCommandLimiter()}
+		wsLimiter: newWSCommandLimiter(), trustedProxies: trustedProxies}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
 	mux.HandleFunc("GET /readyz", api.readiness)
@@ -71,6 +91,7 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 	mux.Handle("POST /v1/decks/import", api.auth(http.HandlerFunc(api.importDeck)))
 	mux.Handle("GET /v1/matches", api.auth(http.HandlerFunc(api.matchHistory)))
 	mux.Handle("GET /v1/matches/{id}/replay", api.auth(http.HandlerFunc(api.matchReplay)))
+	mux.Handle("POST /v1/feedback", api.auth(http.HandlerFunc(api.submitFeedback)))
 	mux.Handle("POST /v1/admin/rewards/grant", api.auth(api.requireRole(domain.RoleAdmin,
 		http.HandlerFunc(api.grantReward))))
 	api.adminRoutes(mux)
@@ -82,7 +103,7 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 		mux.Handle("POST /v1/battles/{id}/tickets", api.auth(http.HandlerFunc(api.battleTicket)))
 		mux.HandleFunc("GET /v1/battles/{id}/ws", api.battleWebSocket)
 	}
-	return api.recover(api.harden(mux))
+	return api.recover(api.harden(mux)), nil
 }
 
 func (a *API) matchmakingStatus(w http.ResponseWriter, r *http.Request) {
@@ -196,6 +217,23 @@ func (a *API) matchReplay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, replay)
+}
+
+// O recado do Alpha é opcional: a resposta é um 204 silencioso, sem prêmio,
+// sem contador e sem nada que transforme ajuda voluntária em obrigação.
+func (a *API) submitFeedback(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		MatchID string `json:"match_id,omitempty"`
+		Message string `json:"message"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	if err := a.service.SubmitFeedback(r.Context(), principal(r), input.MatchID, input.Message); err != nil {
+		a.respondError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) leaderboard(w http.ResponseWriter, r *http.Request) {
@@ -435,8 +473,9 @@ func (a *API) readiness(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) version(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ruleset": engine.RulesetVersion,
-		"cards": len(engine.CardList), "champions": len(engine.Champions)})
+	rs := engine.CompetitiveRuleset()
+	writeJSON(w, http.StatusOK, map[string]any{"ruleset": engine.CompetitiveRulesetVersion,
+		"cards": len(rs.CardList), "champions": len(rs.Champions)})
 }
 
 func (a *API) implementationReport(w http.ResponseWriter, _ *http.Request) {
@@ -502,15 +541,36 @@ func (a *API) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) cards(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.RulesetVersion, "cards": engine.CardList})
+	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.CompetitiveRulesetVersion, "cards": engine.CompetitiveRuleset().CardList})
 }
 
 func (a *API) champions(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.RulesetVersion, "champions": app.ChampionsSorted()})
+	// O poder do Avatar é do ruleset ativo, não do catálogo: o cliente recebe o
+	// texto pronto em vez de repetir a regra por conta própria.
+	powers := engine.CompetitiveRuleset().ConfrontRules.ChampionPowers
+	champions := app.ChampionsSorted()
+	out := make([]map[string]any, 0, len(champions))
+	for _, champion := range champions {
+		entry := map[string]any{"id": champion.ID, "name": champion.Name, "faction": champion.Faction,
+			"vitality": champion.Vitality, "passive": champion.Passive, "ultimate": champion.Ultimate,
+			"eclipse_form": champion.EclipseForm}
+		if power, ok := powers[champion.ID]; ok {
+			entry["confront_power"] = power.Text
+		}
+		out = append(out, entry)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.CompetitiveRulesetVersion, "champions": out})
 }
 
 func (a *API) ruleset(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"version": engine.RulesetVersion, "active": true})
+	// A Vitalidade inicial viaja com o ruleset: o cliente não deve repetir o
+	// número em texto fixo, sob pena de prometer uma regra que mudou.
+	rules := engine.CompetitiveRuleset().ConfrontRules
+	writeJSON(w, http.StatusOK, map[string]any{"version": engine.CompetitiveRulesetVersion, "active": true,
+		"starting_vitality": rules.StartingVitality, "guard_leak_cap": rules.GuardLeakCap,
+		"pressure_start_turn": rules.PressureStartTurn, "pressure_base_loss": rules.PressureBaseLoss,
+		"deck_size": engine.ConfrontDeckSize, "min_assaults": rules.MinAssaults,
+		"min_guards": rules.MinGuards, "min_rites": rules.MinRites})
 }
 
 func (a *API) season(w http.ResponseWriter, r *http.Request) {

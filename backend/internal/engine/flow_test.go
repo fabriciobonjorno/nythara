@@ -36,7 +36,7 @@ func TestScriptedMatchGolden(t *testing.T) {
 	// Rito p0: Dívida de Sangue (sacrifica 2, compra 2, descarta 1).
 	vr002 := h.handInst(0, "VR-002")
 	h.play(0, vr002)
-	h.assertVit(0, 28)
+	h.assertVit(0, 25)
 	if got := g.State().Players[0].TempEssence; got != 1 {
 		t.Fatalf("passiva de Seris: temp essence = %d; esperado 1", got)
 	}
@@ -54,19 +54,19 @@ func TestScriptedMatchGolden(t *testing.T) {
 	// p1 responde com Égide de Lumen (custo 0: Vigília + Mara): previne 3 → 1 passa.
 	h.play(0, h.handInst(0, "VR-001"))
 	h.play(1, h.handInst(1, "VR-014"))
-	h.assertVit(1, 30)
+	h.assertVit(1, 27)
 
 	// Golpe da Alvorada: eclipse em 0 → 2 (bônus exige Aurora funda).
 	h.play(0, h.handInst(0, "VR-013"))
 	h.pass(1)
-	h.assertVit(1, 28)
+	h.assertVit(1, 25)
 	h.pass(0)
 
 	// Confronto p1: Refração Dolorosa: 3 base +2 (último sigilo global Presa,
 	// alpha-0.6.0); Exposto em p0 → +2 = 7.
 	h.play(1, h.handInst(1, "VR-025"))
 	h.pass(0)
-	h.assertVit(0, 21)
+	h.assertVit(0, 18)
 	if g.State().Players[0].Exposto {
 		t.Fatal("Exposto deveria ter sido consumido")
 	}

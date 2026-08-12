@@ -11,7 +11,7 @@ import (
 // O validador da DSL precisa rejeitar definições malformadas no boot.
 func TestDSLValidatorRejections(t *testing.T) {
 	base := func(cards, unsupported string) []byte {
-		// Constrói um arquivo cobrindo as 80 cartas: as citadas em `cards`,
+		// Constrói um arquivo cobrindo as 130 cartas: as citadas em `cards`,
 		// o resto vai para unsupported com motivo genérico.
 		var sb strings.Builder
 		sb.WriteString(`{"version":"test","cards":{`)
@@ -116,6 +116,6 @@ func TestDSLCoversAllCardsWithReasons(t *testing.T) {
 			t.Errorf("%s sem motivo de não-suporte", id)
 		}
 	}
-	t.Logf("DSL %s: %d/80 cartas funcionais; %d não suportadas com motivo",
+	t.Logf("DSL %s: %d/130 cartas funcionais; %d não suportadas com motivo",
 		r.EffectsVersion, len(r.ImplementedCards), len(r.MissingCards))
 }

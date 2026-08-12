@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_gate:
+        description: "Executar o gate de release contra servidor real"
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "17 3 * * *"
 
@@ -21,6 +27,15 @@ jobs:
       - name: Install
         working-directory: web
         run: npm ci
+      - name: Regressão de interação da mesa
+        working-directory: web
+        run: npm run test:ui
+      - name: Preparar Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Regressão real no navegador
+        working-directory: web
+        run: npm run test:browser
       - name: Typecheck and build PWA
         working-directory: web
         run: npm run build
@@ -61,18 +76,27 @@ jobs:
       - name: Scan de vulnerabilidades (govulncheck)
         working-directory: backend
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
-      - name: Test (race)
+      - name: Unidade e integração
         working-directory: backend
-        run: go test -race -count=1 ./...
+        run: go test -count=1 ./...
+      - name: Race nos pacotes authoritative
+        working-directory: backend
+        run: go test -race -count=1 ./internal/engine ./internal/battle
       - name: Relatório de implementação de cartas
         working-directory: backend
         run: go test ./internal/engine/ -run TestImplementationReportGate -v | grep 'cartas implementadas' || true
       - name: Smoke de balanceamento
         working-directory: backend
-        run: go run ./cmd/sim -games 1000 -workers 2 -json artifacts/smoke.json -markdown artifacts/smoke.md
+        run: go run ./cmd/sim -games 5000 -workers 2 -json artifacts/smoke.json -markdown artifacts/smoke.md
+      - name: Publicar smoke
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-${{ github.sha }}
+          path: backend/artifacts/smoke.*
+          retention-days: 14
 
   balance:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.release_gate)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,12 +104,76 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache: true
+      - name: Race integral noturno
+        working-directory: backend
+        run: go test -race -count=1 -timeout=20m ./...
       - name: Gate noturno — 100 mil partidas com replay
         working-directory: backend
         run: go run ./cmd/sim -games 100000 -workers 2 -json artifacts/balance-report.json -markdown artifacts/balance-report.md
+      # Os precons são a régua do formato, mas quem monta o próprio baralho joga
+      # outra partida: foi este gate que revelou a distância de ritmo do ADR-055.
+      - name: Gate noturno — decks sorteados do pool inteiro
+        working-directory: backend
+        run: go run ./cmd/sim -games 100000 -workers 2 -decks varied -json artifacts/balance-varied.json -markdown artifacts/balance-varied.md
       - name: Publicar relatório de balanceamento
         uses: actions/upload-artifact@v4
         with:
           name: balance-${{ github.sha }}
           path: backend/artifacts/
           retention-days: 30
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && inputs.release_gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: veurubro
+          POSTGRES_PASSWORD: veurubro_dev
+          POSTGRES_DB: veurubro_release
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U veurubro -d veurubro_release"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://veurubro:veurubro_dev@localhost:5432/veurubro_release?sslmode=disable
+      TEST_DATABASE_URL: postgres://veurubro:veurubro_dev@localhost:5432/veurubro_release?sslmode=disable
+      PORT: 18080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache: true
+      - name: Provas de decisão, restauração e replay
+        working-directory: backend
+        run: go test -race -count=1 ./internal/engine ./internal/battle -run 'Decision|Reconnect|Restart|Replay'
+      - name: Migrar banco de release
+        working-directory: backend
+        run: go run ./cmd/migrate up
+      - name: Servidor real + duelo ponta a ponta
+        working-directory: backend
+        run: |
+          go run ./cmd/server > /tmp/veurubro-release-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18080/readyz; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            cat /tmp/veurubro-release-server.log
+            exit 1
+          fi
+          go run ./cmd/e2e-duel -base-url http://127.0.0.1:18080
+      - name: Log do servidor em caso de falha
+        if: failure()
+        run: cat /tmp/veurubro-release-server.log

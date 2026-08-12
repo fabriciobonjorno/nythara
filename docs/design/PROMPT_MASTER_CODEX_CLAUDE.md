@@ -1,7 +1,7 @@
 # PROMPT MASTER — CLAUDE / CODEX
-## Implementar Projeto VÉU RUBRO
+## Implementar Projeto NYTHARA
 
-Você é o arquiteto principal e engenheiro responsável por implementar um card game PvP digital chamado **Projeto VÉU RUBRO**.
+Você é o arquiteto principal e engenheiro responsável por implementar um card game PvP digital chamado **Projeto NYTHARA**.
 
 Leia obrigatoriamente antes de codar:
 - `GDD.md`
@@ -150,7 +150,7 @@ Gate:
 - golden replay tests;
 - property tests;
 - fuzz;
-- 100% das 80 cartas carregáveis e schema-valid;
+- 100% das 130 cartas carregáveis e schema-valid;
 - pelo menos 20 cartas totalmente funcionais end-to-end.
 
 # FASE 2 — DSL de cartas
@@ -335,7 +335,7 @@ Implementar:
 
 # FASE 9 — Conteúdo completo do Alpha
 
-Implementar todas as 80 cartas e 10 Campeões.
+Implementar todas as 130 cartas e 10 Campeões.
 Criar preconstructed decks para cada Campeão.
 Tutorial deve ensinar:
 1. dano;
@@ -356,7 +356,7 @@ Não declarar pronto enquanto:
 - PvP real;
 - reconnect;
 - replays;
-- 80 cartas;
+- 130 cartas;
 - 10 Champions;
 - admin;
 - telemetry;

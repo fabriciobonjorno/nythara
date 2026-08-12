@@ -17,30 +17,31 @@ import (
 
 // liveopsState guarda o lado admin do fakeStore em memória.
 type liveopsState struct {
-	mu       sync.Mutex
-	rulesets []domain.RulesetInfo
-	payloads map[string]domain.RulesetPayload
-	drafts   map[string]domain.CardDraft
-	bans     map[string]domain.CardBan
-	seasons  []domain.Season
-	audit    []domain.AuditEntry
+	mu          sync.Mutex
+	rulesets    []domain.RulesetInfo
+	payloads    map[string]domain.RulesetPayload
+	drafts      map[string]domain.CardDraft
+	bans        map[string]domain.CardBan
+	seasons     []domain.Season
+	audit       []domain.AuditEntry
 	rituals     map[string][]domain.RitualState
 	progressLog map[string]domain.MatchProgress
 }
 
 func newLiveopsState() *liveopsState {
-	cards, _ := json.Marshal(engine.CardList)
+	rs := engine.CompetitiveRuleset()
+	cards, _ := json.Marshal(rs.CardList)
 	var champs []*engine.ChampionDef
 	for _, id := range []string{"CH-VH-01", "CH-VH-02", "CH-SO-01", "CH-SO-02", "CH-MI-01",
 		"CH-MI-02", "CH-VA-01", "CH-VA-02", "CH-CI-01", "CH-CI-02"} {
-		champs = append(champs, engine.Champions[id])
+		champs = append(champs, rs.Champions[id])
 	}
 	champsRaw, _ := json.Marshal(champs)
-	effects, _ := json.Marshal(engine.Effects)
+	effects, _ := json.Marshal(rs.Effects)
 	return &liveopsState{
-		rulesets: []domain.RulesetInfo{{Version: engine.RulesetVersion, Active: true}},
+		rulesets: []domain.RulesetInfo{{Version: engine.CompetitiveRulesetVersion, Active: true}},
 		payloads: map[string]domain.RulesetPayload{
-			engine.RulesetVersion: {Version: engine.RulesetVersion, Cards: cards,
+			engine.CompetitiveRulesetVersion: {Version: engine.CompetitiveRulesetVersion, Cards: cards,
 				Champions: champsRaw, Effects: effects},
 		},
 		drafts: map[string]domain.CardDraft{},
@@ -346,7 +347,7 @@ func TestDraftLifecycleValidatePublishActivate(t *testing.T) {
 		t.Fatalf("ativar: %d", got)
 	}
 	if got := adminRequest(t, handler, adminToken, "POST",
-		"/v1/admin/rulesets/"+engine.RulesetVersion+"/activate", nil).Code; got != http.StatusNoContent {
+		"/v1/admin/rulesets/"+engine.CompetitiveRulesetVersion+"/activate", nil).Code; got != http.StatusNoContent {
 		t.Fatalf("rollback: %d", got)
 	}
 	audit := adminRequest(t, handler, adminToken, "GET", "/v1/admin/audit", nil)
@@ -464,6 +465,18 @@ func (f *fakeStore) MatchHistory(_ context.Context, userID string, _ int) ([]dom
 	return []domain.MatchSummary{{MatchID: "m1", Mode: "practice", MySlot: 0,
 		MyChampion: "CH-CI-01", Opponent: "Treinador do Véu",
 		OpponentChampion: "CH-VA-02", Won: true, EndReason: "concessao"}}, nil
+}
+
+func (f *fakeStore) RecentFeedback(_ context.Context, limit int) ([]domain.Feedback, error) {
+	if limit < len(f.feedback) {
+		return f.feedback[:limit], nil
+	}
+	return f.feedback, nil
+}
+
+func (f *fakeStore) SaveFeedback(_ context.Context, entry domain.Feedback) error {
+	f.feedback = append(f.feedback, entry)
+	return nil
 }
 
 func (f *fakeStore) MatchReplay(_ context.Context, matchID string) (domain.MatchReplayData, error) {

@@ -13,6 +13,7 @@ import (
 
 	"veurubro/backend/internal/app"
 	"veurubro/backend/internal/battle"
+	"veurubro/backend/internal/config"
 	"veurubro/backend/internal/engine"
 	"veurubro/backend/internal/httpapi"
 	"veurubro/backend/internal/storage"
@@ -23,9 +24,10 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		databaseURL = "postgres://veurubro:veurubro_dev@localhost:5432/veurubro?sslmode=disable"
+	databaseURL, err := config.RequiredSecret("DATABASE_URL")
+	if err != nil {
+		logger.Error("configuração do banco ausente", "error", err)
+		os.Exit(1)
 	}
 	db, err := storage.Open(ctx, databaseURL)
 	if err != nil {
@@ -37,7 +39,7 @@ func main() {
 		logger.Error("falha ao sincronizar catálogo", "error", err)
 		os.Exit(1)
 	}
-	shutdownTelemetry, err := telemetry.Setup(ctx, "veu-rubro-api", engine.RulesetVersion)
+	shutdownTelemetry, err := telemetry.Setup(ctx, "nythara-api", engine.CompetitiveRulesetVersion)
 	if err != nil {
 		logger.Error("falha ao iniciar telemetria", "error", err)
 		os.Exit(1)
@@ -82,10 +84,17 @@ func main() {
 		}
 	})
 
-	handler := otelhttp.NewHandler(httpapi.New(service, battleManager, logger, db.Ping), "http.server")
+	handler, err := httpapi.NewWithOptions(service, battleManager, logger, db.Ping, httpapi.Options{
+		TrustedProxyCIDRs: os.Getenv("TRUSTED_PROXY_CIDRS"),
+	})
+	if err != nil {
+		logger.Error("configuração HTTP inválida", "error", err)
+		os.Exit(1)
+	}
+	handler = otelhttp.NewHandler(handler, "http.server")
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "18080"
 	}
 	srv := &http.Server{
 		Addr:              ":" + port,

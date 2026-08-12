@@ -1,33 +1,76 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { CardTile } from "../components/CardTile";
-import { useCards, useChampions, useCollection } from "../queries";
+import { ChampionEmblem } from "../components/ChampionEmblem";
+import { DataLoadError } from "../components/DataLoadError";
+import { UiIcon } from "../components/UiIcon";
+import { useCards, useChampions, useCollection, useRuleset } from "../queries";
+import type { Champion } from "../types";
+import { translateText } from "../i18n";
+import { usePreferencesStore } from "../store";
 
 export function CollectionPage() {
-  const { data: catalog, isLoading } = useCards();
-  const { data: collection } = useCollection();
+  const cardsQuery = useCards();
+  const collectionQuery = useCollection();
+  const { data: catalog, isLoading } = cardsQuery;
+  const { data: collection } = collectionQuery;
   const [search, setSearch] = useState("");
   const [type, setType] = useState("Todos");
   const [faction, setFaction] = useState("Todas");
+  const [mode, setMode] = useState("Competitivas");
+  const [visibleCount, setVisibleCount] = useState(30);
   const owned = new Map(collection?.cards.map((item) => [item.card_id, item.quantity]));
   const cards = useMemo(() => catalog?.cards.filter((card) =>
     (type === "Todos" || card.type === type) && (faction === "Todas" || card.faction === faction) &&
+    (mode === "Todas" || (mode === "Competitivas" ? card.confront?.legal : !card.confront?.legal)) &&
     `${card.name} ${card.rules_text} ${card.sigil}`.toLocaleLowerCase("pt-BR").includes(search.toLocaleLowerCase("pt-BR")),
-  ) ?? [], [catalog, faction, search, type]);
+  ) ?? [], [catalog, faction, mode, search, type]);
   const factions = [...new Set(catalog?.cards.map((card) => card.faction) ?? [])];
+  useEffect(() => setVisibleCount(30), [faction, mode, search, type]);
+  const visibleCards = cards.slice(0, visibleCount);
 
-  return <div className="page catalog-page"><PageHeader eyebrow="ARQUIVO DO VÉU" title="Coleção" copy="Todas as 80 cartas do Alpha estão disponíveis para competir." count={`${cards.length} cartas`} />
-    <div className="filter-bar"><label className="search-field"><span className="sr-only">Buscar carta</span><input type="search" placeholder="Buscar por nome, texto ou Sigilo…" value={search} onChange={(event) => setSearch(event.target.value)} /></label><label>Tipo<select value={type} onChange={(event) => setType(event.target.value)}><option>Todos</option>{["Assalto", "Guarda", "Rito", "Relíquia", "Manifestação"].map((item) => <option key={item}>{item}</option>)}</select></label><label>Facção<select value={faction} onChange={(event) => setFaction(event.target.value)}><option>Todas</option>{factions.map((item) => <option key={item}>{item}</option>)}</select></label></div>
-    {isLoading ? <LoadingGrid /> : <div className="card-grid">{cards.map((card) => <CardTile key={card.id} card={card} quantity={owned.get(card.id) ?? 0} />)}</div>}
+  const legalCount = catalog?.cards.filter((card) => card.confront?.legal).length ?? 0;
+  return <div className="page catalog-page"><PageHeader eyebrow="ARQUIVO DO VÉU" title="Coleção" copy={`${catalog?.cards.length ?? 130} cartas ilustradas no catálogo; ${legalCount} formam o pool competitivo do Modo Confronto.`} count={`${cards.length} exibidas`} />
+    <div className="filter-bar"><label className="search-field"><span className="sr-only">Buscar carta</span><input type="search" placeholder="Buscar por nome, ação ou texto…" value={search} onChange={(event) => setSearch(event.target.value)} /></label><label>Modo<select value={mode} onChange={(event) => setMode(event.target.value)}><option value="Competitivas">Competitivas</option><option value="Arquivo">Arquivo</option><option value="Todas">Todas</option></select></label><label>Tipo<select value={type} onChange={(event) => setType(event.target.value)}><option value="Todos">Todos</option>{["Assalto", "Guarda", "Rito", "Relíquia", "Manifestação"].map((item) => <option value={item} key={item}>{item}</option>)}</select></label><label>Facção<select value={faction} onChange={(event) => setFaction(event.target.value)}><option value="Todas">Todas</option>{factions.map((item) => <option value={item} key={item}>{item}</option>)}</select></label></div>
+    {cardsQuery.isError || collectionQuery.isError
+      ? <DataLoadError onRetry={() => { void cardsQuery.refetch(); void collectionQuery.refetch(); }} />
+      : isLoading || collectionQuery.isLoading ? <LoadingGrid /> : <>
+        <div className="card-grid">{visibleCards.map((card) => <CardTile key={card.id} card={card} quantity={owned.get(card.id) ?? 0} />)}</div>
+        {visibleCards.length < cards.length && <button className="secondary-button card-load-more" type="button" onClick={() => setVisibleCount((count) => count + 30)}>Carregar mais cartas ({cards.length - visibleCards.length} restantes)</button>}
+      </>}
   </div>;
 }
 
 export function ChampionsPage() {
-  const { data, isLoading } = useChampions();
-  const { data: collection } = useCollection();
+  const championsQuery = useChampions();
+  const collectionQuery = useCollection();
+  const rulesetQuery = useRuleset();
+  // A Vitalidade vem do ruleset ativo: repetir o número em texto fixo já
+  // prometeu 30 depois que o formato passou a começar em 56.
+  const vitality = rulesetQuery.data?.starting_vitality;
+  const { data, isLoading } = championsQuery;
+  const { data: collection } = collectionQuery;
   const owned = new Set(collection?.champions ?? []);
-  return <div className="page champions-page"><PageHeader eyebrow="PORTADORES DO DESTINO" title="Campeões" copy="Cada Campeão transforma o Eclipse em uma estratégia diferente." count={`${data?.champions.length ?? 10} campeões`} />
-    {isLoading ? <LoadingGrid /> : <div className="champion-grid">{data?.champions.map((champion, index) => <article className="champion-card" key={champion.id}><div className="champion-portrait" aria-hidden="true"><span>{["♜", "♞", "☀", "✧", "◈", "◎", "⌁", "◒", "✣", "♙"][index]}</span></div><div className="champion-card__body"><div className="champion-card__title"><div><p className="eyebrow">{champion.faction}</p><h2>{champion.name}</h2></div><span className="vitality">♥ {champion.vitality}</span></div><dl><div><dt>Passiva</dt><dd>{champion.passive}</dd></div><div><dt>Ultimate</dt><dd>{champion.ultimate}</dd></div><div className="eclipse-form"><dt>Forma de Eclipse</dt><dd>{champion.eclipse_form}</dd></div></dl><span className="owned-badge">{owned.has(champion.id) ? "Disponível" : "Bloqueado"}</span></div></article>)}</div>}
+  return <div className="page champions-page"><PageHeader eyebrow="SUA PRESENÇA NA ARENA" title="Avatares" copy={`Cada Avatar traz um poder próprio e todos começam com${vitality ? ` ${vitality}` : " a mesma"} Vitalidade. O poder muda como você joga, nunca quantas cartas você tem.`} count={`${data?.champions.length ?? 10} visuais`} />
+    {championsQuery.isError || collectionQuery.isError
+      ? <DataLoadError onRetry={() => { void championsQuery.refetch(); void collectionQuery.refetch(); }} />
+      : isLoading || collectionQuery.isLoading ? <LoadingGrid /> : <div className="champion-grid">{data?.champions.map((champion) => <ChampionCard champion={champion} vitality={vitality} available={owned.has(champion.id)} key={champion.id} />)}</div>}
   </div>;
+}
+
+function ChampionCard({ champion, vitality, available }: { champion: Champion; vitality?: number; available: boolean }) {
+  const locale = usePreferencesStore((state) => state.locale);
+  const power = champion.confront_power ? translateText(champion.confront_power, locale) : "Sem poder neste conjunto de regras.";
+  const factionClass = champion.faction.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replaceAll(" ", "-").toLowerCase();
+  return <article className={`champion-card faction-${factionClass} ${available ? "is-available" : "is-locked"}`}>
+    <div className="champion-portrait" aria-hidden="true"><ChampionEmblem id={champion.id} faction={champion.faction} /><span>{champion.name.split(",")[0]}</span></div>
+    <div className="champion-card__body">
+      <div className="champion-card__title"><div><p className="eyebrow">IDENTIDADE {champion.faction}</p><h2>{champion.name}</h2></div><span className="vitality"><UiIcon name="heart" />{vitality ?? "—"}</span></div>
+      <dl><div><dt>Poder</dt><dd>{power}</dd></div><div><dt>Equidade</dt><dd>Todos partem da mesma Vitalidade e do mesmo baralho de 30 cartas.</dd></div><div className="eclipse-form"><dt>Presença</dt><dd>Retrato e nome exibidos na Arena e no histórico.</dd></div></dl>
+      <footer className="champion-card__footer"><span className="owned-badge">{available ? "Disponível" : "Bloqueado"}</span>{available && <span className="champion-card__cta">Usar no meu baralho <b><UiIcon name="arrow-right" /></b></span>}</footer>
+    </div>
+    {available && <Link className="champion-card__main-action" to={`/decks?avatar=${champion.id}`} aria-label={`Usar ${champion.name} como Avatar`}><span className="sr-only">Usar {champion.name} como Avatar</span></Link>}
+  </article>;
 }
 
 function PageHeader({ eyebrow, title, copy, count }: { eyebrow: string; title: string; copy: string; count: string }) {

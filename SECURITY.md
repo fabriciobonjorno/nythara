@@ -10,7 +10,7 @@ públicas com detalhes exploráveis.
 | WebSocket tampering | Servidor authoritative: cliente envia intenção; engine valida tudo antes de mutar (comando ilegal = zero efeitos, com assert). Tickets de uso único por conexão; `SetReadLimit` 64 KiB. | Payloads são dados, nunca resultado. |
 | Replay attack (comandos) | `client_sequence` idempotente por jogador; reenvio devolve o resultado gravado; comando fora de turno/janela rejeitado. | Replays de partida são reconstruíveis por design (não é ataque). |
 | Command spam | Rate limit por conexão WS (120/min, rajada 30): excedeu → conexão fechada por política (`ws_command_flood_closed_total`). Timer de ação server-side. | Reconexão legítima permitida. |
-| Account takeover | Argon2id para senhas; tokens aleatórios com hash em repouso; refresh com rotação e histórico (reuso revoga a família); rate limit estrito em login/register/refresh (10/min por IP). | Sem 2FA no alpha (backlog). Recuperação de conta fora do escopo do MVP. |
+| Account takeover | PBKDF2-HMAC-SHA256 com salt aleatório e 600 mil iterações para senhas; tokens aleatórios de 256 bits com hash em repouso; refresh com rotação e histórico (reuso revoga a família); rate limit estrito em login/register/refresh (10/min por IP). | Sem 2FA no alpha (backlog). Recuperação de conta e migração oportunista para Argon2id ficam para depois do MVP. |
 | Inventory fraud | Economia 100% server-side com constraints no banco; concessões só via admin com `Idempotency-Key`; `economy_transactions` auditável. | — |
 | Reward duplication | Chave de idempotência com hash do corpo (reuso com corpo diferente = 409); transações atômicas. | — |
 | Matchmaking abuse | Fila exige deck próprio, validado, da versão ativa e sem cartas banidas; um jogador não pode estar 2× na fila nem em 2 partidas; rate limit geral por IP. | Detecção de win-trading fica para telemetria ranked (pós-MVP). |
@@ -20,8 +20,10 @@ públicas com detalhes exploráveis.
 ## Controles de plataforma
 
 - **Cabeçalhos**: API JSON com `CSP default-src 'none'`, nosniff, DENY frames,
-  no-referrer, COOP/CORP, HSTS sob TLS. PWA com CSP própria via meta
-  (`connect-src 'self' ws: wss:`; sem script externo).
+  no-referrer, COOP/CORP, HSTS sob TLS. A PWA aplica via meta as diretivas de
+  carregamento (`connect-src 'self' ws: wss:`; sem script externo) e entrega
+  `frame-ancestors 'none'`/`X-Frame-Options: DENY` como cabeçalhos HTTP —
+  `frame-ancestors` não tem efeito quando declarado em meta.
 - **Rate limiting**: token bucket por chave com poda de memória
   (`internal/security/ratelimit.go`); faixas em `internal/httpapi/hardening.go`.
 - **Scanning**: `govulncheck` no CI e local (`make vuln`) — base zerada em
@@ -32,9 +34,12 @@ públicas com detalhes exploráveis.
   utilizável na CI. PITR/WAL no provedor de produção.
 - **Observabilidade**: OTel traces (OTLP), contadores em `/internal/metrics`
   (requisições, 429, floods de WS, panics); alertas em `ops/observability.md`.
-- **Segredos**: nenhum segredo no repositório; configuração via ambiente
-  (`DATABASE_URL`, OTEL). Rotas `/internal/*` devem ficar atrás da rede
-  interna no deploy (não expor no edge).
+- **Segredos**: nenhum segredo no repositório; configuração via ambiente ou
+  arquivo montado (`DATABASE_URL_FILE`). A stack da VPS usa arquivos `0600`
+  ignorados pelo Git, nunca interpola a senha no Compose e falha no boot se o
+  segredo estiver ausente ou ambíguo. Rotas `/internal/*` são bloqueadas no
+  edge. O proxy é confiado por CIDR exato; cabeçalhos de origem enviados
+  diretamente pelo cliente são ignorados.
 
 ## Garantias da engine
 

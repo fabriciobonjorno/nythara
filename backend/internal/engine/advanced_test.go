@@ -132,7 +132,7 @@ func TestVR029DeclareRevealTop(t *testing.T) {
 	topType := string(engine.Cards[h.g.State().Cards[top].Def].Type)
 	before := len(h.g.State().Players[0].Hand)
 	h.play(0, h.handInst(0, "VR-029"))
-	h.choose(0, topType) // declara o tipo certo de propósito
+	h.choose(0, topType)                                        // declara o tipo certo de propósito
 	if got := len(h.g.State().Players[0].Hand); got != before { // -1 jogada +1 acerto
 		t.Fatalf("acerto deveria comprar 1 (mão %d)", got)
 	}
@@ -173,7 +173,7 @@ func TestVR032MirrorsRelicTriggers(t *testing.T) {
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-001"))
 	h.pass(1)
-	h.assertVit(1, 27) // 2 + 1 do espelho
+	h.assertVit(1, 24) // 2 + 1 do espelho
 }
 
 func TestVR034ReEmitsSigils(t *testing.T) {
@@ -291,7 +291,7 @@ func TestVR055PreExileAndDirection(t *testing.T) {
 	}
 	h.choose(0, vr049) // exila o Rito
 	h.pass(1)          // janela de Guarda anunciada após a escolha
-	h.assertVit(1, 25) // 5 de dano (alpha-0.5.0)
+	h.assertVit(1, 22) // 5 de dano
 	if s.Pending == nil || s.Pending.Kind != engine.DecDirection {
 		t.Fatalf("Rito exilado deveria abrir escolha de direção; %+v", s.Pending)
 	}
@@ -316,7 +316,7 @@ func TestActivatedAbilitiesVR058AndVR072(t *testing.T) {
 
 	forno := s.Players[0].Relics[0]
 	h.must(engine.Command{Player: 0, Kind: engine.CmdKindActivate, Card: forno})
-	h.choose(0, s.Players[0].Discard[0], s.Players[0].Discard[1])
+	h.choose(0, s.Players[0].Discard[0])
 	if got := s.Players[0].TempEssence; got != 2 {
 		t.Fatalf("Forno: %d temp; esperado 2", got)
 	}
@@ -355,7 +355,7 @@ func TestVR060FinalFormula(t *testing.T) {
 		t.Fatalf("esperava 1 escolha da Fórmula; %+v", s.Pending)
 	}
 	h.choose(0, "dano_2")
-	h.assertVit(1, 28)
+	h.assertVit(1, 25)
 	if got := len(s.Players[0].Exile); got != 4 {
 		t.Fatalf("exílio com %d cartas; esperado 4", got)
 	}
@@ -417,11 +417,11 @@ func TestSaelaUltimateShieldAndBonus(t *testing.T) {
 	// Saela ataca com +2; depois o dano de p0 é reduzido a 0.
 	h.play(1, h.handInst(1, "VR-013"))
 	h.pass(0)
-	h.assertVit(0, 26) // 2 + 2 (VR-013 sem bônus a 0 no alpha-0.5.0)
+	h.assertVit(0, 23) // 2 + 2 (VR-013 sem bônus a 0)
 	h.pass(1)
 	h.play(0, h.handInst(0, "VR-020"))
 	h.pass(1)
-	h.assertVit(1, 30) // escudo: primeiro dano → 0
+	h.assertVit(1, 27) // escudo: primeiro dano → 0
 }
 
 func TestRaukUltimateExtraWindow(t *testing.T) {
@@ -442,7 +442,7 @@ func TestRaukUltimateExtraWindow(t *testing.T) {
 	}
 	h.play(0, h.handInst(0, "VR-037")) // 2º Assalto: +2 da carta +1 do Rauk
 	h.pass(1)
-	h.assertVit(1, 30-2-5)
+	h.assertVit(1, 27-2-5)
 	h.pass(0)
 }
 
@@ -560,7 +560,7 @@ func TestVorenUltimateDistillation(t *testing.T) {
 	// Duas escolhas cura/dano na fila.
 	h.choose(0, "dano_1")
 	h.choose(0, "dano_1")
-	h.assertVit(1, 28)
+	h.assertVit(1, 25)
 }
 
 func TestEddaMarkersAndRewrite(t *testing.T) {
@@ -574,7 +574,7 @@ func TestEddaMarkersAndRewrite(t *testing.T) {
 	if got := s.Players[0].CinzaMarkers; got != 1 {
 		t.Fatalf("marcadores: %d; esperado 1", got)
 	}
-	s.Players[0].CinzaMarkers = 3 // cirurgia: acelera o teste
+	s.Players[0].CinzaMarkers = 2 // cirurgia: acelera o teste
 	h.must(engine.Command{Player: 0, Kind: engine.CmdKindUltimate})
 	if s.Pending == nil || s.Pending.Kind != engine.DecEddaReturn {
 		t.Fatalf("Página Reescrita deveria pedir a carta; %+v", s.Pending)
@@ -586,13 +586,43 @@ func TestEddaMarkersAndRewrite(t *testing.T) {
 	}
 }
 
+func TestVeilFractureAppliesSimultaneously(t *testing.T) {
+	h := newHarness(t, "CH-CI-01", "CH-CI-01", deckWith(), deckWith(), 0)
+	h.keepAll()
+	h.stances(engine.StanceVigilia, engine.StanceVigilia)
+	h.bothPassRite()
+	s := h.g.State()
+	// Encerrar esta janela inicia a rodada 25, primeira da Ruptura.
+	s.Round = engine.VeilFractureStartRound - 1
+	s.Players[0].Vitality = 1
+	s.Players[1].Vitality = 1
+	h.pass(s.Active)
+	h.pass(h.g.State().Active)
+	if !s.Over || s.Players[0].Vitality != 0 || s.Players[1].Vitality != 0 {
+		t.Fatalf("Ruptura deveria aplicar a ambos antes de encerrar: over=%v vit=%d/%d", s.Over,
+			s.Players[0].Vitality, s.Players[1].Vitality)
+	}
+	if s.EndReason != "duplo_nocaute" {
+		t.Fatalf("fim da Ruptura: %q; esperado duplo_nocaute", s.EndReason)
+	}
+	damageEvents := 0
+	for _, event := range h.g.Log {
+		if event.Kind == engine.EvDamage && event.S == "Ruptura do Véu" {
+			damageEvents++
+		}
+	}
+	if damageEvents != 2 {
+		t.Fatalf("Ruptura emitiu %d perdas; esperado 2", damageEvents)
+	}
+}
+
 func TestMaraUltimateAurora(t *testing.T) {
 	h := newHarness(t, "CH-SO-01", "CH-CI-01", deckWith(), deckWith(), 0)
 	h.keepAll()
 	h.stances(engine.StanceVigilia, engine.StanceVigilia)
 	h.must(engine.Command{Player: 0, Kind: engine.CmdKindUltimate})
 	h.assertEclipse(-2)
-	h.assertVit(1, 29) // alpha-0.6.0: a ultimate drena 1 (era 2)
+	h.assertVit(1, 26) // a ultimate drena 1
 }
 
 // Regressão: morte por Fadiga no meio da emissão de Sigilo de uma Guarda

@@ -58,7 +58,7 @@ type permImpl struct {
 	blocksHandReveal  bool // VR-010
 	onRevealBlocked   func(g *Game, inst *CardInstance)
 	onTwilight        func(g *Game, inst *CardInstance) // VR-076
-	activated         *activatedImpl // VR-058/VR-072
+	activated         *activatedImpl                    // VR-058/VR-072
 }
 
 // Visões do Ruleset embutido, para testes e pacotes externos (ver ruleset.go).
@@ -68,8 +68,6 @@ var (
 	riteImpls    map[string]*riteImpl
 	permImpls    map[string]*permImpl
 )
-
-
 
 // --- Relatório de cobertura ---
 

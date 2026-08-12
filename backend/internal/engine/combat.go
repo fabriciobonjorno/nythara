@@ -353,7 +353,7 @@ func (g *Game) playRite(player int, inst *CardInstance, def *CardDef) error {
 	if effSac > 0 && p.Vitality <= effSac {
 		return errCmd(ErrCantAfford, "vitalidade insuficiente para sacrificar %d", effSac)
 	}
-	if impl.targetsOpponent && g.s.Players[1-player].VeilRound == g.s.Round {
+	if impl.targetsOpponent && veilActive(g.s.Players[1-player], g.s.Round) {
 		return errCmd(ErrIllegalTarget, "o oponente está sob Véu")
 	}
 	if impl.validate != nil {

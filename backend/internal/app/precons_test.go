@@ -6,7 +6,7 @@ import (
 	"veurubro/backend/internal/engine"
 )
 
-// Fase 9: 10 precons oficiais, todos com 36 cartas e legais sob o ruleset.
+// Alpha 0.9: os 10 Avatares recebem baralhos de 30 cartas legais no Confronto.
 func TestPreconsCoverAllChampionsAndValidate(t *testing.T) {
 	precons, err := Precons()
 	if err != nil {
@@ -29,10 +29,10 @@ func TestPreconsCoverAllChampionsAndValidate(t *testing.T) {
 				expanded = append(expanded, card.CardID)
 			}
 		}
-		if total != engine.DeckSize {
-			t.Fatalf("%s: %d cartas; esperado %d", precon.ChampionID, total, engine.DeckSize)
+		if total != engine.ConfrontDeckSize {
+			t.Fatalf("%s: %d cartas; esperado %d", precon.ChampionID, total, engine.ConfrontDeckSize)
 		}
-		if err := engine.ValidateDeck(precon.ChampionID, expanded); err != nil {
+		if err := engine.ValidateDeckForVersion(engine.ConfrontRulesetVersion, precon.ChampionID, expanded); err != nil {
 			t.Fatalf("%s: precon ilegal: %v", precon.ChampionID, err)
 		}
 	}

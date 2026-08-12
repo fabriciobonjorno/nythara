@@ -1,0 +1,2 @@
+DROP INDEX player_profiles_username_ci_unique;
+ALTER TABLE player_profiles DROP CONSTRAINT player_profiles_username_format;

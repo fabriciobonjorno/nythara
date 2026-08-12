@@ -38,6 +38,8 @@ func RequiredPlayer(g *Game) (int, bool) {
 		}
 	case PhaseRite, PhaseConfront:
 		return expectedBotActor(s), true
+	case PhaseAssault, PhaseGuard:
+		return s.Active, true
 	}
 	return 0, false
 }
@@ -70,6 +72,48 @@ func (g *Game) legalPlays(player int) []Command {
 
 	add := func(inst string) {
 		out = append(out, Command{Player: player, Kind: CmdKindPlay, Card: inst})
+	}
+
+	if g.rs.IsConfront() {
+		if player != s.Active {
+			return nil
+		}
+		var required CardType
+		switch s.Phase {
+		case PhaseAssault:
+			required = TypeAssalto
+		case PhaseGuard:
+			required = TypeGuarda
+		case PhaseRite:
+			required = TypeRito
+		default:
+			return nil
+		}
+		for _, id := range p.Hand {
+			def := g.rs.Cards[s.Cards[id].Def]
+			if def == nil || def.Type != required || def.Confront == nil || !def.Confront.Legal {
+				continue
+			}
+			cost := def.Cost
+			if required == TypeRito {
+				rite := g.rs.Effects.Cards[def.ID].Rite
+				cost += rite.Sacrifice
+				valid := true
+				for _, cond := range rite.Requires {
+					if !g.evalCond(cond, &opCtx{player: player, source: def.ID}) {
+						valid = false
+						break
+					}
+				}
+				if !valid || (rite.TargetsOpponent && veilActive(s.Players[1-player], s.Round)) {
+					continue
+				}
+			}
+			if p.Vitality-cost >= 1 {
+				add(id)
+			}
+		}
+		return out
 	}
 
 	if s.RiteReact != nil {
@@ -145,7 +189,7 @@ func (g *Game) legalPlays(player int) []Command {
 						continue
 					}
 				}
-				if impl.targetsOpponent && s.Players[1-player].VeilRound == s.Round {
+				if impl.targetsOpponent && veilActive(s.Players[1-player], s.Round) {
 					continue
 				}
 				if impl.validate != nil && impl.validate(g, player) != nil {
@@ -183,6 +227,20 @@ func (g *Game) legalPlays(player int) []Command {
 	return out
 }
 
+// LegalPlayIDs expõe, sem mutar o jogo, as instâncias de carta que Apply
+// aceitaria na janela atual. Battle server, bots e interface passam assim a
+// compartilhar a mesma autoridade para custo, alvo e pré-requisitos.
+func (g *Game) LegalPlayIDs(player int) []string {
+	commands := g.legalPlays(player)
+	ids := make([]string, 0, len(commands))
+	for _, command := range commands {
+		if command.Kind == CmdKindPlay && command.Card != "" {
+			ids = append(ids, command.Card)
+		}
+	}
+	return ids
+}
+
 // RandomBot joga qualquer comando legal, com RNG próprio (independente do
 // RNG da partida). Nível 1 do plano de balanceamento.
 type RandomBot struct {
@@ -210,6 +268,16 @@ func (b *RandomBot) NextFor(g *Game, player int) (Command, bool) {
 	if d := s.Pending; d != nil {
 		return b.answerDecision(d), true
 	}
+	if b.RNG == nil {
+		b.RNG = NewRNG(s.Seed ^ 0x517cc1b727220a95)
+	}
+	if g.rs.IsConfront() {
+		plays := g.legalPlays(player)
+		if len(plays) > 0 && b.RNG.Intn(4) != 0 {
+			return plays[b.RNG.Intn(len(plays))], true
+		}
+		return Command{Player: player, Kind: CmdKindPass}, true
+	}
 
 	switch s.Phase {
 	case PhaseMulligan:
@@ -222,11 +290,11 @@ func (b *RandomBot) NextFor(g *Game, player int) (Command, bool) {
 	case PhaseStance:
 		stances := []Stance{StancePredacao, StanceVigilia, StanceArcano}
 		return Command{Player: player, Kind: CmdKindStance, Stance: stances[b.RNG.Intn(3)]}, true
-	case PhaseRite, PhaseConfront:
+	case PhaseRite, PhaseConfront, PhaseAssault, PhaseGuard:
 		actor := player
 		plays := g.legalPlays(actor)
 		// Ativações e ultimate entram no sorteio junto com as cartas.
-		if (s.Phase == PhaseRite || s.Phase == PhaseConfront) && s.Guard == nil && s.RiteReact == nil && actor == s.Active {
+		if !g.rs.IsConfront() && (s.Phase == PhaseRite || s.Phase == PhaseConfront) && s.Guard == nil && s.RiteReact == nil && actor == s.Active {
 			p := s.Players[actor]
 			if s.Phase == PhaseRite {
 				for _, id := range append(append([]string{}, p.Relics...), p.Manifs...) {

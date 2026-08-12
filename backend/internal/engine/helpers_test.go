@@ -59,7 +59,10 @@ func (h *harness) mustFail(cmd engine.Command, code string) {
 	}
 }
 
-func (h *harness) keepAll()                { h.must(engine.Command{Player: 0, Kind: engine.CmdKindMulligan}); h.must(engine.Command{Player: 1, Kind: engine.CmdKindMulligan}) }
+func (h *harness) keepAll() {
+	h.must(engine.Command{Player: 0, Kind: engine.CmdKindMulligan})
+	h.must(engine.Command{Player: 1, Kind: engine.CmdKindMulligan})
+}
 func (h *harness) stances(s0, s1 engine.Stance) {
 	h.must(engine.Command{Player: 0, Kind: engine.CmdKindStance, Stance: s0})
 	h.must(engine.Command{Player: 1, Kind: engine.CmdKindStance, Stance: s1})

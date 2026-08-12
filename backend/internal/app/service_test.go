@@ -1,11 +1,25 @@
 package app
 
 import (
+	"strings"
 	"testing"
 
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
 )
+
+func TestValidateUsername(t *testing.T) {
+	for _, username := range []string{"Duelista", "duelista_01", "duelista-01", "A_"} {
+		if err := validateUsername(username); err != nil {
+			t.Errorf("nome válido %q rejeitado: %v", username, err)
+		}
+	}
+	for _, username := range []string{"a", strings.Repeat("a", 33), "duelista 01", " duelista", "duelista.", "duelista@", "Artífice"} {
+		if err := validateUsername(username); err == nil {
+			t.Errorf("nome inválido %q aceito", username)
+		}
+	}
+}
 
 func TestValidateDeckRejectsIllegalDeck(t *testing.T) {
 	err := ValidateDeck(domain.Deck{ChampionID: firstChampionID(), Cards: nil})
