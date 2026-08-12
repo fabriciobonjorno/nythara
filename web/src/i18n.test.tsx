@@ -34,6 +34,22 @@ describe("catálogo de apresentação", () => {
     expect(translateText("Corte Rubro", "en")).toBe("Corte Rubro");
   });
 
+  it("traduz todas as descrições de acessibilidade sem misturar idiomas", () => {
+    const copies = [
+      ["Paisagem sonora discreta que reage ao turno e ao perigo; começa após sua primeira ação.", "Paisaje sonoro discreto que reacciona al turno y al peligro; comienza después de tu primera acción.", "A subtle soundscape that reacts to the turn and danger; starts after your first action."],
+      ["Vibrações curtas em confrontos e golpes, quando o dispositivo permitir.", "Vibraciones cortas en confrontaciones y golpes, cuando el dispositivo lo permita.", "Short vibrations during confrontations and impacts, when supported by the device."],
+      ["Mostra custo, Vitalidade restante e orientação da fase atual.", "Muestra el coste, la Vitalidad restante y la orientación de la fase actual.", "Shows cost, remaining Vitality, and guidance for the current phase."],
+      ["Desativa rotações, pulsos e transições decorativas.", "Desactiva rotaciones, pulsos y transiciones decorativas.", "Disables rotations, pulses, and decorative transitions."],
+      ["Reforça bordas e contraste dos controles.", "Refuerza los bordes y el contraste de los controles.", "Strengthens borders and control contrast."],
+      ["Aumenta o tamanho-base da interface.", "Aumenta el tamaño base de la interfaz.", "Increases the interface's base size."],
+    ] as const;
+
+    for (const [pt, es, en] of copies) {
+      expect(translateText(pt, "es")).toBe(es);
+      expect(translateText(pt, "en")).toBe(en);
+    }
+  });
+
   it("localiza erros conhecidos por código e preserva diagnóstico desconhecido", () => {
     expect(translateError("subscriber_too_slow", "texto do servidor", "en"))
       .toBe("The connection fell behind the match. Reconnecting…");
