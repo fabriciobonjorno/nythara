@@ -23,7 +23,9 @@ func (p *Postgres) MatchHistory(ctx context.Context, userID string, limit int) (
 		JOIN match_players opp ON opp.match_id = m.id AND opp.slot = 1 - me.slot
 		JOIN decks opp_deck ON opp_deck.id = opp.deck_id
 		LEFT JOIN player_profiles opp_profile ON opp_profile.user_id = opp.user_id
+		JOIN users viewer ON viewer.id = me.user_id
 		WHERE m.status = 'finished'
+		  AND (viewer.data_reset_at IS NULL OR m.created_at >= viewer.data_reset_at)
 		ORDER BY m.ended_at DESC NULLS LAST, m.created_at DESC
 		LIMIT $2`, userID, limit)
 	if err != nil {
@@ -59,9 +61,9 @@ func (p *Postgres) MatchReplay(ctx context.Context, matchID string) (domain.Matc
 	var winner sql.NullInt64
 	var endReason sql.NullString
 	err := p.db.QueryRowContext(ctx, `SELECT m.mode, m.ruleset_version, m.status,
-			m.winner_slot, m.end_reason
+			m.winner_slot, m.end_reason, m.created_at
 		FROM matches m WHERE m.id = $1`, matchID).
-		Scan(&replay.Mode, &replay.RulesetVersion, &replay.Status, &winner, &endReason)
+		Scan(&replay.Mode, &replay.RulesetVersion, &replay.Status, &winner, &endReason, &replay.CreatedAt)
 	if err == sql.ErrNoRows {
 		return domain.MatchReplayData{}, domain.ErrNotFound
 	}

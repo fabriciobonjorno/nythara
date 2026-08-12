@@ -29,6 +29,9 @@ export function Landing() {
 		if ((location.state as { passwordChanged?: boolean } | null)?.passwordChanged) return true;
 		return sessionStorage.getItem("nythara-password-changed") === "1";
 	});
+	const [accountDeactivated] = useState(() => Boolean((location.state as { accountDeactivated?: boolean } | null)?.accountDeactivated) ||
+		sessionStorage.getItem("nythara-account-deactivated") === "1");
+	useEffect(() => { if (accountDeactivated) sessionStorage.removeItem("nythara-account-deactivated"); }, [accountDeactivated]);
 	useEffect(() => { if (passwordChanged) sessionStorage.removeItem("nythara-password-changed"); }, [passwordChanged]);
 
 	const enterApp = (response: AuthEnvelope, forceTutorial = false) => {
@@ -111,6 +114,7 @@ export function Landing() {
           <label>Senha<input required type="password" minLength={12} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /><small>Mínimo de 12 caracteres.</small></label>
 		  {error && <p className="form-error" role="alert">{error}</p>}
 		  {passwordChanged && <p className="form-success" role="status">Senha atualizada. Entre novamente com a nova credencial.</p>}
+		  {accountDeactivated && <p className="form-success" role="status">Conta desativada. Quando quiser voltar, entre novamente com seus dados.</p>}
           <button className="primary-button" disabled={busy} type="submit">{busy ? "Atravessando…" : mode === "login" ? "Entrar no Véu" : "Criar conta gratuita"}</button>
           {mode === "login" && <Link className="auth-link" to="/forgot-password">Esqueci minha senha</Link>}
           <p className="auth-note">Sem venda de poder. Monte um único baralho, treine contra o adversário virtual e entre no confronto quando estiver pronto.</p>

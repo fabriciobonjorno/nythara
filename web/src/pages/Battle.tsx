@@ -485,7 +485,7 @@ function DuelistBar({ own, player, avatar, active, round, state, cards }: {
 
   return <section className={`duelist ${own ? "is-own" : "is-rival"} ${active ? "is-active" : ""} ${vitality <= 8 ? "is-in-danger" : ""}`} aria-label={own ? "Seu lado" : "Lado do rival"}>
     <div className="duelist__identity">
-      <span className={`duelist__portrait faction-${faction}`}>{avatar ? <ChampionEmblem id={avatar.id} faction={avatar.faction} /> : <UiIcon name="champion" />}</span>
+      <span className={`duelist__portrait emblem-frame faction-${faction}`}>{avatar ? <ChampionEmblem id={avatar.id} faction={avatar.faction} /> : <UiIcon name="champion" />}</span>
       <div>
         <small>{own ? "VOCÊ" : "RIVAL"}</small>
         <strong>{(avatar?.name ?? (own ? "Seu Avatar" : "Duelista rival")).split(",")[0]}</strong>

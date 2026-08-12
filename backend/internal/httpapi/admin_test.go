@@ -103,6 +103,35 @@ func TestAdminOperationsAndOwnerOnlyInvites(t *testing.T) {
 	}
 }
 
+func TestAdminFeedbackInboxReturnsPlayerSuggestions(t *testing.T) {
+	handler, store := testHandler()
+	store.feedback = []domain.Feedback{{
+		ID: "feedback-1", UserID: "player-1", MatchID: "match-1",
+		RulesetVersion: engine.CompetitiveRulesetVersion,
+		Message:        "A animação precisa de mais tempo para respirar.",
+		CreatedAt:      time.Date(2026, 8, 12, 20, 0, 0, 0, time.UTC),
+	}}
+
+	response := adminRequest(t, handler, "admin-token", http.MethodGet,
+		"/v1/admin/feedback?limit=100", nil)
+	if response.Code != http.StatusOK {
+		t.Fatalf("caixa de sugestões: status=%d body=%s", response.Code, response.Body.String())
+	}
+	var payload struct {
+		Feedback []domain.Feedback `json:"feedback"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(payload.Feedback) != 1 || payload.Feedback[0].Message != store.feedback[0].Message {
+		t.Fatalf("sugestão ausente da resposta administrativa: %+v", payload.Feedback)
+	}
+	if got := adminRequest(t, handler, "player-token", http.MethodGet,
+		"/v1/admin/feedback", nil).Code; got != http.StatusForbidden {
+		t.Fatalf("jogador leu sugestões administrativas: status=%d; esperado 403", got)
+	}
+}
+
 func (f *fakeStore) AdminOverview(context.Context) (domain.AdminOverview, error) {
 	s := f.ops()
 	return domain.AdminOverview{TotalPlayers: len(s.players), TotalMatches: len(s.matches), FinishedMatches: len(s.matches)}, nil
@@ -382,7 +411,8 @@ func TestAdminRoutesRequireAdminRole(t *testing.T) {
 	handler, _ := testHandler()
 	playerToken := "player-token"
 	for _, route := range []string{"GET /v1/admin/rulesets", "GET /v1/admin/drafts",
-		"GET /v1/admin/bans", "GET /v1/admin/telemetry", "GET /v1/admin/audit"} {
+		"GET /v1/admin/bans", "GET /v1/admin/telemetry", "GET /v1/admin/audit",
+		"GET /v1/admin/feedback"} {
 		parts := strings.SplitN(route, " ", 2)
 		if got := adminRequest(t, handler, playerToken, parts[0], parts[1], nil).Code; got != http.StatusForbidden {
 			t.Fatalf("%s: player recebeu %d; esperado 403", route, got)

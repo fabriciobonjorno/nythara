@@ -45,6 +45,7 @@ interface AdminPlayer {
   id: string; email: string; display_name: string; role: "player" | "admin" | "owner";
   account_level: number; created_at: string; last_session_at?: string; match_count: number; wins: number;
   banned_at?: string; banned_reason?: string;
+  deactivated_at?: string;
 }
 interface AdminMatchPlayer { user_id: string; display_name: string; slot: number }
 interface AdminMatch {
@@ -73,6 +74,7 @@ export function AdminPage() {
       <p className="admin-sub">Jogadores, partidas, moderação e saúde do jogo em uma única visão.</p></div>
       <span className="admin-hero__identity"><small>Sessão administrativa</small><strong>{principal.display_name}</strong><b>{principal.role === "owner" ? "PROPRIETÁRIO" : "ADMIN"}</b></span></header>
     <OverviewPanel />
+    <AlphaNotesPanel />
     <PlayersPanel />
     <MatchesPanel />
     {principal.role === "owner" && <AdminInvitesPanel />}
@@ -83,7 +85,6 @@ export function AdminPage() {
       <SeasonPanel />
     </div>
     <TelemetryPanel />
-    <AlphaNotesPanel />
     <DraftsPanel />
     <AuditPanel />
   </div>;
@@ -157,7 +158,7 @@ function PlayersPanel() {
       <td><span className={`admin-role is-${player.role}`}>{player.role === "owner" ? "Proprietário" : player.role === "admin" ? "Admin" : "Jogador"}</span></td>
       <td>{player.account_level}</td><td>{player.match_count} <small>· {player.wins} vitórias</small></td>
       <td>{player.last_session_at ? formatDate(player.last_session_at, locale, { dateStyle: "short", timeStyle: "short" }) : "Nunca"}</td>
-      <td>{player.banned_at ? <span className="admin-status is-danger">BANIDO</span> : <span className="admin-status is-ok">ATIVO</span>}{player.banned_reason && <small>{player.banned_reason}</small>}</td>
+      <td>{player.banned_at ? <span className="admin-status is-danger">BANIDO</span> : player.deactivated_at ? <span className="admin-status is-muted">DESATIVADA</span> : <span className="admin-status is-ok">ATIVO</span>}{player.banned_reason && <small>{player.banned_reason}</small>}</td>
       <td className="admin-actions">{player.role === "player" && (player.banned_at
         ? <button type="button" disabled={busy} onClick={() => moderate(player, "unban")}>Liberar</button>
         : <button type="button" className="danger" disabled={busy} onClick={() => { setSelected(player); setReason(""); }}>Banir</button>)}</td>
@@ -258,21 +259,38 @@ interface AlphaNote {
 
 // Recados do Alpha. Pedir opinião e não ler é pior que não pedir: este painel
 // existe para que o convite da tela de resultado tenha destino.
-function AlphaNotesPanel() {
+export function AlphaNotesPanel() {
   const locale = usePreferencesStore((state) => state.locale);
   const [notes, setNotes] = useState<AlphaNote[]>([]);
   const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    void api<{ feedback: AlphaNote[] | null }>("/v1/admin/feedback?limit=100")
-      .then((data) => setNotes(data.feedback ?? []))
-      .catch(() => undefined)
-      .finally(() => setLoaded(true));
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+  const load = useCallback(async (initial = false) => {
+    if (initial) setLoaded(false);
+    else setRefreshing(true);
+    setError("");
+    try {
+      const data = await api<{ feedback: AlphaNote[] | null }>("/v1/admin/feedback?limit=100");
+      setNotes(data.feedback ?? []);
+    } catch (caught) {
+      setError(errorText(caught));
+    } finally {
+      setLoaded(true);
+      setRefreshing(false);
+    }
   }, []);
-  return <section className="panel admin-panel" aria-label="Recados do Alpha">
-    <header><p className="eyebrow">VOZ DE QUEM JOGA</p><h2>Recados do Alpha</h2></header>
-    {!loaded ? <p className="admin-empty">Carregando…</p>
-      : notes.length === 0 ? <p className="admin-empty">Nenhum recado ainda. O convite aparece na tela de resultado e é opcional.</p>
-      : <ul className="alpha-notes">
+  useEffect(() => {
+    void load(true);
+    const interval = window.setInterval(() => { void load(); }, 30_000);
+    return () => window.clearInterval(interval);
+  }, [load]);
+  return <section className="panel admin-panel admin-feedback-inbox" aria-label="Recados do Alpha" aria-live="polite">
+    <header><div><p className="eyebrow">VOZ DE QUEM JOGA</p><h2>Recados do Alpha</h2><small>As sugestões enviadas pelos jogadores aparecem aqui automaticamente.</small></div>
+      <div className="admin-feedback-inbox__tools"><span><b>{notes.length}</b><small>{notes.length === 1 ? "SUGESTÃO" : "SUGESTÕES"}</small></span>
+        <button type="button" className="admin-refresh" disabled={!loaded || refreshing} onClick={() => { void load(); }}>{refreshing ? "Atualizando…" : "Atualizar"}</button></div></header>
+    {!loaded ? <p className="admin-empty">Carregando…</p> : <>
+      {error && <div className="admin-inbox-error" role="alert"><p>Não foi possível carregar as sugestões: {error}</p><button type="button" onClick={() => { void load(); }}>Tentar novamente</button></div>}
+      {notes.length === 0 ? !error && <p className="admin-empty">Nenhum recado ainda. O convite aparece na tela de resultado e é opcional.</p> : <ul className="alpha-notes">
           {notes.map((note) => <li key={note.id}>
             <header>
               <time dateTime={note.created_at}>{formatDate(note.created_at, locale, { dateStyle: "short", timeStyle: "short" })}</time>
@@ -282,6 +300,7 @@ function AlphaNotesPanel() {
             <p>{note.message}</p>
           </li>)}
         </ul>}
+    </>}
   </section>;
 }
 

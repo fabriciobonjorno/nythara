@@ -34,22 +34,25 @@ const (
 func (role Role) IsAdmin() bool { return role == RoleAdmin || role == RoleOwner }
 
 type User struct {
-	ID           string    `json:"id"`
-	Email        string    `json:"email"`
-	DisplayName  string    `json:"display_name"`
-	AvatarID     string    `json:"avatar_id,omitempty"`
-	Role         Role      `json:"role"`
-	PasswordHash string    `json:"-"`
-	PasswordSet  bool      `json:"password_set"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID                       string    `json:"id"`
+	Email                    string    `json:"email"`
+	DisplayName              string    `json:"display_name"`
+	AvatarID                 string    `json:"avatar_id,omitempty"`
+	Role                     Role      `json:"role"`
+	PasswordHash             string    `json:"-"`
+	PasswordSet              bool      `json:"password_set"`
+	ReactivationResetPending bool      `json:"reactivation_reset_pending"`
+	CreatedAt                time.Time `json:"created_at"`
 }
 
 type Principal struct {
-	UserID      string `json:"user_id"`
-	Role        Role   `json:"role"`
-	DisplayName string `json:"display_name"`
-	AvatarID    string `json:"avatar_id,omitempty"`
-	PasswordSet bool   `json:"password_set"`
+	UserID                   string     `json:"user_id"`
+	Role                     Role       `json:"role"`
+	DisplayName              string     `json:"display_name"`
+	AvatarID                 string     `json:"avatar_id,omitempty"`
+	PasswordSet              bool       `json:"password_set"`
+	ReactivationResetPending bool       `json:"reactivation_reset_pending"`
+	DataResetAt              *time.Time `json:"-"`
 }
 
 type OAuthIdentity struct {
@@ -295,6 +298,7 @@ type MatchReplayData struct {
 	Winner         *int              `json:"winner,omitempty"`
 	EndReason      string            `json:"end_reason,omitempty"`
 	Events         []json.RawMessage `json:"events"`
+	CreatedAt      time.Time         `json:"-"`
 	// StartingVitality é a base do ruleset em que a partida foi jogada. Sem
 	// ela o cliente teria de adivinhar, e a Vitalidade do Campeão é um valor
 	// legado que o Modo Confronto sobrescreve: replay antigo e replay novo
@@ -433,6 +437,7 @@ type AdminPlayer struct {
 	Wins          int        `json:"wins"`
 	BannedAt      *time.Time `json:"banned_at,omitempty"`
 	BannedReason  string     `json:"banned_reason,omitempty"`
+	DeactivatedAt *time.Time `json:"deactivated_at,omitempty"`
 }
 
 type AdminMatchPlayer struct {
@@ -495,6 +500,8 @@ type Store interface {
 	ConsumeOAuthTicket(ctx context.Context, tokenHash []byte, now time.Time) (string, error)
 	UpdateProfileAvatar(ctx context.Context, userID, avatarID string) (User, error)
 	ChangePassword(ctx context.Context, userID, passwordHash string, now time.Time) error
+	DeactivateAccount(ctx context.Context, userID, expectedPasswordHash string, now time.Time) error
+	ResolveAccountReactivation(ctx context.Context, userID string, resetData bool, starterRuleset string, now time.Time) error
 
 	CreateSession(ctx context.Context, session NewSession) error
 	AccessToken(ctx context.Context, hash []byte, now time.Time) (TokenRecord, error)

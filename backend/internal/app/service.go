@@ -192,6 +192,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (domain.Use
 		return domain.User{}, domain.SessionTokens{}, domain.ErrInvalidCredentials
 	}
 	tokens, err := s.newSession(ctx, user.ID)
+	if err != nil {
+		return domain.User{}, domain.SessionTokens{}, err
+	}
+	user, err = s.store.UserByID(ctx, user.ID)
 	return user, tokens, err
 }
 

@@ -64,6 +64,59 @@ func TestAuthorizationGate(t *testing.T) {
 	}
 }
 
+func TestAccountLifecycleRoutesEnforcePlayerAndPendingState(t *testing.T) {
+	handler, store := testHandler()
+
+	request := httptest.NewRequest(http.MethodPost, "/v1/me/deactivate",
+		bytes.NewBufferString(`{"confirmation":"EXCLUIR","current_password":""}`))
+	request.Header.Set("Authorization", "Bearer player-token")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || !store.deactivated {
+		t.Fatalf("player não desativou a conta: status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "/v1/me/deactivate",
+		bytes.NewBufferString(`{"confirmation":"EXCLUIR"}`))
+	request.Header.Set("Authorization", "Bearer admin-token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("admin conseguiu usar soft delete: status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	store.tokens[string(security.TokenHash("reactivated-token"))] = domain.Principal{
+		UserID: "00000000-0000-4000-8000-000000000010", Role: domain.RolePlayer,
+		ReactivationResetPending: true,
+	}
+	request = httptest.NewRequest(http.MethodGet, "/v1/collection", nil)
+	request.Header.Set("Authorization", "Bearer reactivated-token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "reactivation_pending") {
+		t.Fatalf("conta pendente acessou o jogo antes da decisão: status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "/v1/me/reactivation",
+		bytes.NewBufferString(`{"reset_data":true}`))
+	request.Header.Set("Authorization", "Bearer reactivated-token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || store.resolvedReset == nil || !*store.resolvedReset ||
+		strings.Contains(response.Body.String(), `"reactivation_reset_pending":true`) {
+		t.Fatalf("decisão de reativação falhou: status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "/v1/me/reactivation",
+		bytes.NewBufferString(`{"reset_data":true,"role":"admin"}`))
+	request.Header.Set("Authorization", "Bearer reactivated-token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("payload extra passou na reativação: status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 func TestCatalogPublishesLegendaryUnlockLevels(t *testing.T) {
 	handler, _ := testHandler()
 	response := httptest.NewRecorder()
@@ -289,6 +342,8 @@ type fakeStore struct {
 	resetSaved    domain.PasswordResetToken
 	resetPassword bool
 	emailEvents   []domain.EmailDeliveryEvent
+	deactivated   bool
+	resolvedReset *bool
 }
 
 func (*fakeStore) CreateUser(context.Context, domain.User, string) (domain.User, error) {
@@ -300,7 +355,12 @@ func (*fakeStore) CreateInvitedAdmin(context.Context, []byte, time.Time, domain.
 func (f *fakeStore) UserByEmail(context.Context, string) (domain.User, error) {
 	return f.resetUser, f.resetErr
 }
-func (*fakeStore) UserByID(context.Context, string) (domain.User, error) { panic("not used") }
+func (f *fakeStore) UserByID(_ context.Context, id string) (domain.User, error) {
+	if f.resetUser.ID != "" {
+		return f.resetUser, f.resetErr
+	}
+	return domain.User{ID: id, Role: domain.RolePlayer}, nil
+}
 func (*fakeStore) UserByOAuth(context.Context, string, string) (domain.User, error) {
 	panic("not used")
 }
@@ -316,6 +376,14 @@ func (*fakeStore) UpdateProfileAvatar(context.Context, string, string) (domain.U
 }
 func (*fakeStore) ChangePassword(context.Context, string, string, time.Time) error {
 	panic("not used")
+}
+func (f *fakeStore) DeactivateAccount(context.Context, string, string, time.Time) error {
+	f.deactivated = true
+	return nil
+}
+func (f *fakeStore) ResolveAccountReactivation(_ context.Context, _ string, reset bool, _ string, _ time.Time) error {
+	f.resolvedReset = &reset
+	return nil
 }
 func (*fakeStore) CreateSession(context.Context, domain.NewSession) error { panic("not used") }
 func (f *fakeStore) AccessToken(_ context.Context, hash []byte, _ time.Time) (domain.TokenRecord, error) {

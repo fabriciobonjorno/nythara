@@ -73,6 +73,15 @@ describe("entrada com provedores externos", () => {
     expect(link).toHaveAttribute("href", "/v1/auth/google/start");
     expect(link.closest("form")).not.toBeNull();
   });
+
+	it("confirma a desativação mesmo após a sessão ser limpa", async () => {
+		sessionStorage.setItem("nythara-account-deactivated", "1");
+		vi.mocked(api).mockResolvedValueOnce({ google: false });
+		render(<MemoryRouter><Landing /></MemoryRouter>);
+
+		expect(screen.getByRole("status")).toHaveTextContent("Conta desativada");
+		expect(sessionStorage.getItem("nythara-account-deactivated")).toBeNull();
+	});
 });
 
 describe("composição da home", () => {

@@ -53,7 +53,7 @@ export function Shell() {
         <header className="top-bar">
           <NavLink className="mobile-brand" to="/app" aria-label="Nythara — início"><NytharaBrand /></NavLink>
           <LanguageSelector compact />
-		  <NavLink className="profile-chip" to="/profile"><span className="avatar">{profileAvatar ? <ChampionEmblem id={profileAvatar.id} faction={profileAvatar.faction} /> : user?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</span><span>{principal?.display_name ?? user?.display_name ?? "Viajante"}<small>Perfil</small></span></NavLink>
+		  <NavLink className="profile-chip" to="/profile"><span className="avatar emblem-frame">{profileAvatar ? <ChampionEmblem id={profileAvatar.id} faction={profileAvatar.faction} /> : user?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</span><span>{principal?.display_name ?? user?.display_name ?? "Viajante"}<small>Perfil</small></span></NavLink>
         </header>
         <TutorialJourneyBar />
         <main id="main-content" tabIndex={-1}><Outlet /></main>

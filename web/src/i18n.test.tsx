@@ -53,6 +53,13 @@ describe("catálogo de apresentação", () => {
     }
   });
 
+  it("traduz os estados da caixa administrativa de sugestões", () => {
+    expect(translateText("As sugestões enviadas pelos jogadores aparecem aqui automaticamente.", "en"))
+      .toBe("Suggestions sent by players appear here automatically.");
+    expect(translateText("Não foi possível carregar as sugestões:", "es"))
+      .toBe("No se pudieron cargar las sugerencias:");
+  });
+
   it("localiza erros conhecidos e impede vazamento de idioma em códigos desconhecidos", () => {
     expect(translateError("subscriber_too_slow", "texto do servidor", "en"))
       .toBe("The connection fell behind the match. Reconnecting…");
