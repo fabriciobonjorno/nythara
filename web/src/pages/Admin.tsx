@@ -194,13 +194,14 @@ function statusLabel(status: string) {
   return ({ waiting_ready: "AGUARDANDO", active: "EM JOGO", finished: "ENCERRADA", cancelled: "CANCELADA" } as Record<string, string>)[status] ?? "ESTADO DESCONHECIDO";
 }
 
-function endReasonLabel(reason: string) {
+export function endReasonLabel(reason: string) {
   return ({
     concede: "concessão", concessao: "concessão", timeout: "tempo esgotado",
+    ready_timeout: "tempo de prontidão esgotado",
     vitality: "Vitalidade zerada", vitalidade: "Vitalidade zerada", assalto: "golpe final",
     rito: "Rito decisivo", guarda: "resposta decisiva", sangramento: "Sangramento",
     maldicao: "Maldição", pressao_de_nythara: "Pressão de Nythara", duplo_nocaute: "nocaute duplo",
-  } as Record<string, string>)[reason] ?? "motivo não informado";
+  } as Record<string, string>)[reason] ?? reason;
 }
 
 function draftStatusLabel(status: string) {

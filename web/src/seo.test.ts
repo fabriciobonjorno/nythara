@@ -33,4 +33,16 @@ describe("metadados de busca", () => {
     applyRouteMetadata("/", "", "en");
     expect(document.title).toBe("Nythara — Online PvP card game");
   });
+
+  it("mantém campanhas comuns indexáveis sem expor parâmetros sensíveis", () => {
+    addMeta("name", "robots");
+    addMeta("name", "description");
+    applyRouteMetadata("/", "?utm_source=newsletter&utm_campaign=lancamento", "pt-BR");
+    expect(document.title).toBe("Nythara — Jogo de cartas online PvP");
+    expect(document.querySelector('meta[name="robots"]')).toHaveAttribute("content", expect.stringContaining("index, follow"));
+    expect(document.querySelector('meta[name="description"]')?.getAttribute("content")).toContain("30 cartas");
+
+    applyRouteMetadata("/", "?utm_source=newsletter&code=segredo", "pt-BR");
+    expect(document.querySelector('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow, noarchive");
+  });
 });

@@ -161,16 +161,20 @@ export function useBattleFx(events: BattleEvent[], mySlot: number | null,
     for (const event of fresh) {
       switch (event.kind) {
         case "turn_started":
-          showBanner(`TURNO ${event.round}`, "round",
-            event.p === mySlot ? "Sua ação: compre e escolha um Assalto." : "O rival prepara o próximo Assalto.");
-          sfx.round();
-          if (event.p === mySlot) vibrate(18);
+          // Ritos podem encerrar o turno no mesmo lote em que são exibidos.
+          // O novo turno só deve ser anunciado depois que a carta assentou.
+          atStage(settleOffset, () => {
+            showBanner(`TURNO ${event.round}`, "round",
+              event.p === mySlot ? "Sua ação: compre e escolha um Assalto." : "O rival prepara o próximo Assalto.");
+            sfx.round();
+            if (event.p === mySlot) vibrate(18);
+          });
           break;
         case "vitality_spent":
           if (event.n > 0) atStage(costOffset, () => spawnFloater(event.p, `CUSTO −${event.n}`, "cost", "heart"));
           break;
         case "card_drawn":
-          if (event.p === mySlot) sfx.drawCard();
+          if (event.p === mySlot) atStage(settleOffset, () => sfx.drawCard());
           break;
         case "card_played":
           atStage(0, () => sfx.playCard());
@@ -329,8 +333,12 @@ export function useBattleFx(events: BattleEvent[], mySlot: number | null,
           sfx.countered();
           break;
         case "match_ended":
-          sfx.ended(event.p === mySlot);
-          vibrate(event.p === mySlot ? [30, 30, 45, 30, 80] : [70, 35, 90]);
+          // O resultado autoritativo já chegou, mas seu sinal sensorial aguarda
+          // o último impacto e o mesmo respiro usado pela tela de resultado.
+          atStage(settleOffset + timing.resultHoldMs, () => {
+            sfx.ended(event.p === mySlot);
+            vibrate(event.p === mySlot ? [30, 30, 45, 30, 80] : [70, 35, 90]);
+          });
           break;
         default:
           break;

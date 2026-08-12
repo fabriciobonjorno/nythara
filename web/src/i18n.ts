@@ -438,6 +438,7 @@ const entries: Entry[] = [
   ["Histórico de partidas", "Historial de partidas", "Match history"], ["Próximos passos", "Próximos pasos", "Next steps"], ["Buscar duelo", "Buscar duelo", "Find duel"],
   ["Números da partida", "Números de la partida", "Match numbers"], ["Vitalidade investida", "Vitalidad invertida", "Vitality invested"],
   ["LiveOps", "LiveOps", "LiveOps"], ["VOZ DE QUEM JOGA", "VOZ DE QUIEN JUEGA", "PLAYER VOICE"], ["Recados do Alpha", "Comentarios de Alpha", "Alpha notes"],
+  ["tempo de prontidão esgotado", "tiempo de preparación agotado", "ready check timed out"],
   ["Nenhum recado ainda. O convite aparece na tela de resultado e é opcional.", "Aún no hay comentarios. La invitación aparece en la pantalla de resultado y es opcional.", "No notes yet. The optional invitation appears on the result screen."],
   ["VERSÕES DE REGRA", "VERSIONES DE REGLAS", "RULESET VERSIONS"], ["Rulesets", "Conjuntos de reglas", "Rulesets"], ["Ativar", "Activar", "Activate"],
   ["Ordem operacional: publicar → rotacionar → ativar. Rollback é ativar uma versão anterior.", "Orden operativo: publicar → rotar → activar. Revertir significa activar una versión anterior.", "Operational order: publish → rotate → activate. Rollback means activating a previous version."],

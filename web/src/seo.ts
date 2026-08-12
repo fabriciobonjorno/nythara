@@ -29,12 +29,21 @@ const privateDescriptions: Record<Locale, string> = {
   en: "Sign in to your Nythara account to continue.",
 };
 
+const sensitiveLandingParameters = new Set([
+  "admin_invite", "token", "oauth_ticket", "oauth_error", "code", "state",
+]);
+
+function hasSensitiveLandingParameter(search: string) {
+  const parameters = new URLSearchParams(search);
+  return [...parameters.keys()].some((key) => sensitiveLandingParameters.has(key));
+}
+
 function setMeta(selector: string, value: string) {
   document.querySelector<HTMLMetaElement>(selector)?.setAttribute("content", value);
 }
 
 export function applyRouteMetadata(pathname: string, search: string, locale: Locale) {
-  const publicPage = pathname === "/" && search === "";
+  const publicPage = pathname === "/" && !hasSensitiveLandingParameter(search);
   const metadata = publicMetadata[locale];
   document.title = publicPage ? metadata.title : `Nythara · ${privateTitles[pathname]?.[locale] ?? "Arena"}`;
   setMeta('meta[name="description"]', publicPage ? metadata.description : privateDescriptions[locale]);
