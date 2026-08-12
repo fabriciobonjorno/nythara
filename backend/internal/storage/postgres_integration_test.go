@@ -372,16 +372,17 @@ func TestProfilePasswordAndOAuthPersistence(t *testing.T) {
 	if err != nil || updated.AvatarID != "CH-CI-01" {
 		t.Fatalf("avatar persistido: user=%+v err=%v", updated, err)
 	}
-	if err := db.LinkOAuth(ctx, "google", "subject-profile-test", userID); err != nil {
+	subject := "subject-profile-" + userID
+	if err := db.LinkOAuth(ctx, "google", subject, userID); err != nil {
 		t.Fatal(err)
 	}
-	linked, err := db.UserByOAuth(ctx, "google", "subject-profile-test")
+	linked, err := db.UserByOAuth(ctx, "google", subject)
 	if err != nil || linked.ID != userID {
 		t.Fatalf("identidade federada: user=%+v err=%v", linked, err)
 	}
 
 	now := time.Now().UTC()
-	ticket := security.TokenHash("oauth-ticket-profile-test")
+	ticket := security.TokenHash("oauth-ticket-" + userID)
 	if err := db.SaveOAuthTicket(ctx, ticket, userID, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
@@ -393,9 +394,9 @@ func TestProfilePasswordAndOAuthPersistence(t *testing.T) {
 	}
 
 	sessionID, _ := security.NewID()
-	accessHash := security.TokenHash("access-before-password-change")
+	accessHash := security.TokenHash("access-before-password-change-" + userID)
 	if err := db.CreateSession(ctx, domain.NewSession{ID: sessionID, UserID: userID, AccessHash: accessHash,
-		RefreshHash: security.TokenHash("refresh-before-password-change"), AccessUntil: now.Add(time.Hour),
+		RefreshHash: security.TokenHash("refresh-before-password-change-" + userID), AccessUntil: now.Add(time.Hour),
 		RefreshUntil: now.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
