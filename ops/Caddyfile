@@ -8,6 +8,12 @@ http://127.0.0.1:80 {
 	respond 404
 }
 
+# Mantém uma única origem para cookies, WebSocket e CSP. O certificado de
+# www é obtido e renovado pelo mesmo Caddy.
+www.{$NYTHARA_DOMAIN} {
+	redir https://{$NYTHARA_DOMAIN}{uri} permanent
+}
+
 {$NYTHARA_DOMAIN} {
 	encode zstd gzip
 

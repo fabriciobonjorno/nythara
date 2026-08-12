@@ -10,7 +10,8 @@ e renova o certificado TLS automaticamente quando o DNS já aponta para a VPS.
 - Docker Engine com o plugin Compose;
 - portas TCP 22, 80 e 443 e UDP 443 liberadas no firewall;
 - registro DNS A (e AAAA, se a VPS tiver IPv6 funcional) apontando o domínio
-  para a VPS;
+  raiz para a VPS; `www` pode ser um CNAME para o domínio raiz e será
+  redirecionado para a origem canônica;
 - usuário de deploy sem login direto como root e com acesso controlado ao
   Docker.
 
