@@ -8,26 +8,43 @@ protegidas recebem `Authorization: Bearer <access_token>`.
 - `POST /v1/auth/register` — `email`, `password` (12–256 caracteres) e
   `username` (2–32; somente `A–Z`, `a–z`, `0–9`, `_` e `-`). E-mail e nome
   de usuário são únicos sem diferenciar maiúsculas/minúsculas. O alias legado
-  `display_name` ainda é aceito durante o Alpha. Cria o grant competitivo
-  completo do Alpha no servidor.
+  `display_name` ainda é aceito durante o Alpha. Cria o direito-base do
+  catálogo Alpha e a progressão global em 0 XP (nível 1); Lendárias continuam
+  sujeitas aos marcos de nível.
 - `POST /v1/auth/login` — `email`, `password`.
 - `POST /v1/auth/refresh` — `refresh_token`; cada uso rotaciona o token.
 - `POST /v1/auth/logout` — `refresh_token`.
+- `POST /v1/auth/forgot-password` — `email`, `locale` (`pt-BR`, `es` ou `en`).
+  Responde sempre `202`, inclusive para conta ausente ou falha transitória de
+  entrega, para não enumerar cadastros. Quando aplicável, envia pelo Resend um
+  link de uso único válido por 30 minutos.
+- `POST /v1/auth/reset-password` — `token`, `password` (12–256 caracteres).
+  Consome o token, troca a senha e revoga todas as sessões da conta na mesma
+  transação. Link inválido, expirado ou já usado retorna
+  `400 reset_token_invalid`.
+- `POST /v1/webhooks/resend` — webhook de eventos operacionais de e-mail. A
+  rota só existe quando `RESEND_WEBHOOK_SECRET` está configurado e exige o
+  corpo original com `svix-id`, `svix-timestamp` e `svix-signature`. Eventos
+  autênticos retornam `200`; retries com o mesmo ID são idempotentes. Somente
+  ID da mensagem, tipo e horários são persistidos — nunca destinatário,
+  assunto ou conteúdo.
 - `GET /v1/me` — principal autenticado.
 
 ## Catálogo e progressão
 
-- `GET /v1/catalog/cards`
+- `GET /v1/catalog/cards` — Lendárias incluem `unlock_level`.
 - `GET /v1/catalog/champions`
 - `GET /v1/rulesets/current` — versão e parâmetros de apresentação do ruleset
   ativo (`starting_vitality`, pressão, teto de vazamento, tamanho e mínimos de
   composição do baralho). O cliente não repete esses números como autoridade.
 - `GET /v1/seasons/current`
-- `GET /v1/collection`
+- `GET /v1/collection` — projeta somente cartas disponíveis no nível atual;
+  aquisições Lendárias ainda bloqueadas não são tratadas como posse jogável.
 - `GET /v1/rewards`
 - `GET /v1/progress` — rituais do dia (sorteio determinístico por
   `sha256(dia|usuário)`, materializado na primeira consulta), carteira de
-  Fragmentos do Véu, maestria cosmética por Avatar e rating da temporada ativa.
+  Fragmentos do Véu, nível global (`account`: XP total, nível 1–50 e progresso
+  dentro do nível), maestria cosmética por Avatar e rating da temporada ativa.
 - `GET /v1/ranked/leaderboard?limit=n` — topo da temporada (`entries`, máx.
   100) e a posição do solicitante (`me`). O bot nunca aparece. Cada entrada e
   o `me` carregam a patente derivada do rating (`tier`; faixas em
@@ -46,13 +63,16 @@ protegidas recebem `Authorization: Bearer <access_token>`.
 A progressão é gravada exclusivamente pelo battle server ao fim da partida, a
 partir dos eventos authoritative — o cliente não envia progresso. A gravação é
 idempotente por partida (`match_progress_log`); fragmentos deixam trilha em
-`economy_transactions`. Treinos rendem rituais (exceto os marcados PvP) e
-maestria reduzida; rating Elo (K=32) só muda em PvP com dois humanos.
+`economy_transactions`. Treinos, tutoriais e lutas contra bot rendem 0 XP de
+conta e 0 XP de maestria; podem render apenas rituais não-PvP. Somente PvP com
+dois humanos rende 15 XP (+15 por vitória). XP global tem teto físico de
+28.420 e nível derivado com teto 50. Rating Elo (K=32) também só muda nesse PvP
+real.
 
 ## Decks
 
-No ruleset `alpha-0.10.2`, cada conta mantém um único baralho competitivo de
-30 cartas (mínimo 8 Assaltos, 8 Guardas e 4 Ritos), sem restrição de facção.
+No ruleset competitivo ativo, cada conta mantém um único baralho de 30 cartas
+(mínimo 8 Assaltos, 10 Guardas e 4 Ritos), sem restrição de facção.
 Após alteração manual, `locked_until` protege a lista por 24 horas; o baralho
 inicial fornecido pelo sistema não nasce travado. `champion_id` permanece no
 contrato como ID do Avatar cosmético e não altera a engine.
@@ -70,8 +90,10 @@ contrato como ID do Avatar cosmético e não altera a engine.
 
 Criação, alteração e exclusão exigem `Idempotency-Key` (8–128 caracteres).
 Cartas são enviadas agregadas como `{"card_id":"VR-001","quantity":2}`.
-O servidor valida regras e posse; uma constraint diferida repete a validação
-no banco antes do commit. Atualizações concorrentes usam a versão do deck.
+O servidor valida regras, posse e nível de desbloqueio; uma constraint diferida
+repete a validação estrutural no banco antes do commit. Atualizações concorrentes
+usam a versão do deck. Um deck histórico com Lendária ainda bloqueada não entra
+em treino/PvP e fica editável para substituição.
 
 ## Administração
 
@@ -113,7 +135,8 @@ construção e auditadas em `admin_audit` na mesma transação.
 ## Matchmaking e batalha realtime
 
 - `GET /v1/matchmaking` — estado `idle`, `queued` ou `matched`.
-- `POST /v1/matchmaking` — corpo `{"deck_id":"..."}`; fila FIFO 1v1.
+- `POST /v1/matchmaking` — corpo `{"deck_id":"..."}`; fila 1v1 que preserva
+  FIFO entre contas compatíveis e só pareia níveis com diferença absoluta ≤5.
 - `DELETE /v1/matchmaking` — sai da fila enquanto ainda não pareado.
 - `POST /v1/practice` — corpo `{"deck_id":"...", "bot_champion_id":"CH-…"}`
   (campeão opcional; sem ele o servidor sorteia um precon do bot). Cria

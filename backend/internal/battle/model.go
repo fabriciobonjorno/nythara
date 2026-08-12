@@ -192,6 +192,7 @@ type ProtocolError struct {
 }
 
 type QueuedPlayer struct {
-	Principal domain.Principal
-	Deck      domain.Deck
+	Principal    domain.Principal
+	Deck         domain.Deck
+	AccountLevel int
 }

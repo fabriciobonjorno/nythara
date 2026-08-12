@@ -14,6 +14,7 @@ import (
 
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
+	accountprogress "veurubro/backend/internal/progression"
 	"veurubro/backend/internal/security"
 )
 
@@ -70,9 +71,12 @@ func (m *Manager) ActiveRuleset() string {
 	return m.activeRuleset.Load().(string)
 }
 
-func (m *Manager) Queue(ctx context.Context, principal domain.Principal, deck domain.Deck) (QueueResult, error) {
+func (m *Manager) Queue(ctx context.Context, principal domain.Principal, deck domain.Deck, accountLevel int) (QueueResult, error) {
 	if deck.UserID != principal.UserID || deck.RulesetVersion != m.ActiveRuleset() {
 		return QueueResult{}, domain.ErrForbidden
+	}
+	if accountLevel < accountprogress.MinAccountLevel || accountLevel > accountprogress.MaxAccountLevel {
+		return QueueResult{}, fmt.Errorf("%w: nível de conta fora do intervalo permitido", domain.ErrInvalid)
 	}
 	if err := validateStoredDeck(deck); err != nil {
 		return QueueResult{}, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
@@ -111,20 +115,21 @@ func (m *Manager) Queue(ctx context.Context, principal domain.Principal, deck do
 	}
 	matchAt := -1
 	for i, waiting := range m.queue {
-		if waiting.Principal.UserID != principal.UserID && waiting.Deck.RulesetVersion == deck.RulesetVersion {
+		if waiting.Principal.UserID != principal.UserID && waiting.Deck.RulesetVersion == deck.RulesetVersion &&
+			accountprogress.LevelsCanMatch(waiting.AccountLevel, accountLevel) {
 			matchAt = i
 			break
 		}
 	}
 	if matchAt < 0 {
-		m.queue = append(m.queue, QueuedPlayer{Principal: principal, Deck: deck})
+		m.queue = append(m.queue, QueuedPlayer{Principal: principal, Deck: deck, AccountLevel: accountLevel})
 		m.queued[principal.UserID] = true
 		return QueueResult{Status: "queued"}, nil
 	}
 	opponent := m.queue[matchAt]
 	m.queue = append(m.queue[:matchAt], m.queue[matchAt+1:]...)
 	delete(m.queued, opponent.Principal.UserID)
-	match, err := newMatch(opponent, QueuedPlayer{Principal: principal, Deck: deck}, m.now().UTC())
+	match, err := newMatch(opponent, QueuedPlayer{Principal: principal, Deck: deck, AccountLevel: accountLevel}, m.now().UTC())
 	if err != nil {
 		return QueueResult{}, err
 	}
@@ -870,7 +875,7 @@ func newMatch(first, second QueuedPlayer, now time.Time) (Match, error) {
 			{ChampionID: first.Deck.ChampionID, Deck: expandDeck(first.Deck)},
 			{ChampionID: second.Deck.ChampionID, Deck: expandDeck(second.Deck)},
 		}}
-	return Match{ID: id, Config: config, Status: StatusWaitingReady, CreatedAt: now,
+	return Match{ID: id, Mode: ModePvP, Config: config, Status: StatusWaitingReady, CreatedAt: now,
 		Players: [2]Participant{
 			{UserID: first.Principal.UserID, DeckID: first.Deck.ID, Slot: 0},
 			{UserID: second.Principal.UserID, DeckID: second.Deck.ID, Slot: 1},

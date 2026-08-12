@@ -8,7 +8,7 @@ import { UiIcon } from "../components/UiIcon";
 import { VeilGlyph } from "../components/VeilGlyph";
 import { LanguageSelector } from "../components/LanguageSelector";
 import { buildGuidedProgress } from "../guidedTraining";
-import { useActiveRulesetVersion, useCards, useChampions, useDecks, useMe, useSeason } from "../queries";
+import { useActiveRulesetVersion, useCards, useChampions, useDecks, useMe, useProgress, useSeason } from "../queries";
 import { usePreferencesStore, useSessionStore } from "../store";
 import type { QueueResult } from "../types";
 
@@ -151,7 +151,8 @@ export function ProfilePage() {
   const { data: me } = useMe();
   const { data: season } = useSeason();
   const { data: decks } = useDecks();
-  return <div className="page profile-page"><section className="profile-hero"><div className="profile-avatar">{me?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</div><div><p className="eyebrow">PERFIL DO DUELISTA</p><h1>{me?.display_name ?? "Viajante"}</h1><p>Participante do Alpha · {me?.role === "admin" ? "Guardião" : "Jogador"}</p></div><span className="season-seal"><NytharaMark /><small>{season?.name ?? "Alpha"}</small></span></section><section className="profile-grid"><article className="rank-card"><p className="eyebrow">RANKED</p><h2>Pré-temporada</h2><div className="rank-emblem"><UiIcon name="rank" /></div><strong>Sem colocação</strong><p>Jogue partidas ranqueadas para registrar rating, patente e posição na temporada.</p></article><article className="panel"><h2>Conta competitiva</h2><dl className="profile-details"><div><dt>Ruleset</dt><dd>{season?.ruleset_version ?? rulesetVersion}</dd></div><div><dt>Baralho atual</dt><dd>{decks?.decks.some((deck) => deck.ruleset_version === rulesetVersion) ? "Pronto" : "Pendente"}</dd></div><div><dt>Catálogo</dt><dd>130 cartas · pool competitivo curado</dd></div><div><dt>Temporada</dt><dd>{season?.name ?? "Alpha"}</dd></div></dl></article></section></div>;
+	const { data: progress } = useProgress();
+	return <div className="page profile-page"><section className="profile-hero"><div className="profile-avatar">{me?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</div><div><p className="eyebrow">PERFIL DO DUELISTA</p><h1>{me?.display_name ?? "Viajante"}</h1><p>Participante do Alpha · {me?.role === "admin" ? "Guardião" : "Jogador"}</p></div><span className="season-seal"><NytharaMark /><small>{season?.name ?? "Alpha"}</small></span></section><section className="profile-grid"><article className="rank-card"><p className="eyebrow">NÍVEL DA CONTA</p><h2>Nível {progress?.account.level ?? 1}</h2><div className="rank-emblem"><UiIcon name="mastery" /></div><strong>{progress?.account.level_xp_required ? `${progress.account.level_xp}/${progress.account.level_xp_required} XP` : "Nível máximo"}</strong><p>Suba no PvP contra jogadores para liberar Lendárias. Treinos e bots não concedem XP.</p></article><article className="panel"><h2>Conta competitiva</h2><dl className="profile-details"><div><dt>Ruleset</dt><dd>{season?.ruleset_version ?? rulesetVersion}</dd></div><div><dt>Baralho atual</dt><dd>{decks?.decks.some((deck) => deck.ruleset_version === rulesetVersion) ? "Pronto" : "Pendente"}</dd></div><div><dt>Catálogo</dt><dd>130 cartas · Lendárias por nível</dd></div><div><dt>Temporada</dt><dd>{season?.name ?? "Alpha"}</dd></div></dl></article></section></div>;
 }
 
 const tutorialSteps = [

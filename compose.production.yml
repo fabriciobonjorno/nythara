@@ -65,6 +65,12 @@ services:
       PORT: "8080"
       TRUSTED_PROXY_CIDRS: 172.28.16.10/32
       OTEL_SERVICE_NAME: nythara-api
+      RESEND_API_KEY: ${RESEND_API_KEY:?defina RESEND_API_KEY no arquivo .env.production}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:?defina RESEND_FROM_EMAIL no arquivo .env.production}
+      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:?defina RESEND_WEBHOOK_SECRET no arquivo .env.production}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:?defina PUBLIC_APP_URL no arquivo .env.production}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
     secrets:
       - database_url
     depends_on:

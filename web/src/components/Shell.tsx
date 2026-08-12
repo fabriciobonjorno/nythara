@@ -5,6 +5,8 @@ import { NytharaBrand } from "./NytharaBrand";
 import { Onboarding } from "./Onboarding";
 import { UiIcon, type UiIconName } from "./UiIcon";
 import { LanguageSelector } from "./LanguageSelector";
+import { ChampionEmblem } from "./ChampionEmblem";
+import { useChampions } from "../queries";
 
 const navItems: Array<{ to: string; icon: UiIconName; label: string }> = [
   { to: "/app", icon: "home", label: "Início" },
@@ -21,6 +23,8 @@ export function Shell() {
   const tokens = useSessionStore((state) => state.tokens);
   const clear = useSessionStore((state) => state.clear);
   const navigate = useNavigate();
+	const { data: championData } = useChampions();
+	const profileAvatar = championData?.champions.find((champion) => champion.id === (principal?.avatar_id ?? user?.avatar_id));
 
   const logout = async () => {
     try {
@@ -50,7 +54,7 @@ export function Shell() {
         <header className="top-bar">
           <NavLink className="mobile-brand" to="/app" aria-label="Nythara — início"><NytharaBrand /></NavLink>
           <LanguageSelector compact />
-          <NavLink className="profile-chip" to="/profile"><span className="avatar">{user?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</span><span>{user?.display_name ?? "Viajante"}<small>Perfil</small></span></NavLink>
+		  <NavLink className="profile-chip" to="/profile"><span className="avatar">{profileAvatar ? <ChampionEmblem id={profileAvatar.id} faction={profileAvatar.faction} /> : user?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</span><span>{principal?.display_name ?? user?.display_name ?? "Viajante"}<small>Perfil</small></span></NavLink>
         </header>
         <main id="main-content" tabIndex={-1}><Outlet /></main>
       </div>

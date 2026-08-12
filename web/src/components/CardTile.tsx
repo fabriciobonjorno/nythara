@@ -46,18 +46,20 @@ function CardArtwork({ card }: { card: CardDefinition }) {
   );
 }
 
-export function CardTile({ card, quantity, selected, compact = false, disabled = false, onSelect }: {
+export function CardTile({ card, quantity, selected, compact = false, disabled = false, currentLevel = 1, onSelect }: {
   card: CardDefinition;
   quantity?: number;
   selected?: number;
   compact?: boolean;
   disabled?: boolean;
+	currentLevel?: number;
   onSelect?: () => void;
 }) {
   const [zoomed, setZoomed] = useState(false);
   const locale = usePreferencesStore((state) => state.locale);
   const tacticalText = translateText(card.confront?.tactical_text ?? card.rules_text, locale);
   const metric = translateText(cardConfrontMetric(card), locale);
+	const levelLocked = Boolean(card.unlock_level && currentLevel < card.unlock_level);
   const body = (
     <article className={`card-tile faction-${card.faction.replaceAll(" ", "-").toLowerCase()} ${compact ? "is-compact" : ""}`}>
       <div className="card-tile__edge" aria-hidden="true" />
@@ -67,6 +69,7 @@ export function CardTile({ card, quantity, selected, compact = false, disabled =
         <span className="sigil" aria-label={`Afinidade visual ${card.sigil}`} title="Afinidade visual; sem efeito de regra"><CardSigil sigil={card.sigil} /></span>
       </header>
       <CardArtwork card={card} />
+	  {levelLocked && <span className="card-level-lock">LIBERA NO NÍVEL {card.unlock_level}</span>}
       <div className="card-meta"><span>{translateText(card.type, locale)}</span><span>{translateText(card.rarity, locale)}</span></div>
       {card.confront?.adapted && <span className="card-adapted">ADAPTADA AO CONFRONTO</span>}
       {card.confront?.keywords?.length ? <div className="card-keywords" aria-label="Palavras-chave">{card.confront.keywords.slice(0, 3).map((keyword) => <span key={keyword}>{keyword}</span>)}</div> : null}
@@ -83,7 +86,7 @@ export function CardTile({ card, quantity, selected, compact = false, disabled =
 
   return (
     <>
-      <div className="card-tile-wrap">
+      <div className={`card-tile-wrap ${levelLocked ? "is-level-locked" : ""}`}>
         {body}
         <button className="card-tile-main-action" type="button" disabled={disabled} onClick={onSelect ?? (() => setZoomed(true))} aria-label={onSelect ? `${card.name}, adicionar ao deck` : `${card.name}, ampliar`} />
         {onSelect && <button className="card-zoom-button" type="button" onClick={() => setZoomed(true)} aria-label={`Ampliar ${card.name}`}><CardZoomIcon /></button>}

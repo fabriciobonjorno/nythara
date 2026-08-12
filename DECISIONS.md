@@ -1800,3 +1800,140 @@ Fadiga letal e atribuição histórica do feedback. Esta correção integra o me
 `alpha-0.13.0` porque a versão ainda não entrou em `main` nem foi publicada por
 release; depois dessa entrada, qualquer mudança de comportamento continua
 exigindo nova versão, conforme a política de replays imutáveis.
+
+## ADR-065 — Recuperação de senha por token opaco e Resend
+
+**Contexto.** O Alpha aceitava cadastro e login, mas não oferecia recuperação
+de conta. Alterar senhas diretamente no banco ou enviar senha temporária em
+texto puro criaria uma credencial reutilizável e não encerraria sessões
+possivelmente comprometidas. A integração de e-mail também não pode alcançar
+a engine determinística nem expor segredo ao cliente.
+
+**Decisão.** `POST /v1/auth/forgot-password` responde sempre `202`, exista ou
+não a conta, e permanece sob o limitador estrito de autenticação. Para uma
+conta real, a aplicação gera 256 bits aleatórios, persiste somente SHA-256,
+invalida pedidos anteriores e envia pelo endpoint HTTPS do Resend um link para
+`PUBLIC_APP_URL/reset-password`. O link expira em 30 minutos e carrega a única
+cópia do token em texto puro. `POST /v1/auth/reset-password` valida a nova
+senha pelo mesmo PBKDF2-HMAC-SHA256 do cadastro e, numa transação, consome os
+tokens ativos do usuário, troca o hash e revoga todas as sessões.
+
+O Resend existe apenas em `backend/internal/mailer`; falha de envio é logada no
+servidor sem mudar a resposta pública. Produção exige `RESEND_API_KEY`,
+`RESEND_FROM_EMAIL`, `RESEND_WEBHOOK_SECRET` e `PUBLIC_APP_URL` pelo
+`.env.production` ignorado pelo Git. Desenvolvimento pode iniciar sem o
+provedor, com a recuperação explicitamente desativada. O domínio do remetente
+precisa estar verificado no Resend.
+
+O webhook `POST /v1/webhooks/resend` verifica o corpo bruto pelo envelope Svix
+do Resend (`svix-id`, `svix-timestamp`, `svix-signature`), aceita somente uma
+janela de cinco minutos e usa o ID assinado como chave idempotente. Persistimos
+somente ID do evento, ID da mensagem, tipo e horários; destinatário, assunto e
+corpo são descartados. Produção assina apenas eventos operacionais de envio,
+entrega, atraso, bounce, complaint, falha e supressão.
+
+**Consequências.** Uma URL roubada tem janela curta, uso único e não revela a
+senha. Redefinir a credencial encerra inclusive sessões anteriores. A API não
+confirma cadastros, o cliente nunca recebe a chave do provedor e a engine,
+replays e regras de batalha permanecem intocados. Entrega de e-mail passa a
+ser uma dependência operacional observável; indisponibilidade do provedor não
+vira um oráculo de existência de conta. Retries do webhook não duplicam
+registros e payloads adulterados ou antigos não alimentam a observabilidade.
+
+## ADR-066 — Nível global, Lendárias por marco e pareamento por faixa
+
+**Contexto.** O produto possuía maestria por Avatar e patentes sazonais, mas o
+ADR-042 registrava explicitamente que não havia nível global. O pedido de
+produto agora exige que toda conta comece no nível 1, desbloqueie Lendárias ao
+progredir e não enfrente rivais muito distantes. Aceitar `level` ou XP do
+cliente permitiria uma conta iniciante forjar nível 100; gravar o mesmo fim de
+partida duas vezes produziria o mesmo abuso por retry. O grant `alpha_complete`
+do ADR-035 também representa aquisição histórica, não autorização para ignorar
+um novo gate de progressão.
+
+**Decisão.** Esta ADR substitui a recomendação de “sem nível de conta” do
+ADR-042. Toda conta, antiga ou nova, inicia com 0 XP, portanto nível 1. O banco
+persiste apenas XP global; nível é uma projeção server-side com intervalo
+fechado 1–50. A curva começa em 100 XP e o custo do próximo nível cresce 20;
+28.420 é o teto físico de XP. Somente PvP finalizado com dois humanos concede
+XP: 15 por participação e +15 por vitória, tanto na conta quanto na maestria
+do Avatar. Treino, tutorial, bot e modo desconhecido concedem zero XP de conta
+e zero XP de maestria; rituais não-PvP continuam independentes porque não
+alteram nível. Esta regra substitui a concessão de maestria em treino definida
+no ADR-025. O recorder já idempotente por `match_id` passa a creditar também a
+coluna global na mesma transação. Entradas fora de 0–30 XP por jogador/partida
+falham fechadas. Nenhuma rota aceita nível ou XP enviado pelo cliente.
+
+As oito cartas já publicadas como Lendárias ganham marcos explícitos sem mudar
+seus atributos de combate: VR-012/10, VR-024/15, VR-036/20, VR-048/25,
+VR-060/30, VR-079/35, VR-080/40 e VR-130/50. O ledger `player_cards` preserva o
+direito histórico `alpha_complete`, mas coleção, criação de deck e entrada em
+partida projetam apenas itens disponíveis no nível atual. Assim não apagamos
+aquisições nem reescrevemos economia passada. Deck antigo com Lendária
+bloqueada perde a trava de edição na migração e é recusado em treino/PvP até o
+dono substituí-la. ID Lendário futuro sem agenda explícita fica fechado no
+nível 50.
+
+O matchmaking recebe o nível derivado pela aplicação, rejeita valores fora do
+intervalo e percorre a fila até o primeiro jogador do mesmo ruleset com
+diferença absoluta de no máximo 5. Incompatíveis permanecem aguardando em sua
+ordem relativa; a faixa não cresce com o tempo. A primeira Lendária só chega no
+nível 10, portanto uma conta nível 1 — cuja faixa termina no 6 — nunca encontra
+alguém que já tenha desbloqueado uma. O treino com bot continua sendo a saída
+imediata para baixa população.
+
+**Consequências.** Progressão e pareamento tornam-se regras de produto
+auditáveis, mas não mudam engine, RNG, comandos, snapshots ou significado de
+replays; não há bump de ruleset de combate. Dividir a fila pode aumentar a
+espera, especialmente em níveis altos, e deve ser observado antes de qualquer
+alteração — ampliar a faixa exige nova decisão, não timeout silencioso. As
+Lendárias são obtidas apenas jogando e não são vendidas; monetização continua
+cosmética conforme o GDD.
+
+## ADR-067 — Identidade editável, senha autenticada e entrada social
+
+**Contexto.** O perfil exibia apenas a inicial do username e não oferecia uma
+forma autenticada de trocar a senha. O resumo de batalha confundia o nome do
+Avatar com a identidade do jogador, fazendo o próprio usuário aparecer como
+“Voren Ashhand”. Na entrada pública, a pessoa precisava criar uma conta antes
+de ver cartas ou entender a mesa. Isso aumenta abandono e também incentiva
+senhas novas para quem preferiria uma identidade federada.
+
+**Decisão.** `player_profiles` passa a guardar um `avatar_id` cosmético,
+validado contra os dez Avatares do ruleset competitivo. A imagem de perfil é
+uma escolha entre emblemas originais já pertencentes ao jogo; não aceitamos
+upload arbitrário nesta fase, evitando armazenamento de mídia pessoal,
+moderação e uma nova superfície de arquivo. O username continua único e
+imutável por esta tela. Resultado e replay exibem `display_name` como identidade
+principal e deixam Avatar e nome do baralho como contexto de combate.
+
+`PUT /v1/me/profile` altera somente o emblema. `PUT /v1/me/password` exige a
+senha atual quando a conta já possui senha, deriva a nova pelo mesmo
+PBKDF2-HMAC-SHA256 e revoga todas as sessões na mesma transação. Contas criadas
+por login social podem definir a primeira senha a partir de uma sessão OAuth
+válida, sem inventar uma senha temporária.
+
+A primeira federação é Google OAuth 2.0 pelo Authorization Code Flow com
+`state` e PKCE em cookies HttpOnly, `SameSite=Lax`, de cinco minutos. O backend
+troca o código diretamente, consulta o `userinfo` pelo access token e usa
+somente o `sub` como identidade estável. E-mail verificado pode criar uma conta;
+uma conta local preexistente só é vinculada automaticamente quando o Google é
+autoridade pelo endereço (`@gmail.com` ou Google Workspace). O retorno ao SPA
+carrega apenas um passe aleatório de uso único e dois minutos; access/refresh
+tokens do Nythara nascem somente quando esse passe é consumido. Ausência de
+`GOOGLE_OAUTH_CLIENT_ID` e `GOOGLE_OAUTH_CLIENT_SECRET` desabilita o provedor
+explicitamente. Nenhum segredo OAuth chega ao cliente.
+
+A página pública passa a mostrar uma miniatura fiel da zona de confronto e
+cartas reais do catálogo antes do formulário. Ela não executa engine nem
+simula resultado: é uma demonstração visual e textual, enquanto toda partida
+continua autenticada e server-authoritative.
+
+**Consequências.** Perfil, topo do app e placar final compartilham a mesma
+identidade persistida. Troca de senha encerra sessões esquecidas ou roubadas.
+OAuth reduz a barreira de cadastro sem substituir login local e adiciona duas
+tabelas pequenas (`oauth_identities` e `oauth_login_tickets`) com limpeza por
+expiração/consumo. Publicar o botão Google exige cadastrar
+`https://nythara.fun/v1/auth/google/callback` no console do provedor e injetar
+as duas credenciais no servidor. Nada muda na engine, no ruleset ou nos
+replays históricos.

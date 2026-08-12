@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BattleEvent } from "../types";
 import { emitFx } from "./bus";
 import { setSfxEnabled, sfx } from "./sfx";
+import { battleTiming, type AnimationPace } from "../battleTiming";
 
 // Camada de juice: transforma o log de eventos authoritative em efeitos
 // transitórios de apresentação. Nunca toca em lógica de jogo. Reconexão e
@@ -51,7 +52,7 @@ const FLOATER_LIFE = 1500;
 const FLOATER_CAP = 12;
 
 export function useBattleFx(events: BattleEvent[], mySlot: number | null,
-  options: { reducedMotion: boolean; sound: boolean; haptics: boolean }): BattleFxState {
+  options: { reducedMotion: boolean; sound: boolean; haptics: boolean; animationPace: AnimationPace }): BattleFxState {
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [banner, setBanner] = useState<FxBannerData | null>(null);
   const [eclipseCine, setEclipseCine] = useState<EclipseCinematicData | null>(null);
@@ -89,6 +90,7 @@ export function useBattleFx(events: BattleEvent[], mySlot: number | null,
     lastSeqRef.current = maxSeq;
 
     const { reducedMotion } = optionsRef.current;
+    const timing = battleTiming(optionsRef.current.animationPace, reducedMotion);
     const after = (ms: number, run: () => void) => {
       const timer = window.setTimeout(() => { timersRef.current.delete(timer); run(); }, ms);
       timersRef.current.add(timer);
@@ -151,11 +153,16 @@ export function useBattleFx(events: BattleEvent[], mySlot: number | null,
           }
           break;
         case "card_shattered": {
-          sfx.shatter();
-          vibrate([28, 22, 42]);
-          // outcome "guard" = o Assalto se estilhaçou; "assault" = a Guarda.
-          const slot = event.s === "guard" ? "slot-assault" : event.s === "assault" ? "slot-guard" : "verdict";
-          burst({ kind: "shards", target: slot, power: 0.8 });
+          // O evento chega no mesmo lote da resolução. Segurá-lo até a fase
+          // settled sincroniza som, resposta tátil e partículas com a rachadura
+          // visual, depois que o jogador teve tempo de ler o embate.
+          after(timing.shatterFxMs, () => {
+            sfx.shatter();
+            vibrate([28, 22, 42]);
+            // outcome "guard" = o Assalto se estilhaçou; "assault" = a Guarda.
+            const slot = event.s === "guard" ? "slot-assault" : event.s === "assault" ? "slot-guard" : "verdict";
+            burst({ kind: "shards", target: slot, power: 0.8 });
+          });
           break;
         }
         case "damage_dealt": {

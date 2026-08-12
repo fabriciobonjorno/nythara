@@ -266,6 +266,72 @@ func TestRefreshReuseRevokesSession(t *testing.T) {
 	}
 }
 
+func TestPasswordResetIsSingleUseAndRevokesSessions(t *testing.T) {
+	ctx, db, userID := integrationDB(t)
+	now := time.Now().UTC()
+	sessionID, _ := security.NewID()
+	_, accessHash, _ := security.NewToken()
+	_, refreshHash, _ := security.NewToken()
+	if err := db.CreateSession(ctx, domain.NewSession{ID: sessionID, UserID: userID,
+		AccessHash: accessHash, RefreshHash: refreshHash,
+		AccessUntil: now.Add(time.Hour), RefreshUntil: now.Add(24 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	plain, tokenHash, _ := security.NewToken()
+	resetID, _ := security.NewID()
+	if err := db.SavePasswordReset(ctx, domain.PasswordResetToken{ID: resetID, UserID: userID,
+		TokenHash: tokenHash, ExpiresAt: now.Add(30 * time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	newHash, err := security.HashPassword("nova-senha-segura-2026")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ConsumePasswordReset(ctx, security.TokenHash(plain), now.Add(time.Minute), newHash); err != nil {
+		t.Fatal(err)
+	}
+	user, err := db.UserByID(ctx, userID)
+	if err != nil || !security.VerifyPassword(user.PasswordHash, "nova-senha-segura-2026") {
+		t.Fatalf("senha não foi atualizada: err=%v", err)
+	}
+	if _, err := db.AccessToken(ctx, accessHash, now.Add(2*time.Minute)); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("sessão anterior sobreviveu à troca: %v", err)
+	}
+	if err := db.ConsumePasswordReset(ctx, tokenHash, now.Add(2*time.Minute), newHash); !errors.Is(err, domain.ErrInvalidResetToken) {
+		t.Fatalf("token usado foi aceito novamente: %v", err)
+	}
+
+	expiredPlain, expiredHash, _ := security.NewToken()
+	expiredID, _ := security.NewID()
+	if err := db.SavePasswordReset(ctx, domain.PasswordResetToken{ID: expiredID, UserID: userID,
+		TokenHash: expiredHash, ExpiresAt: now.Add(5 * time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ConsumePasswordReset(ctx, security.TokenHash(expiredPlain), now.Add(6*time.Minute), newHash); !errors.Is(err, domain.ErrInvalidResetToken) {
+		t.Fatalf("token expirado foi aceito: %v", err)
+	}
+}
+
+func TestEmailDeliveryEventRetriesAreIdempotent(t *testing.T) {
+	ctx, db, _ := integrationDB(t)
+	event := domain.EmailDeliveryEvent{ProviderEventID: "msg_retry_123", ProviderMessageID: "email_123",
+		EventType: "email.delivered", EventCreatedAt: time.Now().UTC()}
+	if err := db.SaveEmailDeliveryEvent(ctx, event); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveEmailDeliveryEvent(ctx, event); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM email_delivery_events
+		WHERE provider_event_id=$1`, event.ProviderEventID).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("retry criou %d registros", count)
+	}
+}
+
 func integrationDB(t *testing.T) (context.Context, *Postgres, string) {
 	t.Helper()
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
@@ -608,9 +674,9 @@ func TestPostgresRecordMatchProgress(t *testing.T) {
 
 	progress := domain.MatchProgress{MatchID: matchID, Ranked: true, SeasonID: season.ID,
 		Players: []domain.PlayerMatchProgress{
-			{UserID: userID, ChampionID: "CH-VH-01", Won: true, MasteryXP: 30, RitualDay: "2026-08-10",
+			{UserID: userID, ChampionID: "CH-VH-01", Won: true, MasteryXP: 30, AccountXP: 30, RitualDay: "2026-08-10",
 				Rituals: []domain.RitualIncrement{{RitualID: "win_pvp_1", Delta: 1, Target: 1, Reward: 60}}},
-			{UserID: opponentID, ChampionID: "CH-SO-01", Won: false, MasteryXP: 15, RitualDay: "2026-08-10"},
+			{UserID: opponentID, ChampionID: "CH-SO-01", Won: false, MasteryXP: 15, AccountXP: 15, RitualDay: "2026-08-10"},
 		}}
 	first, err := db.RecordMatchProgress(ctx, progress)
 	if err != nil {
@@ -656,6 +722,10 @@ func TestPostgresRecordMatchProgress(t *testing.T) {
 	mastery, err := db.MasteryFor(ctx, userID)
 	if err != nil || len(mastery) != 1 || mastery[0].XP != 30 || mastery[0].Wins != 1 {
 		t.Fatalf("maestria: %+v err=%v", mastery, err)
+	}
+	accountXP, err := db.AccountXP(ctx, userID)
+	if err != nil || accountXP != 30 {
+		t.Fatalf("XP global: %d err=%v; esperado 30", accountXP, err)
 	}
 }
 

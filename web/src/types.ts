@@ -6,6 +6,8 @@ export interface CardDefinition {
   faction: string;
   type: CardType;
   rarity: "Comum" | "Incomum" | "Rara" | "Épica" | "Lendária";
+	/** Nível global necessário; presente apenas em Lendárias. */
+	unlock_level?: number;
   cost: number;
   eclipse_shift: number;
   sigil: string;
@@ -44,13 +46,17 @@ export interface Principal {
   user_id: string;
   role: "player" | "admin";
   display_name: string;
+  avatar_id?: string;
+  password_set: boolean;
 }
 
 export interface User {
   id: string;
   email: string;
   display_name: string;
+  avatar_id?: string;
   role: "player" | "admin";
+  password_set: boolean;
   created_at: string;
 }
 
@@ -223,6 +229,14 @@ export interface ChampionMastery {
   wins: number;
 }
 
+export interface AccountProgress {
+  xp: number;
+  level: number;
+  level_xp: number;
+  level_xp_required: number;
+  max_level: number;
+}
+
 export interface RankTier {
   key: string;
   name: string;
@@ -241,6 +255,7 @@ export interface RankedStanding {
 
 export interface ProgressSummary {
   day: string;
+	account: AccountProgress;
   rituals: RitualState[];
   fragments: number;
   mastery: ChampionMastery[];

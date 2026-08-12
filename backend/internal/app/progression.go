@@ -6,6 +6,7 @@ import (
 
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
+	accountprogress "veurubro/backend/internal/progression"
 )
 
 // P1 — leitura e gravação de progressão. A gravação nasce exclusivamente do
@@ -48,6 +49,11 @@ func (s *Service) ProgressSummary(ctx context.Context, principal domain.Principa
 	if summary.Fragments, err = s.store.Fragments(ctx, principal.UserID); err != nil {
 		return domain.ProgressSummary{}, err
 	}
+	accountXP, err := s.store.AccountXP(ctx, principal.UserID)
+	if err != nil {
+		return domain.ProgressSummary{}, err
+	}
+	summary.Account = accountprogress.AccountForXP(accountXP)
 	if summary.Mastery, err = s.store.MasteryFor(ctx, principal.UserID); err != nil {
 		return domain.ProgressSummary{}, err
 	}
@@ -105,7 +111,9 @@ func (s *Service) RecordFinishedMatch(ctx context.Context, matchID, mode, rulese
 		return fmt.Errorf("ruleset da partida: %w", err)
 	}
 	stats := StatsFromEvents(rs, events)
-	pvp := mode != "practice"
+	// Somente o modo PvP explícito pode alimentar rating e nível global.
+	// Modos presentes ou futuros de bot/treino falham fechados como prática.
+	pvp := mode == "pvp"
 	day := utcDay(s.now())
 
 	progress := domain.MatchProgress{MatchID: matchID, Ranked: pvp}
@@ -126,6 +134,7 @@ func (s *Service) RecordFinishedMatch(ctx context.Context, matchID, mode, rulese
 			ChampionID: player.ChampionID,
 			Won:        won,
 			MasteryXP:  MasteryXPFor(won, pvp),
+			AccountXP:  accountprogress.XPForMatch(won, pvp),
 			RitualDay:  day,
 		}
 		for _, def := range ritualsForDay(day, player.UserID) {
@@ -145,4 +154,14 @@ func (s *Service) RecordFinishedMatch(ctx context.Context, matchID, mode, rulese
 	progress.Ranked = progress.Ranked && len(progress.Players) == 2
 	_, err = s.store.RecordMatchProgress(ctx, progress)
 	return err
+}
+
+// AccountProgress devolve o nível global derivado diretamente do XP
+// authoritative. O cliente nunca participa deste cálculo.
+func (s *Service) AccountProgress(ctx context.Context, principal domain.Principal) (domain.AccountProgress, error) {
+	xp, err := s.store.AccountXP(ctx, principal.UserID)
+	if err != nil {
+		return domain.AccountProgress{}, err
+	}
+	return accountprogress.AccountForXP(xp), nil
 }

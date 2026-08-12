@@ -161,12 +161,13 @@ func ritualProgressFor(def RitualDef, stats MatchStats, won, pvp bool) int {
 	return 0
 }
 
-// MasteryXPFor calcula o XP de maestria de uma partida.
+// MasteryXPFor calcula o XP de maestria de uma partida PvP humana.
+// Treino, tutorial, bot e modos desconhecidos falham fechados com zero XP.
 func MasteryXPFor(won, pvp bool) int {
-	xp := 10
-	if pvp {
-		xp += 5
+	if !pvp {
+		return 0
 	}
+	xp := 15
 	if won {
 		xp += 15
 	}
