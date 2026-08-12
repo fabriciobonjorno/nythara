@@ -80,6 +80,7 @@ export function Landing() {
         </div>
 		<form onSubmit={submit}>
           <div><p className="eyebrow">ABRA O VÉU</p><h2 id="auth-title">{mode === "login" ? "Retorne ao círculo" : "Escolha seu nome"}</h2></div>
+          {providers.google && <><a className="oauth-button" href="/v1/auth/google/start"><span aria-hidden="true">G</span> Continuar com Google</a><div className="auth-divider"><span>ou use e-mail</span></div></>}
           {mode === "register" && <label>Nome de usuário<input required minLength={2} maxLength={32} pattern={"[A-Za-z0-9_\\-]+"} title="Use apenas letras, números, hífen (-) e sublinhado (_), sem espaços." autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(event) => setUsername(event.target.value)} /><small>Apenas letras, números, hífen (-) e sublinhado (_), sem espaços.</small></label>}
           <label>E-mail<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           <label>Senha<input required type="password" minLength={12} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /><small>Mínimo de 12 caracteres.</small></label>
@@ -108,4 +109,3 @@ export function Landing() {
     </main>
   );
 }
-		  {providers.google && <><a className="oauth-button" href="/v1/auth/google/start"><span aria-hidden="true">G</span> Continuar com Google</a><div className="auth-divider"><span>ou use e-mail</span></div></>}
