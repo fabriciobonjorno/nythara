@@ -19,6 +19,7 @@ web/playwright-report/
 !.env.production.example
 /secrets/
 /backups/
+/artifacts/PENTEST_*.md
 
 # SO / editor
 .DS_Store
