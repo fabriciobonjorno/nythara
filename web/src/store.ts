@@ -3,6 +3,15 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { detectLocale, type Locale } from "./locales";
 import type { LastBattle, Principal, SessionTokens, User } from "./types";
 
+export const TUTORIAL_STEP_IDS = ["goal", "avatars", "collection", "deck", "training", "pvp"] as const;
+export type TutorialStepId = typeof TUTORIAL_STEP_IDS[number];
+
+export interface TutorialJourney {
+  started: boolean;
+  completed: TutorialStepId[];
+  finished: boolean;
+}
+
 function migrateLegacyStorage(storage: Storage, legacyKey: string, nextKey: string) {
   try {
     if (storage.getItem(nextKey)) return;
@@ -70,10 +79,14 @@ interface PreferencesState {
   combatHints: boolean;
   largeText: boolean;
   onboardingUserId: string | null;
+  tutorialByUser: Record<string, TutorialJourney>;
   set: (key: "reducedMotion" | "highContrast" | "sound" | "ambience" | "haptics" | "combatHints" | "largeText", value: boolean) => void;
   setAnimationPace: (value: "cinematic" | "normal" | "quick") => void;
   completeOnboarding: (userId: string) => void;
   restartOnboarding: () => void;
+  beginTutorial: (userId: string) => void;
+  completeTutorialStep: (userId: string, step: TutorialStepId) => void;
+  restartTutorial: (userId: string) => void;
   setLocale: (locale: Locale) => void;
 }
 
@@ -90,12 +103,34 @@ export const usePreferencesStore = create<PreferencesState>()(
       combatHints: true,
       largeText: false,
       onboardingUserId: null,
+      tutorialByUser: {},
       set: (key, value) => set({ [key]: value }),
       setAnimationPace: (animationPace) => set({ animationPace }),
       completeOnboarding: (onboardingUserId) => set({ onboardingUserId }),
       restartOnboarding: () => set({ onboardingUserId: null }),
+      beginTutorial: (userId) => set((state) => state.tutorialByUser[userId] ? state : ({
+        tutorialByUser: { ...state.tutorialByUser, [userId]: { started: true, completed: [], finished: false } },
+      })),
+      completeTutorialStep: (userId, step) => set((state) => {
+        const journey = state.tutorialByUser[userId] ?? { started: true, completed: [], finished: false };
+        const completed = journey.completed.includes(step) ? journey.completed : [...journey.completed, step];
+        return { tutorialByUser: { ...state.tutorialByUser, [userId]: {
+          started: true,
+          completed,
+          finished: TUTORIAL_STEP_IDS.every((id) => completed.includes(id)),
+        } } };
+      }),
+      restartTutorial: (userId) => set((state) => ({
+        tutorialByUser: { ...state.tutorialByUser, [userId]: { started: true, completed: [], finished: false } },
+      })),
       setLocale: (locale) => set({ locale }),
     }),
     { name: "nythara-preferences", storage: createJSONStorage(() => localStorage) },
   ),
 );
+
+export function needsFirstLoginTutorial(userId: string) {
+  if (!userId) return false;
+  const state = usePreferencesStore.getState();
+  return state.onboardingUserId !== userId && !state.tutorialByUser[userId];
+}

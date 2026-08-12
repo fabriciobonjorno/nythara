@@ -366,6 +366,56 @@ func integrationDB(t *testing.T) (context.Context, *Postgres, string) {
 	return ctx, db, userID
 }
 
+func TestProfilePasswordAndOAuthPersistence(t *testing.T) {
+	ctx, db, userID := integrationDB(t)
+	updated, err := db.UpdateProfileAvatar(ctx, userID, "CH-CI-01")
+	if err != nil || updated.AvatarID != "CH-CI-01" {
+		t.Fatalf("avatar persistido: user=%+v err=%v", updated, err)
+	}
+	subject := "subject-profile-" + userID
+	if err := db.LinkOAuth(ctx, "google", subject, userID); err != nil {
+		t.Fatal(err)
+	}
+	linked, err := db.UserByOAuth(ctx, "google", subject)
+	if err != nil || linked.ID != userID {
+		t.Fatalf("identidade federada: user=%+v err=%v", linked, err)
+	}
+
+	now := time.Now().UTC()
+	ticket := security.TokenHash("oauth-ticket-" + userID)
+	if err := db.SaveOAuthTicket(ctx, ticket, userID, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if consumed, err := db.ConsumeOAuthTicket(ctx, ticket, now); err != nil || consumed != userID {
+		t.Fatalf("ticket OAuth não consumido: user=%s err=%v", consumed, err)
+	}
+	if _, err := db.ConsumeOAuthTicket(ctx, ticket, now); !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Fatalf("ticket OAuth reutilizado: %v", err)
+	}
+
+	sessionID, _ := security.NewID()
+	accessHash := security.TokenHash("access-before-password-change-" + userID)
+	if err := db.CreateSession(ctx, domain.NewSession{ID: sessionID, UserID: userID, AccessHash: accessHash,
+		RefreshHash: security.TokenHash("refresh-before-password-change-" + userID), AccessUntil: now.Add(time.Hour),
+		RefreshUntil: now.Add(time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.AccessToken(ctx, accessHash, now); err != nil {
+		t.Fatalf("sessão fixture inválida: %v", err)
+	}
+	newHash, _ := security.HashPassword("nova-senha-persistida")
+	if err := db.ChangePassword(ctx, userID, newHash, now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.AccessToken(ctx, accessHash, now.Add(2*time.Second)); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("troca de senha não revogou sessão: %v", err)
+	}
+	changed, err := db.UserByID(ctx, userID)
+	if err != nil || !security.VerifyPassword(changed.PasswordHash, "nova-senha-persistida") {
+		t.Fatalf("senha nova não persistiu: %v", err)
+	}
+}
+
 func TestSyncCatalogPropagatesAlphaCompleteGrant(t *testing.T) {
 	ctx, db, userID := integrationDB(t)
 
