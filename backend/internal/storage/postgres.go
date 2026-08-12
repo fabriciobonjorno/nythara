@@ -115,6 +115,12 @@ var migration17Up string
 //go:embed migrations/000017_profile_oauth.down.sql
 var migration17Down string
 
+//go:embed migrations/000018_admin_operations.up.sql
+var migration18Up string
+
+//go:embed migrations/000018_admin_operations.down.sql
+var migration18Down string
+
 type migration struct {
 	version int64
 	up      string
@@ -138,6 +144,7 @@ var migrations = []migration{
 	{version: 15, up: migration15Up, down: migration15Down},
 	{version: 16, up: migration16Up, down: migration16Down},
 	{version: 17, up: migration17Up, down: migration17Down},
+	{version: 18, up: migration18Up, down: migration18Down},
 }
 
 type Postgres struct {
@@ -443,12 +450,73 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 }
 
 func (p *Postgres) CreateUser(ctx context.Context, user domain.User, starterRuleset string) (domain.User, error) {
+	// A criação genérica é deliberadamente incapaz de persistir privilégios.
+	// Administradores passam exclusivamente por CreateInvitedAdmin.
+	if user.Role != domain.RolePlayer {
+		return domain.User{}, domain.ErrForbidden
+	}
 	tx, err := p.db.BeginTx(ctx, nil)
 	if err != nil {
 		return domain.User{}, err
 	}
 	defer tx.Rollback()
-	err = tx.QueryRowContext(ctx, `INSERT INTO users(id,email,password_hash,role) VALUES($1,$2,$3,$4)
+	user, err = createUserTx(ctx, tx, user, starterRuleset)
+	if err != nil {
+		return domain.User{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.User{}, mapError(err)
+	}
+	return user, nil
+}
+
+func (p *Postgres) CreateInvitedAdmin(ctx context.Context, tokenHash []byte, now time.Time,
+	user domain.User, starterRuleset string) (domain.User, error) {
+	if user.Role != domain.RoleAdmin {
+		return domain.User{}, domain.ErrForbidden
+	}
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domain.User{}, err
+	}
+	defer tx.Rollback()
+	var inviteID, invitedEmail string
+	err = tx.QueryRowContext(ctx, `SELECT id,email FROM admin_invites
+		WHERE token_hash=$1 AND used_at IS NULL AND expires_at>$2 FOR UPDATE`, tokenHash, now).
+		Scan(&inviteID, &invitedEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.User{}, fmt.Errorf("%w: convite administrativo inválido ou expirado", domain.ErrInvalid)
+	}
+	if err != nil {
+		return domain.User{}, mapError(err)
+	}
+	if invitedEmail != user.Email {
+		return domain.User{}, fmt.Errorf("%w: convite administrativo inválido ou expirado", domain.ErrInvalid)
+	}
+	user, err = createUserTx(ctx, tx, user, starterRuleset)
+	if err != nil {
+		return domain.User{}, err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE admin_invites SET used_at=$2,used_by=$3
+		WHERE id=$1 AND used_at IS NULL`, inviteID, now, user.ID)
+	if err != nil {
+		return domain.User{}, mapError(err)
+	}
+	if affected, _ := result.RowsAffected(); affected != 1 {
+		return domain.User{}, domain.ErrConflict
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO admin_audit(actor,action,subject,payload)
+		VALUES($1,'admin_invite:consume',$2,'{}'::jsonb)`, user.ID, inviteID); err != nil {
+		return domain.User{}, mapError(err)
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.User{}, mapError(err)
+	}
+	return user, nil
+}
+
+func createUserTx(ctx context.Context, tx *sql.Tx, user domain.User, starterRuleset string) (domain.User, error) {
+	err := tx.QueryRowContext(ctx, `INSERT INTO users(id,email,password_hash,role) VALUES($1,$2,$3,$4)
 		RETURNING created_at`, user.ID, user.Email, user.PasswordHash, user.Role).Scan(&user.CreatedAt)
 	if err != nil {
 		return domain.User{}, mapError(err)
@@ -512,9 +580,6 @@ func (p *Postgres) CreateUser(ctx context.Context, user domain.User, starterRule
 				return domain.User{}, mapError(err)
 			}
 		}
-	}
-	if err := tx.Commit(); err != nil {
-		return domain.User{}, mapError(err)
 	}
 	return user, nil
 }
@@ -608,10 +673,33 @@ func (p *Postgres) ChangePassword(ctx context.Context, userID, passwordHash stri
 }
 
 func (p *Postgres) CreateSession(ctx context.Context, s domain.NewSession) error {
-	_, err := p.db.ExecContext(ctx, `INSERT INTO auth_sessions
+	tx, err := p.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	// Serializa a abertura da sessão com o banimento, que bloqueia a mesma
+	// conta antes de revogar sessões. Assim não nasce uma sessão "atrás" do ban.
+	var banned bool
+	err = tx.QueryRowContext(ctx, `SELECT EXISTS(
+		SELECT 1 FROM player_bans b WHERE b.user_id=u.id AND b.lifted_at IS NULL)
+		FROM users u WHERE u.id=$1 FOR UPDATE`, s.UserID).Scan(&banned)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.ErrNotFound
+	}
+	if err != nil {
+		return mapError(err)
+	}
+	if banned {
+		return domain.ErrForbidden
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO auth_sessions
 		(id,user_id,access_hash,refresh_hash,access_expires_at,refresh_expires_at)
 		VALUES($1,$2,$3,$4,$5,$6)`, s.ID, s.UserID, s.AccessHash, s.RefreshHash, s.AccessUntil, s.RefreshUntil)
-	return mapError(err)
+	if err != nil {
+		return mapError(err)
+	}
+	return mapError(tx.Commit())
 }
 
 func (p *Postgres) AccessToken(ctx context.Context, hash []byte, now time.Time) (domain.TokenRecord, error) {
@@ -619,7 +707,8 @@ func (p *Postgres) AccessToken(ctx context.Context, hash []byte, now time.Time) 
 	err := p.db.QueryRowContext(ctx, `SELECT u.id,u.role,p.display_name,COALESCE(p.avatar_id,''),
 		(u.password_hash LIKE 'pbkdf2-sha256$%'),s.access_expires_at
 		FROM auth_sessions s JOIN users u ON u.id=s.user_id JOIN player_profiles p ON p.user_id=u.id
-		WHERE s.access_hash=$1 AND s.revoked_at IS NULL AND s.access_expires_at>$2`, hash, now).
+		WHERE s.access_hash=$1 AND s.revoked_at IS NULL AND s.access_expires_at>$2
+		AND NOT EXISTS (SELECT 1 FROM player_bans b WHERE b.user_id=u.id AND b.lifted_at IS NULL)`, hash, now).
 		Scan(&token.Principal.UserID, &token.Principal.Role, &token.Principal.DisplayName, &token.Principal.AvatarID,
 			&token.Principal.PasswordSet, &token.ExpiresAt)
 	return token, mapError(err)
@@ -634,8 +723,10 @@ func (p *Postgres) RotateSession(ctx context.Context, old []byte, next domain.Ro
 	var id, userID string
 	var expires time.Time
 	var revoked sql.NullTime
-	err = tx.QueryRowContext(ctx, `SELECT id,user_id,refresh_expires_at,revoked_at FROM auth_sessions
-		WHERE refresh_hash=$1 FOR UPDATE`, old).Scan(&id, &userID, &expires, &revoked)
+	err = tx.QueryRowContext(ctx, `SELECT s.id,s.user_id,s.refresh_expires_at,s.revoked_at FROM auth_sessions s
+		WHERE s.refresh_hash=$1
+		AND NOT EXISTS (SELECT 1 FROM player_bans b WHERE b.user_id=s.user_id AND b.lifted_at IS NULL)
+		FOR UPDATE`, old).Scan(&id, &userID, &expires, &revoked)
 	if errors.Is(err, sql.ErrNoRows) {
 		var reusedSession string
 		reuseErr := tx.QueryRowContext(ctx, `SELECT session_id FROM auth_refresh_history

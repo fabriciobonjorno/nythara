@@ -1,12 +1,64 @@
 package app
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"veurubro/backend/internal/domain"
 	"veurubro/backend/internal/engine"
 )
+
+type registrationStore struct {
+	domain.Store
+	publicUser  *domain.User
+	invitedUser *domain.User
+	sessions    int
+}
+
+func (store *registrationStore) CreateUser(_ context.Context, user domain.User, _ string) (domain.User, error) {
+	store.publicUser = &user
+	return user, nil
+}
+
+func (store *registrationStore) CreateInvitedAdmin(_ context.Context, _ []byte, _ time.Time,
+	user domain.User, _ string) (domain.User, error) {
+	store.invitedUser = &user
+	return user, nil
+}
+
+func (store *registrationStore) CreateSession(context.Context, domain.NewSession) error {
+	store.sessions++
+	return nil
+}
+
+func TestRegisterSeparatesPublicPlayerFromInvitedAdmin(t *testing.T) {
+	publicStore := &registrationStore{}
+	service := NewWithClock(publicStore, func() time.Time { return time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC) })
+	user, _, err := service.Register(context.Background(), RegisterInput{
+		Email: "PLAYER@Example.test", Password: "senha-publica-forte", Username: "Jogador_1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.Role != domain.RolePlayer || publicStore.publicUser == nil || publicStore.invitedUser != nil || publicStore.sessions != 1 {
+		t.Fatalf("cadastro público saiu do caminho player: user=%+v store=%+v", user, publicStore)
+	}
+
+	inviteStore := &registrationStore{}
+	service = NewWithClock(inviteStore, func() time.Time { return time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC) })
+	user, _, err = service.Register(context.Background(), RegisterInput{
+		Email: "admin@example.test", Password: "senha-convite-forte", Username: "Guardiao_1",
+		AdminInvite: strings.Repeat("a", 64),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.Role != domain.RoleAdmin || inviteStore.invitedUser == nil || inviteStore.publicUser != nil || inviteStore.sessions != 1 {
+		t.Fatalf("convite não usou o caminho administrativo: user=%+v store=%+v", user, inviteStore)
+	}
+}
 
 func TestValidateUsername(t *testing.T) {
 	for _, username := range []string{"Duelista", "duelista_01", "duelista-01", "A_"} {

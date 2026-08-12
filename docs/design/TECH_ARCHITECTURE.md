@@ -183,6 +183,9 @@ Cartas complexas podem usar handlers especializados, mas devem ser exceção e r
 ## Admin/LiveOps
 
 Painel:
+- visão operacional de jogadores, atividade e partidas recentes;
+- moderação de jogadores com revogação de sessão e auditoria;
+- convite de admin por token opaco, emitido somente pelo owner;
 - criar draft de carta;
 - validar schema;
 - simular;

@@ -366,6 +366,91 @@ func integrationDB(t *testing.T) (context.Context, *Postgres, string) {
 	return ctx, db, userID
 }
 
+func TestAdminInviteAndPlayerBanAreTransactional(t *testing.T) {
+	ctx, db, playerID := integrationDB(t)
+
+	privilegedID, _ := security.NewID()
+	if _, err := db.CreateUser(ctx, domain.User{ID: privilegedID, Email: privilegedID + "@example.test",
+		DisplayName: "NaoPode", Role: domain.RoleAdmin, PasswordHash: "test-only"},
+		engine.CompetitiveRulesetVersion); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("CreateUser genérico aceitou admin: %v", err)
+	}
+
+	ownerID, _ := security.NewID()
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO users(id,email,password_hash,role)
+		VALUES($1,$2,'test-only','owner')`, ownerID, ownerID+"@owner.test"); err != nil {
+		t.Fatal(err)
+	}
+	inviteID, _ := security.NewID()
+	plain, tokenHash, _ := security.NewToken()
+	adminEmail := privilegedID + "@admin.test"
+	invite, err := db.CreateAdminInvite(ctx, domain.AdminInvite{ID: inviteID, Email: adminEmail,
+		TokenHash: tokenHash, CreatedBy: ownerID, ExpiresAt: time.Now().UTC().Add(time.Hour)},
+		domain.AuditEntry{Actor: ownerID, Action: "admin_invite:create", Subject: inviteID})
+	if err != nil || invite.ID != inviteID {
+		t.Fatalf("convite não criado: invite=%+v err=%v", invite, err)
+	}
+	duplicateInviteID, _ := security.NewID()
+	if _, err := db.CreateAdminInvite(ctx, domain.AdminInvite{ID: duplicateInviteID, Email: adminEmail,
+		TokenHash: security.TokenHash("segundo-convite-" + duplicateInviteID), CreatedBy: ownerID,
+		ExpiresAt: time.Now().UTC().Add(time.Hour)},
+		domain.AuditEntry{Actor: ownerID, Action: "admin_invite:create", Subject: duplicateInviteID}); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("e-mail recebeu dois convites ativos: %v", err)
+	}
+
+	adminID, _ := security.NewID()
+	if _, err := db.CreateInvitedAdmin(ctx, security.TokenHash(plain), time.Now().UTC(), domain.User{
+		ID: adminID, Email: "outro@example.test", DisplayName: "GuardiaoErrado", Role: domain.RoleAdmin,
+		PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("convite aceitou outro e-mail: %v", err)
+	}
+	admin, err := db.CreateInvitedAdmin(ctx, security.TokenHash(plain), time.Now().UTC(), domain.User{
+		ID: adminID, Email: adminEmail, DisplayName: "Guardiao" + adminID[:6], Role: domain.RoleAdmin,
+		PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion)
+	if err != nil || admin.Role != domain.RoleAdmin {
+		t.Fatalf("convite válido não criou admin: user=%+v err=%v", admin, err)
+	}
+	secondID, _ := security.NewID()
+	if _, err := db.CreateInvitedAdmin(ctx, security.TokenHash(plain), time.Now().UTC(), domain.User{
+		ID: secondID, Email: adminEmail, DisplayName: "ReusoNegado", Role: domain.RoleAdmin,
+		PasswordHash: "test-only"}, engine.CompetitiveRulesetVersion); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("convite foi reutilizado: %v", err)
+	}
+
+	now := time.Now().UTC()
+	accessHash := security.TokenHash("access-before-ban-" + playerID)
+	sessionID, _ := security.NewID()
+	if err := db.CreateSession(ctx, domain.NewSession{ID: sessionID, UserID: playerID,
+		AccessHash: accessHash, RefreshHash: security.TokenHash("refresh-before-ban-" + playerID),
+		AccessUntil: now.Add(time.Hour), RefreshUntil: now.Add(time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	banID, _ := security.NewID()
+	if _, err := db.BanPlayer(ctx, domain.PlayerBan{ID: banID, UserID: playerID, Reason: "abuso confirmado",
+		CreatedBy: ownerID}, domain.AuditEntry{Actor: ownerID, Action: "player:ban", Subject: playerID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.AccessToken(ctx, accessHash, now); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("token banido continuou válido: %v", err)
+	}
+	blockedID, _ := security.NewID()
+	if err := db.CreateSession(ctx, domain.NewSession{ID: blockedID, UserID: playerID,
+		AccessHash: security.TokenHash("blocked-access-" + playerID), RefreshHash: security.TokenHash("blocked-refresh-" + playerID),
+		AccessUntil: now.Add(time.Hour), RefreshUntil: now.Add(time.Hour)}); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("conta banida criou sessão: %v", err)
+	}
+	if _, err := db.LiftPlayerBan(ctx, playerID, ownerID,
+		domain.AuditEntry{Actor: ownerID, Action: "player:unban", Subject: playerID}); err != nil {
+		t.Fatal(err)
+	}
+	allowedID, _ := security.NewID()
+	if err := db.CreateSession(ctx, domain.NewSession{ID: allowedID, UserID: playerID,
+		AccessHash: security.TokenHash("allowed-access-" + playerID), RefreshHash: security.TokenHash("allowed-refresh-" + playerID),
+		AccessUntil: now.Add(time.Hour), RefreshUntil: now.Add(time.Hour)}); err != nil {
+		t.Fatalf("conta liberada não criou sessão: %v", err)
+	}
+}
+
 func TestProfilePasswordAndOAuthPersistence(t *testing.T) {
 	ctx, db, userID := integrationDB(t)
 	updated, err := db.UpdateProfileAvatar(ctx, userID, "CH-CI-01")

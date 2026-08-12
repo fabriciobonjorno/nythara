@@ -34,20 +34,48 @@ interface Draft {
   card: unknown; effects: unknown; last_validation?: unknown; published_version?: string; updated_at: string;
 }
 
+interface AdminOverview {
+  total_players: number; total_admins: number; banned_players: number; new_players_7d: number;
+  active_players_7d: number; active_players_30d: number; total_matches: number; active_matches: number;
+  finished_matches: number; cancelled_matches: number; pvp_matches: number; practice_matches: number;
+  can_invite_admins: boolean;
+}
+interface AdminPlayer {
+  id: string; email: string; display_name: string; role: "player" | "admin" | "owner";
+  account_level: number; created_at: string; last_session_at?: string; match_count: number; wins: number;
+  banned_at?: string; banned_reason?: string;
+}
+interface AdminMatchPlayer { user_id: string; display_name: string; slot: number }
+interface AdminMatch {
+  id: string; mode: string; ruleset_version: string; status: string; players: AdminMatchPlayer[];
+  winner_slot?: number; end_reason?: string; created_at: string; started_at?: string; ended_at?: string;
+  duration_seconds: number;
+}
+interface AdminInvite {
+  id: string; email: string; created_by: string; expires_at: string; used_at?: string; used_by?: string;
+  created_at: string; token?: string;
+}
+
 export function AdminPage() {
   const principal = useSessionStore((state) => state.principal);
-  if (principal?.role !== "admin") {
+  if (principal?.role !== "admin" && principal?.role !== "owner") {
     return <main className="page admin-page">
       <header className="admin-head">
         <p className="eyebrow">ACESSO RESTRITO</p>
         <h1>Salão de Controle</h1>
-        <p className="admin-empty">Esta área é exclusiva para contas com o papel <code>admin</code>.</p>
+        <p className="admin-empty">Esta área é exclusiva para a equipe de operação.</p>
       </header>
     </main>;
   }
   return <div className="page admin-page">
-    <header className="admin-head"><p className="eyebrow">SALÃO DE CONTROLE</p><h1>LiveOps</h1>
-      <p className="admin-sub">Toda mudança é idempotente e auditada no servidor — sem auditoria, sem mudança.</p></header>
+    <header className="admin-head admin-hero"><div><p className="eyebrow">SALÃO DE CONTROLE</p><h1>Centro de Operações</h1>
+      <p className="admin-sub">Jogadores, partidas, moderação e saúde do jogo em uma única visão.</p></div>
+      <span className="admin-hero__identity"><small>Sessão administrativa</small><strong>{principal.display_name}</strong><b>{principal.role === "owner" ? "PROPRIETÁRIO" : "ADMIN"}</b></span></header>
+    <OverviewPanel />
+    <PlayersPanel />
+    <MatchesPanel />
+    {principal.role === "owner" && <AdminInvitesPanel />}
+    <header className="admin-section-title"><div><p className="eyebrow">CONFIGURAÇÃO DO JOGO</p><h2>LiveOps</h2></div><p>Mudanças auditadas no servidor.</p></header>
     <RulesetsPanel />
     <div className="admin-grid">
       <BansPanel />
@@ -58,6 +86,137 @@ export function AdminPage() {
     <DraftsPanel />
     <AuditPanel />
   </div>;
+}
+
+function OverviewPanel() {
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [error, setError] = useState("");
+  const load = useCallback(() => {
+    setError("");
+    void api<AdminOverview>("/v1/admin/overview").then(setOverview).catch((caught) => setError(errorText(caught)));
+  }, []);
+  useEffect(load, [load]);
+  const stats = overview ? [
+    ["Jogadores", overview.total_players, `${overview.new_players_7d} novos em 7 dias`],
+    ["Ativos · 7 dias", overview.active_players_7d, `${overview.active_players_30d} ativos em 30 dias`],
+    ["Partidas", overview.total_matches, `${overview.active_matches} em andamento`],
+    ["Banidos", overview.banned_players, `${overview.total_admins} contas administrativas`],
+  ] as const : [];
+  return <section className="admin-overview" aria-label="Visão geral operacional">
+    <header><div><p className="eyebrow">AGORA</p><h2>Visão operacional</h2></div><button type="button" className="admin-refresh" onClick={load}>Atualizar</button></header>
+    {overview ? <><div className="admin-stat-grid">{stats.map(([label, value, detail]) => <article key={label}>
+      <span>{label}</span><strong>{value.toLocaleString("pt-BR")}</strong><small>{detail}</small>
+    </article>)}</div><div className="admin-health-row">
+      <span><b>{overview.finished_matches}</b> encerradas</span><span><b>{overview.pvp_matches}</b> PvP</span>
+      <span><b>{overview.practice_matches}</b> treinos</span><span><b>{overview.cancelled_matches}</b> canceladas</span>
+    </div></> : <p className={error ? "admin-feedback is-error" : "admin-empty"}>{error || "Carregando indicadores…"}</p>}
+  </section>;
+}
+
+function PlayersPanel() {
+  const [players, setPlayers] = useState<AdminPlayer[]>([]);
+  const [query, setQuery] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [selected, setSelected] = useState<AdminPlayer | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [feedback, notify, isError] = useFeedback();
+  const load = useCallback((search = query) => {
+    setLoaded(false);
+    void api<AdminPlayer[]>(`/v1/admin/players?limit=100&q=${encodeURIComponent(search.trim())}`)
+      .then((list) => setPlayers(list ?? [])).catch((caught) => notify("erro", errorText(caught))).finally(() => setLoaded(true));
+  }, [query]);
+  useEffect(() => { load(""); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const moderate = async (player: AdminPlayer, action: "ban" | "unban") => {
+    if (action === "ban" && !window.confirm(`Banir ${player.display_name}? As sessões abertas serão encerradas imediatamente.`)) return;
+    if (action === "unban" && !window.confirm(`Remover o banimento de ${player.display_name}?`)) return;
+    setBusy(true);
+    try {
+      await api(`/v1/admin/players/${player.id}/${action}`, { method: "POST",
+        ...(action === "ban" ? { body: JSON.stringify({ reason: reason.trim() }) } : {}) });
+      notify("ok", action === "ban" ? `${player.display_name} foi banido e teve as sessões revogadas.` : `${player.display_name} foi liberado.`);
+      setSelected(null); setReason(""); load(query);
+    } catch (caught) { notify("erro", errorText(caught)); }
+    finally { setBusy(false); }
+  };
+
+  return <section className="panel admin-panel admin-players" aria-label="Jogadores">
+    <header><div><p className="eyebrow">CONTAS</p><h2>Jogadores</h2></div>
+      <form className="admin-search" onSubmit={(event) => { event.preventDefault(); load(query); }}>
+        <input type="search" placeholder="Nome ou e-mail" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <button type="submit">Buscar</button>
+      </form></header>
+    <div className="admin-table-wrap"><table className="admin-table admin-player-table"><thead><tr>
+      <th>Conta</th><th>Papel</th><th>Nível</th><th>Partidas</th><th>Último acesso</th><th>Estado</th><th />
+    </tr></thead><tbody>{players.map((player) => <tr key={player.id} className={player.banned_at ? "is-banned" : ""}>
+      <td><strong>{player.display_name}</strong><small>{player.email}<br />desde {new Date(player.created_at).toLocaleDateString("pt-BR")}</small></td>
+      <td><span className={`admin-role is-${player.role}`}>{player.role === "owner" ? "Proprietário" : player.role === "admin" ? "Admin" : "Jogador"}</span></td>
+      <td>{player.account_level}</td><td>{player.match_count} <small>· {player.wins} vitórias</small></td>
+      <td>{player.last_session_at ? new Date(player.last_session_at).toLocaleString("pt-BR") : "Nunca"}</td>
+      <td>{player.banned_at ? <span className="admin-status is-danger">BANIDO</span> : <span className="admin-status is-ok">ATIVO</span>}{player.banned_reason && <small>{player.banned_reason}</small>}</td>
+      <td className="admin-actions">{player.role === "player" && (player.banned_at
+        ? <button type="button" disabled={busy} onClick={() => moderate(player, "unban")}>Liberar</button>
+        : <button type="button" className="danger" disabled={busy} onClick={() => { setSelected(player); setReason(""); }}>Banir</button>)}</td>
+    </tr>)}</tbody></table></div>
+    {!loaded ? <p className="admin-empty">Carregando contas…</p> : players.length === 0 && <p className="admin-empty">Nenhuma conta encontrada.</p>}
+    {selected && <div className="admin-moderation" role="dialog" aria-label={`Banir ${selected.display_name}`}>
+      <div><p className="eyebrow">AÇÃO DE MODERAÇÃO</p><h3>Banir {selected.display_name}</h3><p>{selected.email}</p></div>
+      <label>Motivo auditável<textarea rows={3} minLength={4} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Descreva objetivamente a violação…" /></label>
+      <div><button type="button" onClick={() => setSelected(null)}>Cancelar</button><button type="button" className="danger" disabled={busy || reason.trim().length < 4} onClick={() => moderate(selected, "ban")}>Banir e encerrar sessões</button></div>
+    </div>}
+    <Feedback text={feedback} error={isError} />
+  </section>;
+}
+
+function MatchesPanel() {
+  const [matches, setMatches] = useState<AdminMatch[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const load = useCallback(() => { setLoaded(false); void api<AdminMatch[]>("/v1/admin/matches?limit=50").then((list) => setMatches(list ?? [])).catch(() => undefined).finally(() => setLoaded(true)); }, []);
+  useEffect(load, [load]);
+  return <section className="panel admin-panel" aria-label="Partidas recentes">
+    <header><div><p className="eyebrow">ATIVIDADE</p><h2>Partidas recentes</h2></div><button type="button" className="admin-refresh" onClick={load}>Atualizar</button></header>
+    <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Partida</th><th>Jogadores</th><th>Modo</th><th>Estado</th><th>Duração</th><th>Início</th></tr></thead>
+      <tbody>{matches.map((match) => <tr key={match.id}><td><a href={`/cronica/${match.id}`}><code>{match.id.slice(0, 8)}…</code></a><small>{match.ruleset_version}</small></td>
+        <td>{match.players.map((player) => <span className={match.winner_slot === player.slot ? "admin-winner" : ""} key={player.user_id}>{player.display_name}</span>)}</td>
+        <td>{match.mode === "practice" ? "Treino" : "PvP"}</td><td><span className={`admin-status is-${match.status}`}>{statusLabel(match.status)}</span>{match.end_reason && <small>{match.end_reason}</small>}</td>
+        <td>{match.duration_seconds ? formatDuration(match.duration_seconds) : "—"}</td><td>{new Date(match.created_at).toLocaleString("pt-BR")}</td></tr>)}</tbody></table></div>
+    {!loaded ? <p className="admin-empty">Carregando partidas…</p> : matches.length === 0 && <p className="admin-empty">Nenhuma partida registrada.</p>}
+  </section>;
+}
+
+function statusLabel(status: string) {
+  return ({ waiting_ready: "AGUARDANDO", active: "EM JOGO", finished: "ENCERRADA", cancelled: "CANCELADA" } as Record<string, string>)[status] ?? status.toUpperCase();
+}
+
+function AdminInvitesPanel() {
+  const [email, setEmail] = useState("");
+  const [invites, setInvites] = useState<AdminInvite[]>([]);
+  const [link, setLink] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [feedback, notify, isError] = useFeedback();
+  const load = useCallback(() => { void api<AdminInvite[]>("/v1/admin/invites?limit=30").then((list) => setInvites(list ?? [])).catch(() => undefined); }, []);
+  useEffect(load, [load]);
+  const issue = async () => {
+    setBusy(true); setLink("");
+    try {
+      const invite = await api<AdminInvite>("/v1/admin/invites", { method: "POST", body: JSON.stringify({ email: email.trim() }) });
+      const url = `${window.location.origin}/?admin_invite=${encodeURIComponent(invite.token ?? "")}`;
+      setLink(url); setEmail(""); notify("ok", "Convite criado. O segredo é exibido somente agora."); load();
+    } catch (caught) { notify("erro", errorText(caught)); }
+    finally { setBusy(false); }
+  };
+  return <section className="panel admin-panel admin-invites" aria-label="Convites administrativos">
+    <header><div><p className="eyebrow">ACESSO PRIVILEGIADO</p><h2>Administradores por convite</h2></div><span className="admin-status is-owner">SOMENTE PROPRIETÁRIO</span></header>
+    <p className="admin-callout">O cadastro público nunca cria administradores. Cada convite fica preso a um e-mail, expira em 24 horas e só pode ser usado uma vez.</p>
+    <div className="admin-form"><input type="email" placeholder="novo.admin@exemplo.com" value={email} onChange={(event) => setEmail(event.target.value)} /><button type="button" disabled={busy || !email.trim()} onClick={issue}>Emitir convite</button></div>
+    {link && <div className="admin-secret"><label>Link único<input readOnly value={link} onFocus={(event) => event.currentTarget.select()} /></label><button type="button" onClick={() => { void navigator.clipboard.writeText(link).then(() => notify("ok", "Link copiado.")); }}>Copiar</button></div>}
+    {invites.length > 0 && <ul className="admin-invite-list">{invites.map((invite) => { const expired = !invite.used_at && new Date(invite.expires_at).getTime() <= Date.now(); return <li key={invite.id}>
+      <div><strong>{invite.email}</strong><small>emitido em {new Date(invite.created_at).toLocaleString("pt-BR")} · expira {new Date(invite.expires_at).toLocaleString("pt-BR")}</small></div>
+      <span className={`admin-status ${invite.used_at ? "is-ok" : expired ? "is-danger" : "is-waiting_ready"}`}>{invite.used_at ? "USADO" : expired ? "EXPIRADO" : "PENDENTE"}</span>
+    </li>; })}</ul>}
+    <Feedback text={feedback} error={isError} />
+  </section>;
 }
 
 interface AlphaNote {

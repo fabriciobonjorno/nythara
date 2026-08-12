@@ -43,7 +43,7 @@ export function Shell() {
           {navItems.map(({ to, icon, label }) => <NavLink key={to} to={to} end={to === "/app"}><UiIcon name={icon} /><span>{label}</span></NavLink>)}
         </nav>
         <div className="side-nav__foot">
-          {principal?.role === "admin" && <NavLink to="/salao"><UiIcon name="balance" /><span>LiveOps</span></NavLink>}
+		  {(principal?.role === "admin" || principal?.role === "owner") && <NavLink to="/salao"><UiIcon name="balance" /><span>Operações</span></NavLink>}
           <NavLink to="/tutorial"><UiIcon name="guide" /><span>Tutorial</span></NavLink>
           <NavLink to="/settings"><UiIcon name="settings" /><span>Ajustes</span></NavLink>
           <button type="button" onClick={logout}><UiIcon name="logout" /><span>Sair</span></button>

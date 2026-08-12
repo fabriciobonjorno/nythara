@@ -1972,3 +1972,50 @@ entre dispositivos exigiria persistência de perfil e fica fora desta mudança.
 Nenhum check concede recompensa ou altera autoridade da partida, e a
 conclusão do treino continua derivada do resultado authoritative já recebido
 pelo cliente.
+
+## ADR-069 — Salão operacional, moderação de contas e admins por convite
+
+**Contexto.** O Salão de Controle mostrava ferramentas de conteúdo e alguns
+agregados de batalha, mas não respondia às perguntas operacionais básicas:
+quantas pessoas entraram, quem está ativo, quais partidas estão em curso ou
+falhando e qual conta precisa ser moderada. A API pública já construía toda
+conta com papel `player` e rejeitava campos JSON desconhecidos, mas essa
+fronteira não tinha uma regressão explícita e não existia um caminho seguro e
+auditável para criar outro administrador. Alterar `users.role` manualmente
+também não oferece expiração, uso único ou autoria.
+
+**Decisão.** O papel `owner` passa a representar o proprietário operacional e
+herda todas as permissões de `admin`. A migração promove somente o `admin`
+mais antigo a `owner`; outros administradores existentes preservam `admin`,
+sem poder convidar. Novos administradores só nascem por convite emitido pelo
+`owner`. O convite é vinculado a um e-mail normalizado, expira em 24 horas,
+persiste somente o SHA-256 do segredo e pode ser consumido uma vez, na mesma
+transação que cria a conta `admin`. O endpoint público de cadastro continua
+sem aceitar `role`: `role`, `admin` ou qualquer campo desconhecido falha antes
+do serviço, cadastro comum força `player` e nem o store genérico aceita criar
+papel privilegiado. Não existe convite para `owner`; outro proprietário só
+pode ser instituído diretamente pelo operador do banco.
+
+O Salão ganha visão geral, busca de jogadores, partidas recentes e moderação.
+Banir aceita motivo obrigatório, atinge somente `player`, revoga todas as
+sessões na mesma transação e faz autenticação, renovação e criação de nova
+sessão falharem fechadas enquanto o ban estiver ativo. Partida já em execução
+não é reescrita nem encerrada silenciosamente; a conta perde o próximo request
+autenticado/reconexão e o registro histórico permanece íntegro. Banir,
+desbanir e emitir convite deixam `admin_audit` na transação do efeito.
+
+Listagens administrativas são limitadas e ordenadas no servidor. Jogadores
+expõem apenas dados necessários à operação (identidade, papel, nível derivado,
+atividade de sessão, partidas e estado de moderação); partidas expõem os dois
+participantes, status, modo, versão, vencedor, motivo e relógios já
+persistidos. Nenhuma métrica do painel entra na engine ou vira autoridade de
+jogo.
+
+**Consequências.** O painel deixa de ser apenas uma forja de LiveOps e passa a
+servir suporte e segurança cotidiana. Um token roubado deixa de funcionar
+depois do ban, retries não duplicam convite/ban e o proprietário tem uma trilha
+de quem concedeu acesso administrativo. A promoção inicial pressupõe que o
+admin mais antigo é o proprietário atual; após a migração, a superfície de
+convite fica exclusiva a essa conta `owner`. Encerrar imediatamente uma conexão de
+batalha já estabelecida exigiria coordenação adicional com o battle server e
+fica fora desta decisão para preservar partidas determinísticas em curso.

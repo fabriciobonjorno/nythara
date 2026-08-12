@@ -478,7 +478,8 @@ func (a *API) auth(next http.Handler) http.Handler {
 
 func (a *API) requireRole(role domain.Role, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if principal(r).Role != role {
+		actual := principal(r).Role
+		if actual != role && !(role == domain.RoleAdmin && actual.IsAdmin()) {
 			writeError(w, http.StatusForbidden, "forbidden", "permissão insuficiente")
 			return
 		}
