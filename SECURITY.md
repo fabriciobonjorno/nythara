@@ -10,7 +10,7 @@ públicas com detalhes exploráveis.
 | WebSocket tampering | Servidor authoritative: cliente envia intenção; engine valida tudo antes de mutar (comando ilegal = zero efeitos, com assert). Tickets de uso único por conexão; `SetReadLimit` 64 KiB. | Payloads são dados, nunca resultado. |
 | Replay attack (comandos) | `client_sequence` idempotente por jogador; reenvio devolve o resultado gravado; comando fora de turno/janela rejeitado. | Replays de partida são reconstruíveis por design (não é ataque). |
 | Command spam | Rate limit por conexão WS (120/min, rajada 30): excedeu → conexão fechada por política (`ws_command_flood_closed_total`). Timer de ação server-side. | Reconexão legítima permitida. |
-| Account takeover | PBKDF2-HMAC-SHA256 com salt aleatório e 600 mil iterações para senhas; tokens aleatórios de 256 bits com hash em repouso; refresh com rotação e histórico; recuperação por link de uso único (30 min), resposta não enumerável e revogação de todas as sessões; rate limit estrito nas rotas de autenticação. | Sem 2FA no alpha (backlog). Migração oportunista para Argon2id fica para depois do MVP. |
+| Account takeover | PBKDF2-HMAC-SHA256 com salt aleatório e 600 mil iterações para senhas; tokens aleatórios de 256 bits com hash em repouso; refresh com rotação e histórico; recuperação por link de uso único (30 min), resposta não enumerável e revogação de todas as sessões; troca autenticada de senha; Google Authorization Code + PKCE/state e passe local de uso único; rate limit estrito nas rotas de autenticação. | Sem 2FA no alpha (backlog). Migração oportunista para Argon2id fica para depois do MVP. |
 | Inventory fraud | Economia 100% server-side com constraints no banco; concessões só via admin com `Idempotency-Key`; `economy_transactions` auditável. | — |
 | Reward duplication | Chave de idempotência com hash do corpo (reuso com corpo diferente = 409); transações atômicas. | — |
 | Matchmaking abuse | Fila exige deck próprio, validado, da versão ativa e sem cartas banidas; um jogador não pode estar 2× na fila nem em 2 partidas; rate limit geral por IP. | Detecção de win-trading fica para telemetria ranked (pós-MVP). |
@@ -40,6 +40,10 @@ públicas com detalhes exploráveis.
   segredo estiver ausente ou ambíguo. Rotas `/internal/*` são bloqueadas no
   edge. O proxy é confiado por CIDR exato; cabeçalhos de origem enviados
   diretamente pelo cliente são ignorados.
+- **OAuth**: client secret existe somente na API. Estado e verifier usam
+  cookies HttpOnly/SameSite de cinco minutos; a aplicação persiste o `sub` do
+  provedor, nunca usa e-mail como identificador federado e não carrega script
+  externo na PWA. O passe de retorno expira em dois minutos e é uso único.
 
 ## Garantias da engine
 

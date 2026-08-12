@@ -22,13 +22,29 @@ protegidas recebem `Authorization: Bearer <access_token>`.
   Consome o token, troca a senha e revoga todas as sessões da conta na mesma
   transação. Link inválido, expirado ou já usado retorna
   `400 reset_token_invalid`.
+- `GET /v1/auth/providers` — disponibilidade pública dos provedores sociais
+  (`{"google":true|false}`); não expõe client ID nem segredo.
+- `GET /v1/auth/google/start` — inicia Authorization Code + PKCE, com `state`
+  e verifier em cookies HttpOnly de cinco minutos. Existe somente quando o
+  provedor foi configurado.
+- `GET /v1/auth/google/callback` — retorno cadastrado no Google. O backend
+  troca o código e retorna ao SPA com um passe opaco de uso único, nunca com
+  tokens Google ou tokens de sessão na URL.
+- `POST /v1/auth/oauth/exchange` — `ticket`; consome o passe em até dois
+  minutos e entrega o mesmo envelope `user` + `tokens` do login local.
 - `POST /v1/webhooks/resend` — webhook de eventos operacionais de e-mail. A
   rota só existe quando `RESEND_WEBHOOK_SECRET` está configurado e exige o
   corpo original com `svix-id`, `svix-timestamp` e `svix-signature`. Eventos
   autênticos retornam `200`; retries com o mesmo ID são idempotentes. Somente
   ID da mensagem, tipo e horários são persistidos — nunca destinatário,
   assunto ou conteúdo.
-- `GET /v1/me` — principal autenticado.
+- `GET /v1/me` — principal autenticado, incluindo `display_name`, emblema de
+  perfil e se a conta já possui senha local.
+- `PUT /v1/me/profile` — `avatar_id`; escolhe um dos dez emblemas originais
+  do ruleset ativo para o perfil, sem alterar o Avatar do baralho.
+- `PUT /v1/me/password` — `current_password`, `new_password`. Exige a senha
+  atual quando ela existe; conta social pode criar a primeira. Revoga todas as
+  sessões na mesma transação e retorna `204`.
 
 ## Catálogo e progressão
 

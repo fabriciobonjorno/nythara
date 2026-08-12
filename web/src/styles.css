@@ -143,6 +143,14 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .side-nav { display: none; }
 .shell-body { min-height: 100vh; padding-bottom: 4.7rem; }
 .top-bar { height: 4.25rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: 0 1rem; border-bottom: 1px solid var(--line); background: #0d0a0d; position: sticky; top: 0; z-index: 20; }
+.tutorial-journey-bar { position: sticky; z-index: 18; top: 4.25rem; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .55rem; padding: .65rem 1rem; background: linear-gradient(90deg, #321722, #171016); border-bottom: 1px solid #7c5260; box-shadow: 0 8px 24px #0008; }
+.tutorial-journey-bar > span { width: 2rem; height: 2rem; display: grid; place-items: center; color: var(--gold-bright); border: 1px solid var(--gold); border-radius: 50%; }
+.tutorial-journey-bar > span .ui-icon { width: 1rem; height: 1rem; }
+.tutorial-journey-bar div { min-width: 0; display: grid; gap: .12rem; }
+.tutorial-journey-bar strong { color: #f1dfbd; font-size: .68rem; letter-spacing: .05em; }
+.tutorial-journey-bar small { overflow: hidden; color: #c5afb5; font-size: .6rem; text-overflow: ellipsis; white-space: nowrap; }
+.tutorial-journey-bar > a { grid-column: 1 / -1; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: .35rem; padding: .45rem .7rem; color: #160f12; background: var(--gold-bright); font-size: .62rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.tutorial-journey-bar > a .ui-icon { width: .85rem; height: .85rem; }
 .mobile-brand { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--gold-bright); text-decoration: none; }
 .mobile-brand .nythara-mark { width: 2.1rem; height: 2.1rem; }
 .mobile-brand .nythara-brand__wordmark { width: 6.8rem; }
@@ -883,6 +891,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .tutorial-phases button.is-current { border-color: var(--gold); background: #2a201d; color: var(--gold-bright); }
 .tutorial-phases button.is-current span { border-color: var(--gold-bright); background: var(--gold-bright); color: #160f12; box-shadow: 0 0 10px #e0c77e55; }
 .tutorial-card { display: grid; background: var(--panel); border: 1px solid var(--line); }
+.tutorial-card.is-complete { border-color: #63876f; box-shadow: inset 0 0 0 1px #63876f33; }
 .tutorial-illustration { min-height: 16rem; display: grid; place-items: center; align-content: center; gap: 1rem; background: #1d1018; color: var(--gold); }
 .tutorial-illustration .veil-glyph { width: min(12rem, 66vw); height: min(12rem, 66vw); }
 .tutorial-illustration small { color: var(--muted); font-size: .65rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
@@ -892,6 +901,12 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .tutorial-tip { display: grid; gap: .3rem; padding: 1rem; background: #100c10; border-left: 2px solid var(--gold); }
 .tutorial-tip strong { color: var(--gold); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; }
 .tutorial-tip span { color: var(--muted); font-size: .76rem; line-height: 1.5; }
+.tutorial-step-action { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .7rem; margin-top: 1rem; }
+.tutorial-step-action > span { display: inline-flex; align-items: center; gap: .35rem; color: #b9aeb0; font-size: .65rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.tutorial-step-action > span .ui-icon { width: 1rem; height: 1rem; }
+.tutorial-step-action > span.is-done { color: var(--success); }
+.tutorial-step-action .primary-button { min-height: 44px; }
+.tutorial-result-continue { margin-bottom: .55rem; }
 .tutorial-page > footer { display: flex; justify-content: space-between; margin-top: 1rem; }
 
 /* Introdução inicial */
@@ -1005,7 +1020,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 @media (min-width: 560px) {
 	.landing-flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 	.profile-avatar-options { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  .tutorial-phases { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .tutorial-phases { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .filter-bar { grid-template-columns: minmax(12rem, 1fr) repeat(2, minmax(9rem, auto)); align-items: end; }
   .card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .builder-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1037,6 +1052,9 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 }
 
 @media (min-width: 900px) {
+	.tutorial-phases { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+	.tutorial-journey-bar { grid-template-columns: auto minmax(0, 1fr) auto; padding-inline: 2rem; }
+	.tutorial-journey-bar > a { grid-column: auto; min-height: 40px; }
 	.stat-grid { grid-template-columns: repeat(4, 1fr); }
   .landing { grid-template-columns: minmax(0, 1fr) clamp(22rem, 30vw, 27rem); grid-template-rows: auto 1fr auto; }
   .landing-header { grid-column: 1 / -1; padding: 1.4rem 2.5rem; }

@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
@@ -10,7 +10,7 @@ import { VeilGlyph } from "../components/VeilGlyph";
 import { LanguageSelector } from "../components/LanguageSelector";
 import { buildGuidedProgress } from "../guidedTraining";
 import { useActiveRulesetVersion, useCards, useChampions, useDecks, useMatchReplay, useMe, useProgress, useSeason } from "../queries";
-import { usePreferencesStore, useSessionStore } from "../store";
+import { TUTORIAL_STEP_IDS, type TutorialStepId, usePreferencesStore, useSessionStore } from "../store";
 import type { QueueResult } from "../types";
 
 export function ResultPage() {
@@ -18,6 +18,8 @@ export function ResultPage() {
   const setActiveMatch = useSessionStore((state) => state.setActiveMatch);
   const guidedMatchId = useSessionStore((state) => state.guidedMatchId);
   const setGuidedMatch = useSessionStore((state) => state.setGuidedMatch);
+  const userId = useSessionStore((state) => state.user?.id ?? "");
+  const completeTutorialStep = usePreferencesStore((state) => state.completeTutorialStep);
   const navigate = useNavigate();
   const { data: deckData } = useDecks();
   const { data: cardData } = useCards();
@@ -32,6 +34,9 @@ export function ResultPage() {
     ? buildGuidedProgress(battle.events, battle.slot, cardsById)
     : { assault: false, guard: false, rite: false, completed: 0 }, [battle, cardsById]);
   const guided = Boolean(battle && guidedMatchId === battle.matchId);
+  useEffect(() => {
+    if (guided && userId) completeTutorialStep(userId, "training");
+  }, [completeTutorialStep, guided, userId]);
   const rulesetVersion = useActiveRulesetVersion();
   const currentDeck = deckData?.decks.find((deck) => deck.ruleset_version === rulesetVersion && deck.active)
     ?? deckData?.decks.find((deck) => deck.ruleset_version === rulesetVersion);
@@ -116,6 +121,7 @@ export function ResultPage() {
 
       <aside className="result-command" aria-label="Próximos passos">
         <header><p className="eyebrow">SUA PRÓXIMA DECISÃO</p><h2>{victory ? "Mantenha o ritmo" : "Volte mais preparado"}</h2><p>Jogue novamente agora ou estude a partida antes de retornar.</p></header>
+        {guided && <Link className="primary-button tutorial-result-continue" to="/tutorial?step=5"><UiIcon name="guide" /> Continuar tutorial</Link>}
         <button className="primary-button result-rematch" type="button" disabled={practiceBusy} onClick={() => playAgainNow(guided)}><UiIcon name="duel" />{practiceBusy ? "Abrindo a mesa…" : guided ? "Repetir treino guiado" : "Jogar contra o bot"}</button>
         <Link className="secondary-button result-queue" to="/queue"><UiIcon name="versus" /> Buscar rival</Link>
         {practiceError && <p className="form-error" role="alert">{practiceError}</p>}
@@ -161,7 +167,6 @@ export function ProfilePage() {
 	const queryClient = useQueryClient();
 	const setPrincipal = useSessionStore((state) => state.setPrincipal);
 	const clear = useSessionStore((state) => state.clear);
-	const navigate = useNavigate();
 	const [avatarID, setAvatarID] = useState("");
 	const [profileBusy, setProfileBusy] = useState(false);
 	const [profileStatus, setProfileStatus] = useState("");
@@ -188,7 +193,7 @@ export function ProfilePage() {
 		setPasswordBusy(true);
 		try {
 			await api<void>("/v1/me/password", { method: "PUT", body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
-			clear(); navigate("/?password=changed", { replace: true });
+			sessionStorage.setItem("nythara-password-changed", "1"); clear();
 		} catch (caught) { setPasswordError(caught instanceof Error ? caught.message : "Não foi possível trocar a senha."); setPasswordBusy(false); }
 	};
 	return <div className="page profile-page">
@@ -201,18 +206,17 @@ export function ProfilePage() {
 	</div>;
 }
 
-const tutorialSteps = [
-  { phase: "Começar", navLabel: "Começo", icon: "journey", title: "O caminho até o primeiro duelo", body: "Abra Baralho, escolha uma aparência, salve 30 cartas e entre em Jogar. Treino e ranqueada usam a mesma regra; só muda quem ocupa o outro lado da mesa.", tip: "Se uma partida estiver ativa, o botão Retomar partida aparece no início." },
-  { phase: "Aparência", navLabel: "Avatar", icon: "champion", title: "Escolha o Avatar pelo poder", body: "Cada um dos dez traz um poder próprio — curar ao acertar, ganhar Ward ao apanhar, pagar menos quando a Vitalidade cai. Todos partem da mesma Vitalidade e do mesmo baralho de 30 cartas; o poder muda como você joga, não quanto você tem.", tip: "Os poderes são medidos em simulação: nenhum passa de alguns pontos de vantagem sobre outro." },
-  { phase: "Preparar", navLabel: "30 cartas", icon: "deck", title: "Monte um baralho legal", body: "Use exatamente 30 cartas, com no mínimo 8 Assaltos, 10 Guardas e 4 Ritos. São permitidas até 2 cópias da mesma carta e apenas 1 de cada Lendária.", tip: "Montar 10 / 10 / 10 cria uma base equilibrada; depois você pode personalizar os oito espaços livres." },
-  { phase: "Preparar", navLabel: "Salvar", icon: "validation", title: "Salve uma escolha que importa", body: "O servidor valida composição, cópias e posse. Depois de salvar, o baralho competitivo fica protegido por 24 horas e continua disponível para jogar durante esse período.", tip: "O contador e o botão de salvar permanecem visíveis na lateral do construtor." },
-  { phase: "Duelar", navLabel: "Treino", icon: "duel", title: "Treine ou encontre um rival", body: "Treinar contra o bot abre uma partida imediatamente. Buscar oponente entra na fila 1v1; quando houver par, os dois clientes recebem somente a informação que podem ver.", tip: "A mão rival aparece como versos de carta. O servidor nunca envia suas identidades ao oponente." },
-  { phase: "Mesa", navLabel: "Compra", icon: "mulligan", title: "Compre e leia sua mão", body: "Você começa com cinco cartas e compra no início de cada turno. Sua mão comporta sete; compras acima do limite são queimadas. Se o baralho acabar, a Fadiga cobra Vitalidade crescente.", tip: "Cartas que podem ser jogadas ficam iluminadas. O custo sempre é pago com Vitalidade e nunca pode deixá-lo abaixo de 1." },
-  { phase: "Mesa", navLabel: "Assalto", icon: "duel", title: "Envie um Assalto ao centro", body: "Na fase de Assalto, escolha uma carta ofensiva ou passe. Ela viaja até a zona central e revela seu Poder. O primeiro Assalto da partida recebe a compensação de iniciativa indicada pela regra.", tip: "Observe o Poder no centro antes de decidir quanto risco aceita no turno." },
-  { phase: "Mesa", navLabel: "Guarda", icon: "guard", title: "Defenda ou aceite o golpe", body: "O defensor pode responder com uma Guarda. Poder menos Prevenção é o dano final: se o dano passar, a Guarda se estilhaça; se for bloqueado, o Assalto se estilhaça. Sem Guarda, o golpe é direto.", tip: "Passar pode preservar uma Guarda forte, mas a Vitalidade perdida não volta sozinha." },
-  { phase: "Mesa", navLabel: "Rito", icon: "rite", title: "Use um Rito e encerre", body: "Depois do confronto, o atacante pode jogar até um Rito legal ou encerrar o turno. Ritos curam, compram cartas ou aplicam efeitos compatíveis com o Modo Confronto.", tip: "Relíquias e Manifestações permanecem no arquivo e não entram no baralho competitivo atual." },
-  { phase: "Vencer", navLabel: "Final", icon: "decision", title: "Leve a Vitalidade rival a zero", body: "O duelo termina quando um lado chega a zero. Se a partida se arrastar até o fim do relógio, a Pressão de Nythara passa a reduzir a Vitalidade dos dois lados em escala crescente até haver um vencedor — a mesa avisa quando esse turno se aproxima.", tip: "A Arena mostra dano, descarte, Fadiga e cada carta estilhaçada; o histórico preserva o resultado autoritativo." },
-] as const;
+const tutorialSteps: Array<{
+  id: TutorialStepId; phase: string; navLabel: string; icon: "journey" | "champion" | "mulligan" | "deck" | "duel" | "decision";
+  title: string; body: string; tip: string; action: string; to?: string;
+}> = [
+  { id: "goal", phase: "Entender", navLabel: "Objetivo", icon: "journey", title: "Vença sem se perder no caminho", body: "Reduza a Vitalidade rival a zero. Cada carta custa sua própria Vitalidade: Assalto cria pressão, Guarda reduz o golpe e Rito prepara a próxima decisão.", tip: "A mesa ilumina somente ações válidas. Você pode passar uma fase quando preservar cartas for melhor.", action: "Entendi o objetivo" },
+  { id: "avatars", phase: "Escolher", navLabel: "Avatares", icon: "champion", title: "Conheça os dez Avatares", body: "Todos começam com a mesma Vitalidade e o mesmo limite de 30 cartas. O poder do Avatar muda seu estilo — cura, Ward, custo ou ritmo — sem comprar vantagem.", tip: "Abra a tela de Avatares, compare os poderes e escolha aquele cuja forma de jogar parece natural para você.", action: "Abrir Avatares", to: "/champions" },
+  { id: "collection", phase: "Explorar", navLabel: "Coleção", icon: "mulligan", title: "Leia as três famílias de carta", body: "Assaltos pressionam, Guardas respondem e Ritos ajustam a mão ou o próximo confronto. A coleção permite filtrar cada tipo e entender sua função antes de montar.", tip: "Comece pelas cartas competitivas. Relíquias e Manifestações ficam no arquivo e não entram neste modo.", action: "Explorar Coleção", to: "/collection" },
+  { id: "deck", phase: "Preparar", navLabel: "Baralho", icon: "deck", title: "Revise seu baralho de 30 cartas", body: "O construtor mostra os mínimos de Assalto, Guarda e Rito e impede uma composição inválida. Sua conta já pode receber uma base pronta; revise o Avatar e salve quando estiver satisfeito.", tip: "A opção 10 / 10 / 10 cria um ponto de partida equilibrado. Depois você pode personalizar sem adivinhar os limites.", action: "Revisar Baralho", to: "/decks" },
+  { id: "training", phase: "Praticar", navLabel: "Treino", icon: "duel", title: "Complete um treino guiado", body: "Na mesa, faça um Assalto, responda com Guarda quando puder e use um Rito. O coach explica a fase atual sem escolher a carta por você.", tip: "Esta etapa só recebe o check quando a partida terminar. O resultado mostra quais fundamentos realmente apareceram nos eventos do duelo.", action: "Iniciar treino guiado" },
+  { id: "pvp", phase: "Duelar", navLabel: "PvP", icon: "decision", title: "Escolha seu próximo confronto", body: "Treino abre imediatamente contra o bot. Buscar rival entra na fila 1v1 e usa o mesmo baralho e as mesmas regras; só muda quem está do outro lado.", tip: "Se ainda houver uma etapa pendente, a faixa do tutorial continuará visível e trará você de volta ao ponto certo.", action: "Abrir tela Jogar", to: "/queue" },
+];
 
 export function TutorialPage() {
   const [params, setParams] = useSearchParams();
@@ -220,14 +224,19 @@ export function TutorialPage() {
   const { data: deckData } = useDecks();
   const setActiveMatch = useSessionStore((state) => state.setActiveMatch);
   const setGuidedMatch = useSessionStore((state) => state.setGuidedMatch);
+  const userId = useSessionStore((state) => state.user?.id ?? "");
+  const journey = usePreferencesStore((state) => state.tutorialByUser[userId]);
+  const beginTutorial = usePreferencesStore((state) => state.beginTutorial);
+  const completeStep = usePreferencesStore((state) => state.completeTutorialStep);
+  const restartTutorial = usePreferencesStore((state) => state.restartTutorial);
   const [guidedBusy, setGuidedBusy] = useState(false);
   const [guidedError, setGuidedError] = useState("");
   const requestedStep = Number(params.get("step"));
   const step = Number.isInteger(requestedStep) && requestedStep >= 0 && requestedStep < tutorialSteps.length ? requestedStep : 0;
-  const restartOnboarding = usePreferencesStore((state) => state.restartOnboarding);
   const rulesetVersion = useActiveRulesetVersion();
   const currentDeck = deckData?.decks.find((deck) => deck.ruleset_version === rulesetVersion && deck.active)
     ?? deckData?.decks.find((deck) => deck.ruleset_version === rulesetVersion);
+  useEffect(() => { if (userId) beginTutorial(userId); }, [beginTutorial, userId]);
   const startGuidedPractice = async () => {
     if (!currentDeck) { navigate("/decks"); return; }
     setGuidedBusy(true);
@@ -245,7 +254,17 @@ export function TutorialPage() {
   };
   const setStep = (next: number) => setParams(next ? { step: String(next) } : {}, { replace: true });
   const current = tutorialSteps[step];
-  return <div className="page tutorial-page"><header><p className="eyebrow">GUIA COMPLETO · {step + 1}/{tutorialSteps.length}</p><h1>Da escolha ao duelo</h1><p>Aprenda o fluxo do app e as decisões essenciais da mesa.</p><div className="tutorial-entry-actions"><button className="primary-button" type="button" disabled={guidedBusy} onClick={startGuidedPractice}>{guidedBusy ? "Preparando a mesa…" : "Iniciar treino guiado"}</button><button className="ghost-button tutorial-restart" type="button" onClick={restartOnboarding}>Reabrir introdução rápida</button></div>{guidedError && <p className="form-error" role="alert">{guidedError}</p>}<div className="tutorial-progress" aria-hidden="true">{tutorialSteps.map((item, index) => <span className={index === step ? "is-current" : index < step ? "is-complete" : ""} key={item.title} />)}</div></header><nav className="tutorial-phases" aria-label="Etapas do guia">{tutorialSteps.map((item, index) => <button type="button" aria-label={`Etapa ${index + 1}: ${item.title}`} aria-current={index === step ? "step" : undefined} className={index === step ? "is-current" : index < step ? "is-complete" : ""} onClick={() => setStep(index)} key={item.title}><span>{String(index + 1).padStart(2, "0")}</span>{item.navLabel}</button>)}</nav><section className="tutorial-card"><div className="tutorial-illustration" aria-hidden="true"><VeilGlyph variant={current.icon} /><small>{current.phase}</small></div><div><p className="eyebrow">{current.phase} · ETAPA {step + 1}</p><h2>{current.title}</h2><p>{current.body}</p><div className="tutorial-tip"><strong>Como usar</strong><span>{current.tip}</span></div></div></section><footer><button className="ghost-button" type="button" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}><UiIcon name="arrow-left" />Voltar</button>{step < tutorialSteps.length - 1 ? <button className="primary-button" type="button" onClick={() => setStep(step + 1)}>Continuar<UiIcon name="arrow-right" /></button> : <Link className="primary-button" to="/decks">Montar meu deck</Link>}</footer></div>;
+  const completed = journey?.completed ?? [];
+  const isComplete = completed.includes(current.id);
+  const completeAndOpen = () => {
+    if (!userId) return;
+    if (current.id === "training") { void startGuidedPractice(); return; }
+    completeStep(userId, current.id);
+    if (current.to) { navigate(current.to); return; }
+    setStep(Math.min(tutorialSteps.length - 1, step + 1));
+  };
+  const reset = () => { if (userId) restartTutorial(userId); setStep(0); };
+  return <div className="page tutorial-page"><header><p className="eyebrow"><span>PRIMEIRO DUELO</span> · {completed.length}/{TUTORIAL_STEP_IDS.length} <span>CONCLUÍDAS</span></p><h1>Você sempre saberá o próximo passo.</h1><p>Conclua no seu ritmo. Cada botão abre a tela certa e o guia permanece disponível até a jornada terminar.</p><div className="tutorial-entry-actions"><button className="ghost-button tutorial-restart" type="button" onClick={reset}>Reiniciar progresso</button></div>{guidedError && <p className="form-error" role="alert">{guidedError}</p>}<div className="tutorial-progress" aria-hidden="true">{tutorialSteps.map((item, index) => <span className={completed.includes(item.id) ? "is-complete" : index === step ? "is-current" : ""} key={item.id} />)}</div></header><nav className="tutorial-phases" aria-label="Etapas do guia">{tutorialSteps.map((item, index) => <button type="button" aria-label={`Etapa ${index + 1}: ${item.title}${completed.includes(item.id) ? " · concluída" : ""}`} aria-current={index === step ? "step" : undefined} className={`${index === step ? "is-current" : ""} ${completed.includes(item.id) ? "is-complete" : ""}`} onClick={() => setStep(index)} key={item.id}><span>{completed.includes(item.id) ? <UiIcon name="check" /> : String(index + 1).padStart(2, "0")}</span>{item.navLabel}</button>)}</nav><section className={`tutorial-card ${isComplete ? "is-complete" : ""}`}><div className="tutorial-illustration" aria-hidden="true"><VeilGlyph variant={current.icon} /><small>{current.phase}</small></div><div><p className="eyebrow">{current.phase} · ETAPA {step + 1}</p><h2>{current.title}</h2><p>{current.body}</p><div className="tutorial-tip"><strong>Como concluir</strong><span>{current.tip}</span></div><div className="tutorial-step-action"><span className={isComplete ? "is-done" : ""}><UiIcon name={isComplete ? "check" : "guide"} />{isComplete ? "Etapa concluída" : "Etapa pendente"}</span><button className="primary-button" type="button" disabled={guidedBusy && current.id === "training"} onClick={completeAndOpen}>{guidedBusy && current.id === "training" ? "Preparando a mesa…" : current.action}<UiIcon name="arrow-right" /></button></div></div></section><footer><button className="ghost-button" type="button" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}><UiIcon name="arrow-left" />Voltar</button><button className="ghost-button" type="button" onClick={() => setStep(Math.min(tutorialSteps.length - 1, step + 1))} disabled={step === tutorialSteps.length - 1}>Ver próxima etapa<UiIcon name="arrow-right" /></button></footer></div>;
 }
 
 export function SettingsPage() {

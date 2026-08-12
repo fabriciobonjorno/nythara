@@ -1937,3 +1937,38 @@ expiração/consumo. Publicar o botão Google exige cadastrar
 `https://nythara.fun/v1/auth/google/callback` no console do provedor e injetar
 as duas credenciais no servidor. Nada muda na engine, no ruleset ou nos
 replays históricos.
+
+## ADR-068 — Primeiro acesso é uma jornada retomável até o primeiro duelo
+
+**Contexto.** A introdução modal explicava três conceitos, mas desaparecia ao
+ser fechada e deixava o estreante diante de várias rotas sem indicar qual tela
+abrir. O guia completo tinha dez capítulos lineares e marcava como concluído
+tudo que vinha antes da página atual, mesmo que o jogador apenas tivesse
+saltado pela navegação. Relatos do Alpha confirmaram que conhecer a regra não
+era suficiente: faltava uma trilha operacional entre entrar, reconhecer o
+arsenal, revisar o baralho e praticar.
+
+**Decisão.** No primeiro login reconhecido pelo dispositivo, a sessão abre
+`/tutorial` em vez de `/app`. O guia passa a ter seis marcos acionáveis:
+objetivo, Avatares, coleção, baralho, treino guiado e PvP. Cada marco oferece
+um único botão que abre diretamente a tela correspondente; o treino usa o
+mesmo endpoint, ruleset e coach do ADR-049. O check representa uma ação
+realizada, não a posição da paginação. Em especial, o treino só é concluído na
+tela de resultado de uma partida marcada como guiada.
+
+O progresso é uma preferência local indexada por `user_id`, sem entrar em
+comandos, engine, replay, matchmaking ou economia. Depois que a jornada
+começa, uma faixa discreta permanece no shell e mostra a próxima pendência
+sempre que o usuário sair do guia. Ela desaparece apenas quando os seis marcos
+forem concluídos. Reiniciar o guia limpa somente esse progresso local. Contas
+que já concluíram o onboarding anterior no mesmo dispositivo não são
+interrompidas novamente; o Tutorial continua acessível pela navegação.
+
+**Consequências.** O primeiro acesso tem um destino único e cada explicação
+termina em uma ação concreta. Visitar outras áreas não cria um beco sem saída,
+porque a retomada aponta para o primeiro marco pendente. Limpar os dados do
+navegador ou trocar de dispositivo pode reapresentar a jornada; sincronização
+entre dispositivos exigiria persistência de perfil e fica fora desta mudança.
+Nenhum check concede recompensa ou altera autoridade da partida, e a
+conclusão do treino continua derivada do resultado authoritative já recebido
+pelo cliente.

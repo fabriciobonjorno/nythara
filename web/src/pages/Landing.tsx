@@ -1,20 +1,22 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { NytharaBrand } from "../components/NytharaBrand";
 import { LanguageSelector } from "../components/LanguageSelector";
-import { useSessionStore } from "../store";
+import { needsFirstLoginTutorial, usePreferencesStore, useSessionStore } from "../store";
 import type { AuthEnvelope } from "../types";
 import { useCards } from "../queries";
 import { UiIcon } from "../components/UiIcon";
 
 export function Landing() {
   const tokens = useSessionStore((state) => state.tokens);
+  const sessionUser = useSessionStore((state) => state.user);
   const setAuth = useSessionStore((state) => state.setAuth);
   const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
+	const location = useLocation();
 	const { data: catalog } = useCards();
 	const oauthHandled = useRef(false);
+	const enteringTutorial = useRef(false);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +24,19 @@ export function Landing() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 	const [providers, setProviders] = useState<{ google: boolean }>({ google: false });
+	const [passwordChanged] = useState(() => {
+		if ((location.state as { passwordChanged?: boolean } | null)?.passwordChanged) return true;
+		return sessionStorage.getItem("nythara-password-changed") === "1";
+	});
+	useEffect(() => { if (passwordChanged) sessionStorage.removeItem("nythara-password-changed"); }, [passwordChanged]);
+
+	const enterApp = (response: AuthEnvelope, forceTutorial = false) => {
+		const firstLogin = forceTutorial || needsFirstLoginTutorial(response.user.id);
+		enteringTutorial.current = firstLogin;
+		if (firstLogin) usePreferencesStore.getState().beginTutorial(response.user.id);
+		setAuth(response.user, response.tokens);
+		navigate(firstLogin ? "/tutorial" : "/app", { replace: true });
+	};
 
 	useEffect(() => {
 		api<{ google: boolean }>("/v1/auth/providers").then(setProviders).catch(() => undefined);
@@ -41,12 +56,12 @@ export function Landing() {
 		}
 		setBusy(true);
 		api<AuthEnvelope>("/v1/auth/oauth/exchange", { method: "POST", body: JSON.stringify({ ticket }) })
-			.then((response) => { setAuth(response.user, response.tokens); navigate("/app", { replace: true }); })
+			.then((response) => enterApp(response))
 			.catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível concluir a entrada com Google."))
 			.finally(() => setBusy(false));
 	}, [navigate, setAuth]);
 
-  if (tokens) return <Navigate to="/app" replace />;
+  if (tokens) return <Navigate to={enteringTutorial.current || (sessionUser && needsFirstLoginTutorial(sessionUser.id)) ? "/tutorial" : "/app"} replace />;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -55,8 +70,7 @@ export function Landing() {
     try {
       const body = mode === "register" ? { email, password, username } : { email, password };
       const response = await api<AuthEnvelope>(`/v1/auth/${mode}`, { method: "POST", body: JSON.stringify(body) });
-      setAuth(response.user, response.tokens);
-      navigate("/app");
+      enterApp(response, mode === "register");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível entrar.");
     } finally { setBusy(false); }
@@ -86,7 +100,7 @@ export function Landing() {
           <label>E-mail<input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           <label>Senha<input required type="password" minLength={12} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /><small>Mínimo de 12 caracteres.</small></label>
 		  {error && <p className="form-error" role="alert">{error}</p>}
-		  {searchParams.get("password") === "changed" && <p className="form-success" role="status">Senha atualizada. Entre novamente com a nova credencial.</p>}
+		  {passwordChanged && <p className="form-success" role="status">Senha atualizada. Entre novamente com a nova credencial.</p>}
           <button className="primary-button" disabled={busy} type="submit">{busy ? "Atravessando…" : mode === "login" ? "Entrar no Véu" : "Criar conta gratuita"}</button>
           {mode === "login" && <Link className="auth-link" to="/forgot-password">Esqueci minha senha</Link>}
           <p className="auth-note">Sem venda de poder. Monte um único baralho, treine contra o bot e entre no confronto quando estiver pronto.</p>
@@ -97,9 +111,9 @@ export function Landing() {
 		<div className="landing-duel-preview" aria-label="Prévia visual da arena de Nythara">
 		  <div className="preview-player preview-player--rival"><span>RIVAL</span><b>26</b><small>VITALIDADE</small></div>
 		  <div className="preview-stage">
-			<div className="preview-card preview-card--assault"><img src="/card-art/vr-001.webp" alt="Arte de carta de Assalto" /><span><b>{catalog?.cards.find((card) => card.id === "VR-001")?.name ?? "Corte Rubro"}</b><small>ASSALTO · PODER 6</small></span></div>
+			<div className="preview-card preview-card--assault"><img src="/card-art/vr-001.webp" alt="" /><span><b>{catalog?.cards.find((card) => card.id === "VR-001")?.name ?? "Corte Rubro"}</b><small>ASSALTO · PODER 6</small></span></div>
 			<div className="preview-impact"><UiIcon name="versus" /><strong>CONFRONTO</strong><small>6 ATAQUE × 3 DEFESA</small></div>
-			<div className="preview-card preview-card--guard"><img src="/card-art/vr-014.webp" alt="Arte de carta de Guarda" /><span><b>{catalog?.cards.find((card) => card.id === "VR-014")?.name ?? "Guarda do Limiar"}</b><small>GUARDA · PREVENÇÃO 3</small></span></div>
+			<div className="preview-card preview-card--guard"><img src="/card-art/vr-014.webp" alt="" /><span><b>{catalog?.cards.find((card) => card.id === "VR-014")?.name ?? "Guarda do Limiar"}</b><small>GUARDA · PREVENÇÃO 3</small></span></div>
 		  </div>
 		  <div className="preview-player"><span>VOCÊ</span><b>30</b><small>VITALIDADE</small></div>
 		</div>
