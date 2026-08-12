@@ -842,6 +842,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .profile-details dd { margin: 0; text-align: right; }
 .profile-settings-grid { display: grid; gap: 1rem; margin-top: 1rem; }
 .profile-editor { display: grid; align-content: start; gap: 1rem; padding: 1.25rem; }
+.panel.profile-editor > header { display: block; }
 .profile-editor header h2 { margin-bottom: .45rem; font-size: 1.65rem; }
 .profile-editor header > p:last-child { margin: 0; color: var(--muted); line-height: 1.55; }
 .profile-avatar-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
@@ -850,6 +851,20 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .profile-avatar-options .champion-emblem { width: 3.5rem; max-width: none; height: auto; display: block; }
 .profile-avatar-options span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .62rem; }
 .password-editor label { display: grid; gap: .4rem; color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.account-deactivation-panel { display: grid; gap: 1rem; align-items: center; padding: 1.25rem; border-color: #65313b; }
+.account-deactivation-panel h2 { margin-bottom: .4rem; }
+.account-deactivation-panel p:last-child { max-width: 46rem; margin: 0; color: var(--muted); line-height: 1.55; }
+.account-deactivation-panel .danger-button { justify-self: start; }
+.account-modal-backdrop { position: fixed; z-index: 1200; inset: 0; display: grid; place-items: center; padding: 1rem; overflow: auto; background: #030203ed; backdrop-filter: blur(8px); }
+.account-modal { width: min(38rem, 100%); display: grid; gap: 1rem; padding: clamp(1.35rem, 4vw, 2.25rem); color: var(--ivory); border: 1px solid #70505a; background: linear-gradient(145deg, #1c1319, #100d11); box-shadow: 0 24px 80px #000c; }
+.account-modal h2 { margin: 0; font-size: clamp(2rem, 7vw, 3.2rem); line-height: 1; }
+.account-modal > p:not(.eyebrow):not(.form-error) { margin: 0; color: var(--muted); line-height: 1.65; }
+.account-modal label { display: grid; gap: .45rem; color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.account-modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .65rem; }
+.reactivation-choices { display: grid; gap: .75rem; }
+.reactivation-choices button { min-height: 5.5rem; display: grid; justify-items: start; gap: .3rem; padding: 1rem; text-align: left; text-transform: none; letter-spacing: 0; }
+.reactivation-choices button strong { font: 400 1.25rem Georgia, serif; }
+.reactivation-choices button span { color: var(--muted); font-size: .75rem; font-weight: 500; line-height: 1.45; }
 
 /* Iconografia original do guia */
 .veil-glyph { width: 10rem; height: 10rem; overflow: visible; color: var(--gold-bright); --glyph-accent: #c33b59; --glyph-soft: #8b234044; filter: drop-shadow(0 0 14px #d0aa6052); }
@@ -1065,6 +1080,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
   .auth-panel { grid-column: 2; grid-row: 2; align-self: center; margin: 2rem 2.5rem 2rem 0; }
   .landing-footer { grid-column: 1 / -1; padding: 1rem 2.5rem; }
 	.profile-settings-grid { grid-template-columns: minmax(0, 1.35fr) minmax(20rem, .65fr); }
+	.account-deactivation-panel { grid-column: 1 / -1; grid-template-columns: 1fr auto; }
   .auth-standalone { grid-template-columns: 1fr; }
   .auth-standalone .landing-header, .auth-standalone .landing-footer { grid-column: 1; }
   .auth-standalone .recovery-panel { grid-column: 1; grid-row: 2; margin: 2rem auto; }

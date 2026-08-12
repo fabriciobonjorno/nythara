@@ -165,6 +165,7 @@ export function ProfilePage() {
   const { data: decks } = useDecks();
 	const { data: progress } = useProgress();
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const setPrincipal = useSessionStore((state) => state.setPrincipal);
 	const clear = useSessionStore((state) => state.clear);
 	const [avatarID, setAvatarID] = useState("");
@@ -176,8 +177,15 @@ export function ProfilePage() {
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [passwordBusy, setPasswordBusy] = useState(false);
 	const [passwordError, setPasswordError] = useState("");
+	const [deactivationOpen, setDeactivationOpen] = useState(false);
+	const [deactivationPassword, setDeactivationPassword] = useState("");
+	const [deactivationConfirmation, setDeactivationConfirmation] = useState("");
+	const [deactivationBusy, setDeactivationBusy] = useState(false);
+	const [deactivationError, setDeactivationError] = useState("");
 	const chosenAvatarID = avatarID || me?.avatar_id || "";
 	const chosenAvatar = champions?.champions.find((champion) => champion.id === chosenAvatarID);
+	const accountProgress = progress?.account;
+
 	const saveAvatar = async () => {
 		if (!chosenAvatarID) return;
 		setProfileBusy(true); setProfileError(""); setProfileStatus("");
@@ -196,13 +204,30 @@ export function ProfilePage() {
 			sessionStorage.setItem("nythara-password-changed", "1"); clear();
 		} catch (caught) { setPasswordError(caught instanceof Error ? caught.message : "Não foi possível trocar a senha."); setPasswordBusy(false); }
 	};
+	const deactivateAccount = async (event: FormEvent) => {
+		event.preventDefault(); setDeactivationError(""); setDeactivationBusy(true);
+		try {
+			await api<void>("/v1/me/deactivate", { method: "POST", body: JSON.stringify({
+				confirmation: deactivationConfirmation, current_password: deactivationPassword,
+			}) });
+			sessionStorage.setItem("nythara-account-deactivated", "1");
+			clear(); queryClient.clear();
+			navigate("/", { replace: true, state: { accountDeactivated: true } });
+		} catch (caught) {
+			setDeactivationError(caught instanceof Error ? caught.message : "Não foi possível desativar a conta.");
+			setDeactivationBusy(false);
+		}
+	};
+
 	return <div className="page profile-page">
 		<section className="profile-hero"><div className="profile-avatar">{chosenAvatar ? <ChampionEmblem id={chosenAvatar.id} faction={chosenAvatar.faction} /> : me?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</div><div><p className="eyebrow">PERFIL DO DUELISTA</p><h1>{me?.display_name ?? "Viajante"}</h1><p>Este é o nickname mostrado na Arena · {me?.role === "player" ? "Jogador" : me?.role === "owner" ? "Proprietário" : "Guardião"}</p></div><span className="season-seal"><NytharaMark /><small>{season?.name ?? "Alpha"}</small></span></section>
-		<section className="profile-grid"><article className="rank-card"><p className="eyebrow">NÍVEL DA CONTA</p><h2>Nível {progress?.account.level ?? 1}</h2><div className="rank-emblem"><UiIcon name="mastery" /></div><strong>{progress?.account.level_xp_required ? `${progress.account.level_xp}/${progress.account.level_xp_required} XP` : "Nível máximo"}</strong><p>Suba no PvP contra jogadores para liberar Lendárias. Treinos e bots não concedem XP.</p></article><article className="panel"><h2>Conta competitiva</h2><dl className="profile-details"><div><dt>Nickname público</dt><dd>{me?.display_name ?? "—"}</dd></div><div><dt>Ruleset</dt><dd>{season?.ruleset_version ?? rulesetVersion}</dd></div><div><dt>Baralho atual</dt><dd>{decks?.decks.some((deck) => deck.ruleset_version === rulesetVersion) ? "Pronto" : "Pendente"}</dd></div><div><dt>Temporada</dt><dd>{season?.name ?? "Alpha"}</dd></div></dl></article></section>
+		<section className="profile-grid"><article className="rank-card"><p className="eyebrow">NÍVEL DA CONTA</p><h2>Nível {accountProgress?.level ?? 1}</h2><div className="rank-emblem"><UiIcon name="mastery" /></div><strong>{!accountProgress ? "—" : accountProgress.level_xp_required ? `${accountProgress.level_xp}/${accountProgress.level_xp_required} XP` : "Nível máximo"}</strong><p>Suba no PvP contra jogadores para liberar Lendárias. Treinos e bots não concedem XP.</p></article><article className="panel"><h2>Conta competitiva</h2><dl className="profile-details"><div><dt>Nickname público</dt><dd>{me?.display_name ?? "—"}</dd></div><div><dt>Ruleset</dt><dd>{season?.ruleset_version ?? rulesetVersion}</dd></div><div><dt>Baralho atual</dt><dd>{decks?.decks.some((deck) => deck.ruleset_version === rulesetVersion) ? "Pronto" : "Pendente"}</dd></div><div><dt>Temporada</dt><dd>{season?.name ?? "Alpha"}</dd></div></dl></article></section>
 		<section className="profile-settings-grid">
 		  <article className="panel profile-editor"><header><p className="eyebrow">SUA IDENTIDADE VISUAL</p><h2>Imagem de perfil</h2><p>Escolha um emblema original. Ele aparece no topo e acompanha sua identidade, sem alterar o Avatar do baralho.</p></header><div className="profile-avatar-options">{champions?.champions.map((champion) => <button type="button" className={chosenAvatarID === champion.id ? "is-selected" : ""} aria-pressed={chosenAvatarID === champion.id} aria-label={`Usar ${champion.name} como imagem de perfil`} onClick={() => { setAvatarID(champion.id); setProfileStatus(""); }} key={champion.id}><ChampionEmblem id={champion.id} faction={champion.faction} /><span>{champion.name.split(",")[0]}</span></button>)}</div>{profileError && <p className="form-error" role="alert">{profileError}</p>}{profileStatus && <p className="form-success" role="status">{profileStatus}</p>}<button className="primary-button" type="button" disabled={profileBusy || !chosenAvatarID || chosenAvatarID === me?.avatar_id} onClick={saveAvatar}>{profileBusy ? "Salvando…" : "Salvar imagem"}</button></article>
 		  <form className="panel profile-editor password-editor" onSubmit={changePassword}><header><p className="eyebrow">SEGURANÇA DA CONTA</p><h2>{me?.password_set ? "Trocar senha" : "Criar uma senha"}</h2><p>{me?.password_set ? "Confirme a credencial atual. Depois da troca, todas as sessões serão encerradas." : "Sua conta entrou pelo Google. Crie uma senha se também quiser usar e-mail e senha."}</p></header>{me?.password_set && <label>Senha atual<input required type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>}<label>Nova senha<input required minLength={12} maxLength={256} type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><small>Use de 12 a 256 caracteres.</small></label><label>Confirmar nova senha<input required minLength={12} maxLength={256} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>{passwordError && <p className="form-error" role="alert">{passwordError}</p>}<button className="secondary-button" type="submit" disabled={passwordBusy}>{passwordBusy ? "Protegendo a conta…" : me?.password_set ? "Trocar senha e sair" : "Criar senha e sair"}</button></form>
+		  {me?.role === "player" && <article className="panel account-deactivation-panel"><div><p className="eyebrow">CONTROLE DA CONTA</p><h2>Desativar minha conta</h2><p>Seu acesso será encerrado em todos os dispositivos. Seus dados ficam preservados e a conta pode ser reativada futuramente ao entrar de novo.</p></div><button className="danger-button" type="button" onClick={() => setDeactivationOpen(true)}>Desativar conta</button></article>}
 		</section>
+		{deactivationOpen && <div className="account-modal-backdrop"><form className="account-modal" role="dialog" aria-modal="true" aria-labelledby="deactivation-title" onSubmit={deactivateAccount}><p className="eyebrow">CONFIRMAÇÃO DE SEGURANÇA</p><h2 id="deactivation-title">Desativar sua conta?</h2><p>Você poderá reativá-la ao entrar novamente. Todas as sessões atuais serão encerradas agora.</p>{me?.password_set && <label>Senha atual<input required type="password" autoComplete="current-password" value={deactivationPassword} onChange={(event) => setDeactivationPassword(event.target.value)} /></label>}<label>Digite EXCLUIR para confirmar<input required autoComplete="off" value={deactivationConfirmation} onChange={(event) => setDeactivationConfirmation(event.target.value)} /></label>{deactivationError && <p className="form-error" role="alert">{deactivationError}</p>}<div className="account-modal-actions"><button className="secondary-button" type="button" disabled={deactivationBusy} onClick={() => setDeactivationOpen(false)}>Cancelar</button><button className="danger-button" type="submit" disabled={deactivationBusy || deactivationConfirmation !== "EXCLUIR"}>{deactivationBusy ? "Desativando…" : "Confirmar desativação"}</button></div></form></div>}
 	</div>;
 }
 

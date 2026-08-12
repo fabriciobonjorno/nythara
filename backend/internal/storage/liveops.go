@@ -19,9 +19,9 @@ func (p *Postgres) AdminOverview(ctx context.Context) (domain.AdminOverview, err
 		(SELECT count(*) FROM player_bans WHERE lifted_at IS NULL),
 		(SELECT count(*) FROM users WHERE role='player' AND id<>$1 AND created_at>=now()-interval '7 days'),
 		(SELECT count(DISTINCT s.user_id) FROM auth_sessions s JOIN users u ON u.id=s.user_id
-			WHERE u.role='player' AND u.id<>$1 AND s.created_at>=now()-interval '7 days'),
+			WHERE u.role='player' AND u.id<>$1 AND u.deleted_at IS NULL AND s.created_at>=now()-interval '7 days'),
 		(SELECT count(DISTINCT s.user_id) FROM auth_sessions s JOIN users u ON u.id=s.user_id
-			WHERE u.role='player' AND u.id<>$1 AND s.created_at>=now()-interval '30 days')`, domain.BotUserID).
+			WHERE u.role='player' AND u.id<>$1 AND u.deleted_at IS NULL AND s.created_at>=now()-interval '30 days')`, domain.BotUserID).
 		Scan(&overview.TotalPlayers, &overview.TotalAdmins, &overview.BannedPlayers,
 			&overview.NewPlayers7D, &overview.ActivePlayers7D, &overview.ActivePlayers30D)
 	if err != nil {
@@ -48,7 +48,7 @@ func (p *Postgres) ListAdminPlayers(ctx context.Context, query string, limit int
 			FROM match_players mp JOIN matches m ON m.id=mp.match_id GROUP BY mp.user_id
 		)
 		SELECT u.id,u.email,p.display_name,u.role,COALESCE(ap.xp,0),u.created_at,
-			s.last_session_at,COALESCE(ms.matches,0),COALESCE(ms.wins,0),b.created_at,b.reason
+			s.last_session_at,COALESCE(ms.matches,0),COALESCE(ms.wins,0),b.created_at,b.reason,u.deleted_at
 		FROM users u JOIN player_profiles p ON p.user_id=u.id
 		LEFT JOIN player_account_progress ap ON ap.user_id=u.id
 		LEFT JOIN session_stats s ON s.user_id=u.id
@@ -63,10 +63,11 @@ func (p *Postgres) ListAdminPlayers(ctx context.Context, query string, limit int
 	players := make([]domain.AdminPlayer, 0)
 	for rows.Next() {
 		var player domain.AdminPlayer
-		var lastSession, bannedAt sql.NullTime
+		var lastSession, bannedAt, deactivatedAt sql.NullTime
 		var banReason sql.NullString
 		if err := rows.Scan(&player.ID, &player.Email, &player.DisplayName, &player.Role, &player.AccountXP,
-			&player.CreatedAt, &lastSession, &player.MatchCount, &player.Wins, &bannedAt, &banReason); err != nil {
+			&player.CreatedAt, &lastSession, &player.MatchCount, &player.Wins, &bannedAt, &banReason,
+			&deactivatedAt); err != nil {
 			return nil, err
 		}
 		if lastSession.Valid {
@@ -77,6 +78,10 @@ func (p *Postgres) ListAdminPlayers(ctx context.Context, query string, limit int
 			value := bannedAt.Time
 			player.BannedAt = &value
 			player.BannedReason = banReason.String
+		}
+		if deactivatedAt.Valid {
+			value := deactivatedAt.Time
+			player.DeactivatedAt = &value
 		}
 		players = append(players, player)
 	}
@@ -832,7 +837,7 @@ func (p *Postgres) RotateToRuleset(ctx context.Context, version string,
 		return 0, 0, fmt.Errorf("%w: %v", domain.ErrInvalid, err)
 	}
 	rows, err := tx.QueryContext(ctx, `SELECT d.id, d.user_id, d.name, d.champion_id
-		FROM decks d WHERE d.ruleset_version=$1`, current)
+		FROM decks d WHERE d.ruleset_version=$1 AND d.archived_at IS NULL`, current)
 	if err != nil {
 		return 0, 0, mapError(err)
 	}
@@ -893,7 +898,7 @@ func (p *Postgres) RotateToRuleset(ctx context.Context, version string,
 		var newID string
 		if err := tx.QueryRowContext(ctx, `INSERT INTO decks(id,user_id,name,champion_id,ruleset_version)
 			VALUES(gen_random_uuid(),$1,$2,$3,$4)
-			ON CONFLICT (user_id, name) DO NOTHING RETURNING id`,
+			ON CONFLICT (user_id, name) WHERE archived_at IS NULL DO NOTHING RETURNING id`,
 			d.userID, name, d.champion, version).Scan(&newID); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				continue // já rotacionado antes (idempotência)

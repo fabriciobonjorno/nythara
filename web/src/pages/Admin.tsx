@@ -44,6 +44,7 @@ interface AdminPlayer {
   id: string; email: string; display_name: string; role: "player" | "admin" | "owner";
   account_level: number; created_at: string; last_session_at?: string; match_count: number; wins: number;
   banned_at?: string; banned_reason?: string;
+  deactivated_at?: string;
 }
 interface AdminMatchPlayer { user_id: string; display_name: string; slot: number }
 interface AdminMatch {
@@ -154,7 +155,7 @@ function PlayersPanel() {
       <td><span className={`admin-role is-${player.role}`}>{player.role === "owner" ? "Proprietário" : player.role === "admin" ? "Admin" : "Jogador"}</span></td>
       <td>{player.account_level}</td><td>{player.match_count} <small>· {player.wins} vitórias</small></td>
       <td>{player.last_session_at ? new Date(player.last_session_at).toLocaleString("pt-BR") : "Nunca"}</td>
-      <td>{player.banned_at ? <span className="admin-status is-danger">BANIDO</span> : <span className="admin-status is-ok">ATIVO</span>}{player.banned_reason && <small>{player.banned_reason}</small>}</td>
+	  <td>{player.banned_at ? <span className="admin-status is-danger">BANIDO</span> : player.deactivated_at ? <span className="admin-status is-muted">DESATIVADA</span> : <span className="admin-status is-ok">ATIVO</span>}{player.banned_reason && <small>{player.banned_reason}</small>}</td>
       <td className="admin-actions">{player.role === "player" && (player.banned_at
         ? <button type="button" disabled={busy} onClick={() => moderate(player, "unban")}>Liberar</button>
         : <button type="button" className="danger" disabled={busy} onClick={() => { setSelected(player); setReason(""); }}>Banir</button>)}</td>

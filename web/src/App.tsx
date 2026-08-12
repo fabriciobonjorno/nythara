@@ -15,6 +15,7 @@ import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordRecovery"
 import { Missing, ProfilePage, ResultPage, SettingsPage, TutorialPage } from "./pages/Secondary";
 import { usePreferencesStore, useSessionStore } from "./store";
 import { installDocumentLocalization } from "./documentLocalization";
+import { ReactivationDecisionModal } from "./components/ReactivationDecisionModal";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const authenticated = useSessionStore((state) => Boolean(state.tokens));
@@ -60,5 +61,5 @@ export default function App() {
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="*" element={<Missing />} />
     </Route>
-  </Routes></>;
+  </Routes><ReactivationDecisionModal /></>;
 }

@@ -366,6 +366,128 @@ func integrationDB(t *testing.T) (context.Context, *Postgres, string) {
 	return ctx, db, userID
 }
 
+func TestAccountLifecycleReactivatesAndResetsWithoutDestroyingSharedMatch(t *testing.T) {
+	ctx, db, _ := integrationDB(t)
+	playerID, _ := security.NewID()
+	opponentID, _ := security.NewID()
+	for _, user := range []domain.User{
+		{ID: playerID, Email: playerID + "@lifecycle.test", DisplayName: "L-" + playerID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"},
+		{ID: opponentID, Email: opponentID + "@lifecycle.test", DisplayName: "O-" + opponentID[:8], Role: domain.RolePlayer, PasswordHash: "test-only"},
+	} {
+		if _, err := db.CreateUser(ctx, user, engine.CompetitiveRulesetVersion); err != nil {
+			t.Fatal(err)
+		}
+	}
+	playerDecks, err := db.ListDecks(ctx, playerID)
+	if err != nil || len(playerDecks) != 1 {
+		t.Fatalf("deck inicial do jogador: %d err=%v", len(playerDecks), err)
+	}
+	opponentDecks, err := db.ListDecks(ctx, opponentID)
+	if err != nil || len(opponentDecks) != 1 {
+		t.Fatalf("deck inicial do adversário: %d err=%v", len(opponentDecks), err)
+	}
+
+	matchID, _ := security.NewID()
+	matchCreatedAt := time.Now().UTC().Add(-time.Hour)
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO matches
+		(id,ruleset_version,seed,config,status,winner_slot,end_reason,created_at,started_at,ended_at,mode)
+		VALUES($1,$2,1,'{}','finished',0,'vitalidade_zero',$3,$3,$3,'pvp')`,
+		matchID, engine.CompetitiveRulesetVersion, matchCreatedAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO match_players(match_id,slot,user_id,deck_id)
+		VALUES($1,0,$2,$3),($1,1,$4,$5)`, matchID, playerID, playerDecks[0].ID, opponentID, opponentDecks[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `UPDATE player_account_progress SET xp=900 WHERE user_id=$1`, playerID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO player_champion_mastery(user_id,champion_id,xp,games,wins)
+		VALUES($1,$2,300,8,5)`, playerID, playerDecks[0].ChampionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO player_wallets(user_id,fragments) VALUES($1,250)`, playerID); err != nil {
+		t.Fatal(err)
+	}
+	feedbackID, _ := security.NewID()
+	if err := db.SaveFeedback(ctx, domain.Feedback{ID: feedbackID, UserID: playerID, MatchID: matchID,
+		RulesetVersion: engine.CompetitiveRulesetVersion, Message: "Quero melhorar a arena"}); err != nil {
+		t.Fatal(err)
+	}
+
+	oldSessionID, _ := security.NewID()
+	oldAccess := []byte("old-access-" + oldSessionID)
+	if err := db.CreateSession(ctx, domain.NewSession{ID: oldSessionID, UserID: playerID,
+		AccessHash: oldAccess, RefreshHash: []byte("old-refresh-" + oldSessionID),
+		AccessUntil: time.Now().Add(time.Hour), RefreshUntil: time.Now().Add(time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	deactivatedAt := time.Now().UTC()
+	if err := db.DeactivateAccount(ctx, playerID, "test-only", deactivatedAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.AccessToken(ctx, oldAccess, time.Now()); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("sessão antiga sobreviveu ao soft delete: %v", err)
+	}
+
+	newSessionID, _ := security.NewID()
+	if err := db.CreateSession(ctx, domain.NewSession{ID: newSessionID, UserID: playerID,
+		AccessHash: []byte("new-access-" + newSessionID), RefreshHash: []byte("new-refresh-" + newSessionID),
+		AccessUntil: time.Now().Add(time.Hour), RefreshUntil: time.Now().Add(time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	reactivated, err := db.UserByID(ctx, playerID)
+	if err != nil || !reactivated.ReactivationResetPending {
+		t.Fatalf("login não reativou com decisão pendente: user=%+v err=%v", reactivated, err)
+	}
+	resetAt := time.Now().UTC().Add(time.Millisecond)
+	if err := db.ResolveAccountReactivation(ctx, playerID, true, engine.CompetitiveRulesetVersion, resetAt); err != nil {
+		t.Fatal(err)
+	}
+
+	freshDecks, err := db.ListDecks(ctx, playerID)
+	if err != nil || len(freshDecks) != 1 || freshDecks[0].ID == playerDecks[0].ID || !freshDecks[0].Active {
+		t.Fatalf("novo ciclo não recebeu um único deck limpo: decks=%+v err=%v", freshDecks, err)
+	}
+	var archived, xp, mastery, fragments, feedback, resetGrants int
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM decks WHERE user_id=$1 AND archived_at IS NOT NULL`, playerID).Scan(&archived); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.db.QueryRowContext(ctx, `SELECT xp FROM player_account_progress WHERE user_id=$1`, playerID).Scan(&xp); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM player_champion_mastery WHERE user_id=$1`, playerID).Scan(&mastery); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.db.QueryRowContext(ctx, `SELECT COALESCE(max(fragments),0) FROM player_wallets WHERE user_id=$1`, playerID).Scan(&fragments); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM feedback WHERE user_id=$1`, playerID).Scan(&feedback); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.db.QueryRowContext(ctx, `SELECT count(*) FROM economy_transactions
+		WHERE user_id=$1 AND source='account_reactivation'`, playerID).Scan(&resetGrants); err != nil {
+		t.Fatal(err)
+	}
+	if archived != 1 || xp != 0 || mastery != 0 || fragments != 0 || feedback != 0 || resetGrants != 1 {
+		t.Fatalf("dados do ciclo anterior sobreviveram: archived=%d xp=%d mastery=%d fragments=%d feedback=%d grants=%d",
+			archived, xp, mastery, fragments, feedback, resetGrants)
+	}
+
+	playerHistory, err := db.MatchHistory(ctx, playerID, 20)
+	if err != nil || len(playerHistory) != 0 {
+		t.Fatalf("histórico antigo ainda visível ao jogador resetado: %+v err=%v", playerHistory, err)
+	}
+	opponentHistory, err := db.MatchHistory(ctx, opponentID, 20)
+	if err != nil || len(opponentHistory) != 1 || opponentHistory[0].MatchID != matchID {
+		t.Fatalf("reset destruiu histórico do adversário: %+v err=%v", opponentHistory, err)
+	}
+	replay, err := db.MatchReplay(ctx, matchID)
+	if err != nil || replay.MatchID != matchID || replay.Players[0].UserID != playerID {
+		t.Fatalf("registro compartilhado foi destruído: replay=%+v err=%v", replay, err)
+	}
+}
+
 func TestAdminInviteAndPlayerBanAreTransactional(t *testing.T) {
 	ctx, db, playerID := integrationDB(t)
 

@@ -42,6 +42,7 @@ interface SessionState {
   setActiveMatch: (matchId: string | null) => void;
   setGuidedMatch: (matchId: string | null) => void;
   setLastBattle: (battle: LastBattle) => void;
+  resetGameplay: () => void;
   clear: () => void;
 }
 
@@ -55,13 +56,16 @@ export const useSessionStore = create<SessionState>()(
       guidedMatchId: null,
       lastBattle: null,
 	  setAuth: (user, tokens) => set({ user, tokens, principal: { user_id: user.id, display_name: user.display_name,
-		role: user.role, avatar_id: user.avatar_id, password_set: user.password_set } }),
+		role: user.role, avatar_id: user.avatar_id, password_set: user.password_set,
+		reactivation_reset_pending: user.reactivation_reset_pending } }),
 	  setPrincipal: (principal) => set((state) => ({ principal, user: state.user ? { ...state.user,
-		display_name: principal.display_name, avatar_id: principal.avatar_id, password_set: principal.password_set } : null })),
+		display_name: principal.display_name, avatar_id: principal.avatar_id, password_set: principal.password_set,
+		reactivation_reset_pending: principal.reactivation_reset_pending } : null })),
       setTokens: (tokens) => set({ tokens }),
       setActiveMatch: (activeMatchId) => set({ activeMatchId }),
       setGuidedMatch: (guidedMatchId) => set({ guidedMatchId }),
       setLastBattle: (lastBattle) => set({ lastBattle, activeMatchId: null }),
+      resetGameplay: () => set({ activeMatchId: null, guidedMatchId: null, lastBattle: null }),
       clear: () => set({ user: null, principal: null, tokens: null, activeMatchId: null, guidedMatchId: null, lastBattle: null }),
     }),
     { name: "nythara-session", storage: createJSONStorage(() => sessionStorage) },
@@ -87,6 +91,7 @@ interface PreferencesState {
   beginTutorial: (userId: string) => void;
   completeTutorialStep: (userId: string, step: TutorialStepId) => void;
   restartTutorial: (userId: string) => void;
+  resetAccount: (userId: string) => void;
   setLocale: (locale: Locale) => void;
 }
 
@@ -123,6 +128,11 @@ export const usePreferencesStore = create<PreferencesState>()(
       restartTutorial: (userId) => set((state) => ({
         tutorialByUser: { ...state.tutorialByUser, [userId]: { started: true, completed: [], finished: false } },
       })),
+      resetAccount: (userId) => set((state) => {
+        const tutorialByUser = { ...state.tutorialByUser };
+        delete tutorialByUser[userId];
+        return { tutorialByUser, onboardingUserId: state.onboardingUserId === userId ? null : state.onboardingUserId };
+      }),
       setLocale: (locale) => set({ locale }),
     }),
     { name: "nythara-preferences", storage: createJSONStorage(() => localStorage) },

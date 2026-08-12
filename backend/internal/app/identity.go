@@ -108,6 +108,10 @@ func (s *Service) ExchangeOAuthTicket(ctx context.Context, ticket string) (domai
 		return domain.User{}, domain.SessionTokens{}, err
 	}
 	tokens, err := s.newSession(ctx, user.ID)
+	if err != nil {
+		return domain.User{}, domain.SessionTokens{}, err
+	}
+	user, err = s.store.UserByID(ctx, user.ID)
 	return user, tokens, err
 }
 
@@ -267,7 +271,9 @@ func (s *Service) UpdateProfileAvatar(ctx context.Context, principal domain.Prin
 		return domain.Principal{}, err
 	}
 	return domain.Principal{UserID: user.ID, Role: user.Role, DisplayName: user.DisplayName,
-		AvatarID: user.AvatarID, PasswordSet: user.PasswordSet}, nil
+		AvatarID: user.AvatarID, PasswordSet: user.PasswordSet,
+		ReactivationResetPending: user.ReactivationResetPending,
+		DataResetAt:              principal.DataResetAt}, nil
 }
 
 func (s *Service) ChangePassword(ctx context.Context, principal domain.Principal, currentPassword, newPassword string) error {

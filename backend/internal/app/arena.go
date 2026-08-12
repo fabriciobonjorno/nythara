@@ -37,6 +37,10 @@ func (s *Service) MatchReplay(ctx context.Context, principal domain.Principal,
 		// O log completo revela mão e baralho: nada de espiar partida viva.
 		return domain.MatchReplayData{}, domain.ErrForbidden
 	}
+	if participant && !principal.Role.IsAdmin() && principal.DataResetAt != nil &&
+		replay.CreatedAt.Before(*principal.DataResetAt) {
+		return domain.MatchReplayData{}, domain.ErrForbidden
+	}
 	if rs, err := engine.RulesetByVersion(replay.RulesetVersion); err == nil && rs.IsConfront() {
 		replay.StartingVitality = rs.ConfrontRules.StartingVitality
 	}
