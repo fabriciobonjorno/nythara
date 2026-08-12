@@ -85,18 +85,19 @@ export function Landing() {
   };
 
   return (
-    <main className="landing">
-      <div className="landing-art" aria-hidden="true" />
-      <header className="landing-header"><a href="#inicio" className="brand" aria-label="Nythara — início"><NytharaBrand /></a><div className="landing-header__tools"><LanguageSelector compact /><span className="alpha-tag">ALPHA · MODO CONFRONTO</span></div></header>
-      <section id="inicio" className="landing-copy">
+    <main className="landing landing--public">
+      <div className="landing-hero">
+        <div className="landing-art" aria-hidden="true" />
+        <header className="landing-header"><a href="#inicio" className="brand" aria-label="Nythara — início"><NytharaBrand /></a><div className="landing-header__tools"><LanguageSelector compact /><span className="alpha-tag">ALPHA · MODO CONFRONTO</span></div></header>
+        <section id="inicio" className="landing-copy">
         <img className="landing-hero-logo" src="/assets/nythara-apocalypse-logo.webp" width="817" height="413" alt="Nythara — jogo de cartas online PvP" />
         <p className="eyebrow">UM CONFRONTO. UMA DECISÃO POR VEZ.</p>
 		<h1><span>Nythara: jogo de cartas online PvP.</span> Jogue sua carta.<br /><em>Veja o duelo acontecer.</em></h1>
 		<p>Monte um baralho de 30 cartas e dispute duelos estratégicos 1v1 em tempo real. Assalte, defenda e use Ritos em uma mesa direta: as cartas se encontram no centro, a perdedora se estilhaça e toda escolha pesa na sua Vitalidade.</p>
 		<div className="feature-row" aria-label="Características"><span><b>30</b> cartas no baralho</span><span><b>3</b> ações claras</span><span><b>1v1</b> em tempo real</span></div>
-		<a className="landing-glimpse" href="#conheca-o-jogo"><span><img src="/card-art/vr-001.webp" width="640" height="960" alt="" /><img src="/card-art/vr-014.webp" width="640" height="960" alt="" /><img src="/card-art/vr-076.webp" width="640" height="960" alt="" /></span><strong>Ver a mesa, as cartas e o duelo antes de criar conta <UiIcon name="arrow-right" /></strong></a>
-      </section>
-      <section className="auth-panel" aria-labelledby="auth-title">
+		  <a className="landing-glimpse" href="#conheca-o-jogo"><span><img src="/card-art/vr-001.webp" width="640" height="960" alt="" /><img src="/card-art/vr-014.webp" width="640" height="960" alt="" /><img src="/card-art/vr-076.webp" width="640" height="960" alt="" /></span><strong>Ver a mesa, as cartas e o duelo antes de criar conta <UiIcon name="arrow-right" /></strong></a>
+        </section>
+        <section className="auth-panel" aria-labelledby="auth-title">
 		{adminInvite && <div className="admin-invite-banner"><strong>Convite administrativo</strong><span>Crie a conta com o mesmo e-mail para aceitar este convite de uso único.</span></div>}
         <div className="auth-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={mode === "login"} onClick={() => setMode("login")}>Entrar</button>
@@ -113,8 +114,9 @@ export function Landing() {
           <button className="primary-button" disabled={busy} type="submit">{busy ? "Atravessando…" : mode === "login" ? "Entrar no Véu" : "Criar conta gratuita"}</button>
           {mode === "login" && <Link className="auth-link" to="/forgot-password">Esqueci minha senha</Link>}
           <p className="auth-note">Sem venda de poder. Monte um único baralho, treine contra o bot e entre no confronto quando estiver pronto.</p>
-        </form>
-      </section>
+		  </form>
+        </section>
+      </div>
 	  <section className="landing-showcase" id="conheca-o-jogo" aria-labelledby="showcase-title">
 		<header><p className="eyebrow">VEJA ANTES DE ENTRAR</p><h2 id="showcase-title">Como funciona o duelo de cartas.</h2><p>As cartas são reais do catálogo. Na partida, elas viajam até o centro, comparam Assalto e Guarda e resolvem o impacto diante de você.</p></header>
 		<div className="landing-duel-preview" aria-label="Prévia visual da arena de Nythara">

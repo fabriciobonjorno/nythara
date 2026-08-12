@@ -73,8 +73,10 @@ button:disabled { cursor: not-allowed; opacity: .46; }
 
 /* Landing */
 .landing { position: relative; isolation: isolate; min-height: 100svh; overflow-x: hidden; display: grid; grid-template-rows: auto auto auto auto; background: #070609; }
+.landing--public { display: block; }
+.landing-hero { position: relative; isolation: isolate; min-height: 100svh; overflow: hidden; display: grid; grid-template-rows: auto auto auto; background: #070609; }
 .landing-art { position: absolute; z-index: -2; inset: 0; background: url("/assets/nythara-apocalypse-arena.webp") 62% center / cover no-repeat; opacity: .94; }
-.landing::after { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, rgba(3, 2, 3, .54) 0%, rgba(4, 3, 4, .22) 52%, rgba(4, 3, 5, .58) 100%); }
+.auth-standalone::after, .landing-hero::after { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, rgba(3, 2, 3, .54) 0%, rgba(4, 3, 4, .22) 52%, rgba(4, 3, 5, .58) 100%); }
 .landing-header { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid #ffffff1c; background: linear-gradient(180deg, #070506d9, #07050673); }
 .brand { display: inline-flex; align-items: center; min-width: 0; text-decoration: none; }
 .nythara-brand { display: inline-flex; align-items: center; gap: .55rem; min-width: 0; }
@@ -1075,6 +1077,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 	.tutorial-journey-bar > a { grid-column: auto; min-height: 40px; }
 	.stat-grid { grid-template-columns: repeat(4, 1fr); }
   .landing { grid-template-columns: minmax(0, 1fr) clamp(22rem, 30vw, 27rem); grid-template-rows: auto 1fr auto; }
+  .landing-hero { grid-template-columns: minmax(0, 1fr) clamp(22rem, 30vw, 27rem); grid-template-rows: auto minmax(0, 1fr); }
   .landing-header { grid-column: 1 / -1; padding: 1.4rem 2.5rem; }
   .landing-copy { grid-column: 1; align-self: center; padding: clamp(2rem, 5vh, 4rem) clamp(1.75rem, 4vw, 4.5rem); }
   .auth-panel { grid-column: 2; grid-row: 2; align-self: center; margin: 2rem 2.5rem 2rem 0; }
