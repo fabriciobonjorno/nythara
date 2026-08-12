@@ -48,6 +48,7 @@ export interface Principal {
   display_name: string;
   avatar_id?: string;
   password_set: boolean;
+  reactivation_reset_pending?: boolean;
 }
 
 export interface User {
@@ -57,6 +58,7 @@ export interface User {
   avatar_id?: string;
 	role: "player" | "admin" | "owner";
   password_set: boolean;
+  reactivation_reset_pending?: boolean;
   created_at: string;
 }
 

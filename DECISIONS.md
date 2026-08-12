@@ -2019,3 +2019,58 @@ admin mais antigo é o proprietário atual; após a migração, a superfície de
 convite fica exclusiva a essa conta `owner`. Encerrar imediatamente uma conexão de
 batalha já estabelecida exigiria coordenação adicional com o battle server e
 fica fora desta decisão para preservar partidas determinísticas em curso.
+
+## ADR-070 — Desativação reversível e novo ciclo de dados da conta
+
+**Contexto.** A conta não oferecia saída além de encerrar a sessão. O pedido de
+produto exige uma exclusão reversível, reativação futura no login e a escolha de
+recomeçar sem progressão, coleção, baralho ou histórico pessoal. Uma remoção
+física de `users`, `decks` ou `matches` não é segura: a mesma partida pertence
+ao adversário, sustenta replays e auditoria, e `match_players` referencia o
+baralho usado. Também não é aceitável deixar refresh tokens antigos válidos
+depois que a pessoa pediu para desativar a conta.
+
+**Decisão.** “Excluir conta” significa desativar somente uma conta `player` por
+soft delete. A operação exige a confirmação literal `EXCLUIR` e, quando a conta
+possui senha, a senha atual. Ela marca `users.deleted_at` e revoga todas as
+sessões na mesma transação. `admin`, `owner` e o bot reservado não podem usar
+essa rota. Tokens de acesso e renovação consultam apenas usuários ativos, de
+modo que uma sessão concorrente deixa de autenticar assim que a transação
+termina. O e-mail e as identidades OAuth permanecem reservados para impedir
+cadastro duplicado ou tomada da identidade desativada.
+
+O próximo login válido por senha ou OAuth reativa automaticamente a conta,
+grava `reactivated_at` e abre uma nova sessão. A reativação deixa
+`reactivation_reset_pending=true`; enquanto a decisão estiver pendente, todas
+as telas autenticadas exibem um diálogo modal não dispensável com duas escolhas
+explícitas: preservar os dados ou iniciar um novo ciclo. Recarregar, renovar a
+sessão ou entrar em outro dispositivo não elimina a pendência. A confirmação é
+server-side e de uso único; contas que não acabaram de ser reativadas não podem
+acionar o reset por forja de payload.
+
+Preservar apenas encerra a pendência. Iniciar um novo ciclo é uma transação que
+zera XP global, maestria, rituais, rating, fragmentos e recompensas; remove a
+coleção atual e a recompõe com a concessão inicial do ruleset competitivo;
+arquiva todos os baralhos anteriores e cria o baralho inicial; limpa chaves de
+idempotência e feedback pessoal; e grava `data_reset_at`. Nome, e-mail, senha,
+vínculos OAuth, emblema de perfil e papel permanecem. Baralhos arquivados não
+aparecem, não podem ser editados ou usados e não contam para a regra de um
+baralho de Confronto, mas continuam referenciáveis pelas partidas históricas.
+O ledger de economia e o `match_progress_log` permanecem como trilha
+append-only e proteção contra crédito duplicado; o novo grant recebe origem de
+reativação.
+
+Partidas anteriores a `data_reset_at` continuam imutáveis e disponíveis ao
+adversário e aos operadores, mas somem do histórico do jogador recomeçado e
+esse jogador deixa de abrir seus replays antigos. Partidas criadas depois do
+corte formam o novo histórico. A engine, comandos, eventos, snapshots e RNG não
+são alterados.
+
+**Consequências.** A pessoa pode sair e retornar sem perder dados por padrão,
+ou escolher conscientemente recomeçar. Revogação e estado pendente ficam no
+servidor, portanto não dependem do navegador. A preservação de registros
+compartilhados evita apagar direitos do adversário e mantém investigação
+operacional possível, enquanto a projeção do jogador se comporta como conta
+limpa. Desativação não interrompe à força uma conexão de batalha já estabelecida;
+ela corta novos requests e reconexões, seguindo a mesma fronteira operacional
+do banimento descrita no ADR-069.

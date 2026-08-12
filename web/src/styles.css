@@ -159,8 +159,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .mobile-brand .nythara-brand__wordmark { width: 6.8rem; }
 .profile-chip { min-height: 44px; display: flex; align-items: center; gap: .55rem; text-decoration: none; font-size: .76rem; }
 .profile-chip small { display: block; color: var(--muted); font-size: .61rem; }
-.avatar { display: grid; place-items: center; width: 2rem; height: 2rem; overflow: hidden; background: var(--wine); border: 1px solid var(--gold); border-radius: 50%; }
-.avatar .champion-emblem { width: 2.4rem; height: 2.2rem; }
+.avatar { --emblem-size: 120%; display: grid; place-items: center; width: 2rem; height: 2rem; overflow: hidden; background: var(--wine); border: 1px solid var(--gold); border-radius: 50%; }
 .bottom-nav { position: fixed; z-index: 30; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(6, 1fr); min-height: 4.4rem; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--line); background: #100c10f2; backdrop-filter: blur(18px); }
 .bottom-nav a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; color: var(--muted); text-decoration: none; }
 .bottom-nav .ui-icon { width: 1.25rem; height: 1.25rem; }
@@ -332,7 +331,10 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .champion-portrait { position: relative; min-height: 14rem; display: grid; place-items: center; align-content: center; gap: .55rem; overflow: hidden; background: radial-gradient(circle at 50% 45%, var(--champion-glow), #1b1118 58%, #100c10); border-bottom: 1px solid var(--line); color: var(--champion-accent); }
 .champion-portrait::before { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 45%, #ffffff08 45.2%, transparent 45.6%), linear-gradient(45deg, transparent 57%, #ffffff07 57.2%, transparent 57.6%); pointer-events: none; }
 .champion-portrait::after { content: ""; position: absolute; inset: auto 12% 1.7rem; height: 1px; background: linear-gradient(90deg, transparent, var(--champion-accent), transparent); opacity: .55; }
-.champion-emblem { position: relative; z-index: 1; width: min(10rem, 82%); height: auto; overflow: visible; color: var(--champion-accent); filter: drop-shadow(0 0 16px var(--champion-glow)); }
+.champion-emblem { position: relative; z-index: 1; width: min(10rem, 82%); height: auto; aspect-ratio: 9 / 8; display: block; overflow: visible; color: var(--champion-accent); filter: drop-shadow(0 0 16px var(--champion-glow)); transform-origin: center; }
+.emblem-frame { position: relative; }
+.emblem-frame > .champion-emblem { position: absolute; top: 50%; left: 50%; width: var(--emblem-size, 100%); max-width: none; height: auto; margin: 0; transform: translate(-50%, -50%); }
+.duelist__portrait.emblem-frame { --emblem-size: 65%; }
 .champion-emblem__halo, .champion-emblem__orbit, .champion-emblem__ticks, .champion-emblem__line, .champion-emblem__fine, .champion-emblem__accent-line { fill: none; vector-effect: non-scaling-stroke; }
 .champion-emblem__halo { stroke: currentColor; stroke-width: 1; opacity: .24; }
 .champion-emblem__orbit { stroke: currentColor; stroke-width: 1.4; stroke-dasharray: 2 7 19 9; opacity: .58; transform-origin: 90px 80px; animation: champion-orbit 26s linear infinite; }
@@ -388,8 +390,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .champion-picker { display: flex; gap: .6rem; overflow-x: auto; padding-bottom: .4rem; scroll-snap-type: x mandatory; }
 .champion-picker button { flex: 0 0 9rem; scroll-snap-align: start; display: grid; justify-items: center; gap: .28rem; padding: .8rem; background: #100c10; border: 1px solid var(--line); cursor: pointer; text-align: center; }
 .champion-picker button.is-selected { border-color: var(--gold); background: #2a201d; }
-.champion-picker__emblem { width: 3.75rem; height: 3.35rem; display: grid; place-items: center; color: var(--gold); }
-.champion-picker__emblem .champion-emblem { width: 4.2rem; max-width: none; }
+.champion-picker__emblem { --emblem-size: 112%; width: 3.75rem; height: 3.35rem; display: grid; place-items: center; color: var(--gold); }
 .champion-picker strong { font: 400 .85rem Georgia, serif; }
 .champion-picker small { display: grid; justify-items: center; gap: .15rem; color: var(--muted); font-size: .55rem; }
 .champion-picker__vitality { display: inline-flex; align-items: center; gap: .18rem; color: #dc858d; }
@@ -614,8 +615,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .result-duelist.is-rival > .result-duelist__emblem { grid-column: 3; grid-row: 1; }
 .result-duelist.is-rival > div { grid-column: 2; grid-row: 1; }
 .result-duelist.is-rival > .result-duelist__vitality { grid-column: 1; grid-row: 1; }
-.result-duelist__emblem { width: 4.6rem; height: 4.6rem; display: grid; place-items: center; color: var(--gold); background: radial-gradient(circle, #39251e, #100c0f 70%); border: 1px solid #6d554a; border-radius: 50%; }
-.result-duelist__emblem .champion-emblem { width: 4.2rem; height: 4.2rem; }
+.result-duelist__emblem { --emblem-size: 91.3%; width: 4.6rem; height: 4.6rem; display: grid; place-items: center; color: var(--gold); background: radial-gradient(circle, #39251e, #100c0f 70%); border: 1px solid #6d554a; border-radius: 50%; }
 .result-duelist__emblem > .ui-icon { width: 2rem; height: 2rem; }
 .result-duelist > div { min-width: 0; }
 .result-duelist > div small, .result-duelist > div strong, .result-duelist > div em { display: block; }
@@ -706,8 +706,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .replay-player.is-own { border-color: #725144; box-shadow: inset 3px 0 var(--gold); }
 .replay-duelist { min-width: 0; flex: 1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .55rem; opacity: .74; transition: opacity .25s, background .25s; }
 .replay-duelist.is-active { opacity: 1; }
-.replay-avatar { width: 2.8rem; height: 2.8rem; display: grid; place-items: center; overflow: hidden; color: var(--gold); border: 1px solid var(--gold); border-radius: 50%; background: #21171b; }
-.replay-avatar .champion-emblem { width: 112%; }
+.replay-avatar { --emblem-size: 112%; width: 2.8rem; height: 2.8rem; display: grid; place-items: center; overflow: hidden; color: var(--gold); border: 1px solid var(--gold); border-radius: 50%; background: #21171b; }
 .replay-duelist > div { min-width: 0; }
 .replay-duelist > div small, .replay-duelist > div strong, .replay-duelist > div em { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .replay-duelist > div small { color: var(--gold); font-size: .44rem; letter-spacing: .13em; }
@@ -823,8 +822,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 @keyframes replay-event-in { from { opacity: .35; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 .honesty-note { margin-top: 1rem; padding: .8rem; border-left: 2px solid var(--gold); color: var(--muted); font-size: .75rem; line-height: 1.5; }
 .profile-hero { display: flex; align-items: center; gap: 1rem; padding: 1.5rem; background: var(--panel); border: 1px solid var(--line); }
-.profile-avatar { position: relative; width: 4.5rem; height: 4.5rem; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--gold); border-radius: 50%; background: var(--wine); font: 400 2rem Georgia, serif; }
-.profile-avatar .champion-emblem { position: absolute; top: 50%; left: 50%; width: 5rem; max-width: none; height: auto; display: block; transform: translate(-50%, -50%); }
+.profile-avatar { --emblem-size: 111.111%; position: relative; width: 4.5rem; height: 4.5rem; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--gold); border-radius: 50%; background: var(--wine); font: 400 2rem Georgia, serif; }
 .profile-hero h1 { margin: 0 0 .3rem; font-size: clamp(2rem, 5vw, 3.5rem); }
 .profile-hero p:not(.eyebrow) { margin: 0; color: var(--muted); }
 .season-seal { margin-left: auto; display: none; text-align: center; color: var(--gold); }
@@ -842,14 +840,29 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
 .profile-details dd { margin: 0; text-align: right; }
 .profile-settings-grid { display: grid; gap: 1rem; margin-top: 1rem; }
 .profile-editor { display: grid; align-content: start; gap: 1rem; padding: 1.25rem; }
+.panel.profile-editor > header { display: block; }
 .profile-editor header h2 { margin-bottom: .45rem; font-size: 1.65rem; }
 .profile-editor header > p:last-child { margin: 0; color: var(--muted); line-height: 1.55; }
 .profile-avatar-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
 .profile-avatar-options button { min-width: 0; display: grid; justify-items: center; gap: .25rem; padding: .5rem .3rem; background: #100c10; border: 1px solid var(--line); color: var(--muted); cursor: pointer; }
 .profile-avatar-options button.is-selected { color: var(--gold-bright); border-color: var(--gold); background: #2b1d23; box-shadow: inset 0 0 0 1px #bda36333; }
-.profile-avatar-options .champion-emblem { width: 3.5rem; max-width: none; height: auto; display: block; }
-.profile-avatar-options span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .62rem; }
+.profile-avatar-option__emblem { --emblem-size: 100%; width: 3.5rem; height: 3.12rem; }
+.profile-avatar-options button > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .62rem; }
 .password-editor label { display: grid; gap: .4rem; color: var(--muted); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.account-deactivation-panel { display: grid; gap: 1rem; align-items: center; padding: 1.25rem; border-color: #65313b; }
+.account-deactivation-panel h2 { margin-bottom: .4rem; }
+.account-deactivation-panel p:last-child { max-width: 46rem; margin: 0; color: var(--muted); line-height: 1.55; }
+.account-deactivation-panel .danger-button { justify-self: start; }
+.account-modal-backdrop { position: fixed; z-index: 1200; inset: 0; display: grid; place-items: center; padding: 1rem; overflow: auto; background: #030203ed; backdrop-filter: blur(8px); }
+.account-modal { width: min(38rem, 100%); display: grid; gap: 1rem; padding: clamp(1.35rem, 4vw, 2.25rem); color: var(--ivory); border: 1px solid #70505a; background: linear-gradient(145deg, #1c1319, #100d11); box-shadow: 0 24px 80px #000c; }
+.account-modal h2 { margin: 0; font-size: clamp(2rem, 7vw, 3.2rem); line-height: 1; }
+.account-modal > p:not(.eyebrow):not(.form-error) { margin: 0; color: var(--muted); line-height: 1.65; }
+.account-modal label { display: grid; gap: .45rem; color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.account-modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .65rem; }
+.reactivation-choices { display: grid; gap: .75rem; }
+.reactivation-choices button { min-height: 5.5rem; display: grid; justify-items: start; gap: .3rem; padding: 1rem; text-align: left; text-transform: none; letter-spacing: 0; }
+.reactivation-choices button strong { font: 400 1.25rem Georgia, serif; }
+.reactivation-choices button span { color: var(--muted); font-size: .75rem; font-weight: 500; line-height: 1.45; }
 
 /* Iconografia original do guia */
 .veil-glyph { width: 10rem; height: 10rem; overflow: visible; color: var(--gold-bright); --glyph-accent: #c33b59; --glyph-soft: #8b234044; filter: drop-shadow(0 0 14px #d0aa6052); }
@@ -1065,6 +1078,7 @@ label small { color: #82767a; font-weight: 400; letter-spacing: 0; text-transfor
   .auth-panel { grid-column: 2; grid-row: 2; align-self: center; margin: 2rem 2.5rem 2rem 0; }
   .landing-footer { grid-column: 1 / -1; padding: 1rem 2.5rem; }
 	.profile-settings-grid { grid-template-columns: minmax(0, 1.35fr) minmax(20rem, .65fr); }
+	.account-deactivation-panel { grid-column: 1 / -1; grid-template-columns: 1fr auto; }
   .auth-standalone { grid-template-columns: 1fr; }
   .auth-standalone .landing-header, .auth-standalone .landing-footer { grid-column: 1; }
   .auth-standalone .recovery-panel { grid-column: 1; grid-row: 2; margin: 2rem auto; }

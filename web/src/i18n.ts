@@ -330,6 +330,7 @@ const entries: Entry[] = [
 
   // Administração.
   ["SALÃO DE CONTROLE", "SALA DE CONTROL", "CONTROL HALL"], ["Conta competitiva", "Cuenta competitiva", "Competitive account"], ["PROIBIDO", "PROHIBIDO", "FORBIDDEN"],
+  ["DESATIVADA", "DESACTIVADA", "DEACTIVATED"],
   ["Forja de cartas", "Forja de cartas", "Card forge"], ["FORJA DE CARTAS", "FORJA DE CARTAS", "CARD FORGE"], ["Temporada", "Temporada", "Season"],
   ["Telemetria", "Telemetría", "Telemetry"], ["Auditoria", "Auditoría", "Audit"], ["Bans", "Bloqueos", "Bans"], ["Drafts", "Borradores", "Drafts"],
   ["Criar draft", "Crear borrador", "Create draft"], ["Validar", "Validar", "Validate"], ["Simular", "Simular", "Simulate"], ["Publicar", "Publicar", "Publish"],
@@ -394,6 +395,19 @@ const entries: Entry[] = [
 	["Use de 12 a 256 caracteres.", "Usa entre 12 y 256 caracteres.", "Use 12 to 256 characters."],
 	["Trocar senha e sair", "Cambiar contraseña y salir", "Change password and sign out"], ["Criar senha e sair", "Crear contraseña y salir", "Create password and sign out"],
 	["Protegendo a conta…", "Protegiendo la cuenta…", "Securing account…"],
+	["CONTROLE DA CONTA", "CONTROL DE LA CUENTA", "ACCOUNT CONTROL"], ["Desativar minha conta", "Desactivar mi cuenta", "Deactivate my account"],
+	["Seu acesso será encerrado em todos os dispositivos. Seus dados ficam preservados e a conta pode ser reativada futuramente ao entrar de novo.", "Se cerrará tu acceso en todos los dispositivos. Tus datos permanecerán guardados y podrás reactivar la cuenta al volver a iniciar sesión.", "You will be signed out on every device. Your data remains preserved, and you can reactivate the account by signing in again."],
+	["Desativar conta", "Desactivar cuenta", "Deactivate account"], ["CONFIRMAÇÃO DE SEGURANÇA", "CONFIRMACIÓN DE SEGURIDAD", "SECURITY CONFIRMATION"],
+	["Desativar sua conta?", "¿Desactivar tu cuenta?", "Deactivate your account?"],
+	["Você poderá reativá-la ao entrar novamente. Todas as sessões atuais serão encerradas agora.", "Podrás reactivarla al volver a iniciar sesión. Todas las sesiones actuales se cerrarán ahora.", "You can reactivate it by signing in again. All current sessions will be signed out now."],
+	["Digite EXCLUIR para confirmar", "Escribe EXCLUIR para confirmar", "Type EXCLUIR to confirm"],
+	["Confirmar desativação", "Confirmar desactivación", "Confirm deactivation"], ["Desativando…", "Desactivando…", "Deactivating…"],
+	["Conta desativada. Quando quiser voltar, entre novamente com seus dados.", "Cuenta desactivada. Cuando quieras volver, inicia sesión de nuevo con tus datos.", "Account deactivated. When you want to return, sign in again with your credentials."],
+	["CONTA REATIVADA", "CUENTA REACTIVADA", "ACCOUNT REACTIVATED"], ["Como você quer retornar?", "¿Cómo quieres volver?", "How would you like to return?"],
+	["Sua conta voltou a ficar ativa. Você pode continuar exatamente de onde parou ou recomeçar com nível, coleção, baralho e histórico pessoal limpos.", "Tu cuenta vuelve a estar activa. Puedes continuar exactamente donde la dejaste o empezar de nuevo con nivel, colección, mazo e historial personal limpios.", "Your account is active again. You can continue exactly where you left off or restart with a clean level, collection, deck, and personal history."],
+	["Manter meus dados", "Conservar mis datos", "Keep my data"], ["Preserva progresso, cartas, baralho e partidas.", "Conserva el progreso, las cartas, el mazo y las partidas.", "Preserves progress, cards, deck, and matches."],
+	["Sim, quero recomeçar", "Sí, quiero empezar de nuevo", "Yes, start over"], ["Recomeçando…", "Reiniciando…", "Starting over…"],
+	["O reset não poderá ser desfeito depois da confirmação.", "El reinicio no se podrá deshacer después de confirmarlo.", "The reset cannot be undone after confirmation."],
   ["Jogue partidas ranqueadas para registrar rating, patente e posição na temporada.", "Juega partidas clasificatorias para registrar rating, rango y posición en la temporada.", "Play ranked matches to record rating, rank, and season position."],
   ["Histórico de partidas", "Historial de partidas", "Match history"], ["Próximos passos", "Próximos pasos", "Next steps"], ["Buscar duelo", "Buscar duelo", "Find duel"],
   ["Números da partida", "Números de la partida", "Match numbers"], ["Vitalidade investida", "Vitalidad invertida", "Vitality invested"],
@@ -453,6 +467,7 @@ const errorEntries: Record<string, Entry> = {
   sequence_reuse: ["A ação não pôde ser confirmada. Sincronizando…", "No se pudo confirmar la acción. Sincronizando…", "The action could not be confirmed. Syncing…"],
   not_ready: ["A partida ainda não está pronta.", "La partida aún no está lista.", "The match is not ready yet."],
   reset_token_invalid: ["Este link é inválido ou expirou.", "Este enlace no es válido o ha caducado.", "This link is invalid or has expired."],
+  reactivation_pending: ["Escolha como continuar após reativar a conta.", "Elige cómo continuar después de reactivar la cuenta.", "Choose how to continue after reactivating your account."],
 };
 
 function localized(entry: Entry, locale: Locale) {

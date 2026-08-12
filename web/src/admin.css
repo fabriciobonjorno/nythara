@@ -50,6 +50,7 @@
 .admin-status.is-ok, .admin-status.is-finished { color: #9cdda5; border-color: #3d6645; }
 .admin-status.is-danger, .admin-status.is-cancelled { color: #ff8490; border-color: #78333e; }
 .admin-status.is-active, .admin-status.is-waiting_ready { color: #e9c66e; border-color: #725e2c; }
+.admin-status.is-muted { color: #c6b9bb; border-color: #5c5154; background: #191416; }
 .admin-winner { display: block; color: #9cdda5; }
 .admin-winner::after { content: " · vitória"; color: var(--muted); font-size: .58rem; }
 

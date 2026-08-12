@@ -121,6 +121,12 @@ var migration18Up string
 //go:embed migrations/000018_admin_operations.down.sql
 var migration18Down string
 
+//go:embed migrations/000019_account_lifecycle.up.sql
+var migration19Up string
+
+//go:embed migrations/000019_account_lifecycle.down.sql
+var migration19Down string
+
 type migration struct {
 	version int64
 	up      string
@@ -145,6 +151,7 @@ var migrations = []migration{
 	{version: 16, up: migration16Up, down: migration16Down},
 	{version: 17, up: migration17Up, down: migration17Down},
 	{version: 18, up: migration18Up, down: migration18Down},
+	{version: 19, up: migration19Up, down: migration19Down},
 }
 
 type Postgres struct {
@@ -524,27 +531,37 @@ func createUserTx(ctx context.Context, tx *sql.Tx, user domain.User, starterRule
 	if _, err := tx.ExecContext(ctx, `INSERT INTO player_profiles(user_id,display_name) VALUES($1,$2)`, user.ID, user.DisplayName); err != nil {
 		return domain.User{}, mapError(err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO player_account_progress(user_id,xp) VALUES($1,0)`, user.ID); err != nil {
-		return domain.User{}, mapError(err)
+	if err := grantStarterGameDataTx(ctx, tx, user.ID, starterRuleset, "registration"); err != nil {
+		return domain.User{}, err
+	}
+	return user, nil
+}
+
+// grantStarterGameDataTx recompõe a projeção jogável de uma conta. Cadastro e
+// reset usam exatamente o mesmo catálogo e o mesmo precon para não criarem dois
+// conceitos diferentes de "conta nova".
+func grantStarterGameDataTx(ctx context.Context, tx *sql.Tx, userID, starterRuleset, source string) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO player_account_progress(user_id,xp) VALUES($1,0)`, userID); err != nil {
+		return mapError(err)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO player_cards(user_id,card_id,ruleset_version,quantity)
 		SELECT $1,id,ruleset_version,CASE WHEN rarity='Lendária' THEN 1 ELSE 2 END
-		FROM card_definitions WHERE ruleset_version=$2`, user.ID, starterRuleset); err != nil {
-		return domain.User{}, mapError(err)
+		FROM card_definitions WHERE ruleset_version=$2`, userID, starterRuleset); err != nil {
+		return mapError(err)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO player_champions(user_id,champion_id,ruleset_version)
-		SELECT $1,id,ruleset_version FROM champions WHERE ruleset_version=$2`, user.ID, starterRuleset); err != nil {
-		return domain.User{}, mapError(err)
+		SELECT $1,id,ruleset_version FROM champions WHERE ruleset_version=$2`, userID, starterRuleset); err != nil {
+		return mapError(err)
 	}
 	payload := []byte(fmt.Sprintf(`{"ruleset_version":%q,"grant":"alpha_complete"}`, starterRuleset))
 	if _, err := tx.ExecContext(ctx, `INSERT INTO economy_transactions(id,user_id,kind,source,payload)
-		VALUES(gen_random_uuid(),$1,'collection_grant','registration',$2)`, user.ID, payload); err != nil {
-		return domain.User{}, mapError(err)
+		VALUES(gen_random_uuid(),$1,'collection_grant',$2,$3)`, userID, source, payload); err != nil {
+		return mapError(err)
 	}
 	if engine.IsConfrontVersion(starterRuleset) {
 		rs, err := engine.RulesetByVersion(starterRuleset)
 		if err != nil {
-			return domain.User{}, err
+			return err
 		}
 		avatarIDs := make([]string, 0, len(rs.Champions))
 		for id := range rs.Champions {
@@ -552,18 +569,18 @@ func createUserTx(ctx context.Context, tx *sql.Tx, user domain.User, starterRule
 		}
 		sort.Strings(avatarIDs)
 		if len(avatarIDs) == 0 {
-			return domain.User{}, fmt.Errorf("ruleset Confronto sem avatares")
+			return fmt.Errorf("ruleset Confronto sem avatares")
 		}
 		precon, err := rs.PreconstructedDeck(avatarIDs[0])
 		if err != nil {
-			return domain.User{}, err
+			return err
 		}
 		var deckID string
 		if err := tx.QueryRowContext(ctx, `INSERT INTO decks
 			(id,user_id,name,champion_id,ruleset_version,active,system_provided)
 			VALUES(gen_random_uuid(),$1,'Meu Baralho',$2,$3,true,true) RETURNING id`,
-			user.ID, avatarIDs[0], starterRuleset).Scan(&deckID); err != nil {
-			return domain.User{}, mapError(err)
+			userID, avatarIDs[0], starterRuleset).Scan(&deckID); err != nil {
+			return mapError(err)
 		}
 		counts := map[string]int{}
 		for _, card := range precon {
@@ -577,32 +594,36 @@ func createUserTx(ctx context.Context, tx *sql.Tx, user domain.User, starterRule
 		for _, id := range ids {
 			if _, err := tx.ExecContext(ctx, `INSERT INTO deck_cards(deck_id,card_id,ruleset_version,quantity)
 				VALUES($1,$2,$3,$4)`, deckID, id, starterRuleset, counts[id]); err != nil {
-				return domain.User{}, mapError(err)
+				return mapError(err)
 			}
 		}
 	}
-	return user, nil
+	return nil
 }
 
 func scanUser(row interface{ Scan(...any) error }) (domain.User, error) {
 	var user domain.User
-	err := row.Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarID, &user.Role, &user.PasswordHash, &user.CreatedAt)
+	err := row.Scan(&user.ID, &user.Email, &user.DisplayName, &user.AvatarID, &user.Role, &user.PasswordHash,
+		&user.ReactivationResetPending, &user.CreatedAt)
 	user.PasswordSet = strings.HasPrefix(user.PasswordHash, "pbkdf2-sha256$")
 	return user, mapError(err)
 }
 
 func (p *Postgres) UserByEmail(ctx context.Context, email string) (domain.User, error) {
-	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,u.created_at
+	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,
+		u.reactivation_reset_pending,u.created_at
 		FROM users u JOIN player_profiles p ON p.user_id=u.id WHERE u.email=$1`, email))
 }
 
 func (p *Postgres) UserByID(ctx context.Context, id string) (domain.User, error) {
-	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,u.created_at
+	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,
+		u.reactivation_reset_pending,u.created_at
 		FROM users u JOIN player_profiles p ON p.user_id=u.id WHERE u.id=$1`, id))
 }
 
 func (p *Postgres) UserByOAuth(ctx context.Context, provider, subject string) (domain.User, error) {
-	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,u.created_at
+	return scanUser(p.db.QueryRowContext(ctx, `SELECT u.id,u.email,p.display_name,COALESCE(p.avatar_id,''),u.role,u.password_hash,
+		u.reactivation_reset_pending,u.created_at
 		FROM oauth_identities o JOIN users u ON u.id=o.user_id
 		JOIN player_profiles p ON p.user_id=u.id
 		WHERE o.provider=$1 AND o.subject=$2`, provider, subject))
@@ -681,9 +702,11 @@ func (p *Postgres) CreateSession(ctx context.Context, s domain.NewSession) error
 	// Serializa a abertura da sessão com o banimento, que bloqueia a mesma
 	// conta antes de revogar sessões. Assim não nasce uma sessão "atrás" do ban.
 	var banned bool
-	err = tx.QueryRowContext(ctx, `SELECT EXISTS(
+	var role domain.Role
+	var deleted sql.NullTime
+	err = tx.QueryRowContext(ctx, `SELECT u.role,u.deleted_at,EXISTS(
 		SELECT 1 FROM player_bans b WHERE b.user_id=u.id AND b.lifted_at IS NULL)
-		FROM users u WHERE u.id=$1 FOR UPDATE`, s.UserID).Scan(&banned)
+		FROM users u WHERE u.id=$1 FOR UPDATE`, s.UserID).Scan(&role, &deleted, &banned)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.ErrNotFound
 	}
@@ -692,6 +715,15 @@ func (p *Postgres) CreateSession(ctx context.Context, s domain.NewSession) error
 	}
 	if banned {
 		return domain.ErrForbidden
+	}
+	if deleted.Valid {
+		if role != domain.RolePlayer || s.UserID == domain.BotUserID {
+			return domain.ErrForbidden
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE users SET deleted_at=NULL,reactivated_at=now(),
+			reactivation_reset_pending=true,updated_at=now() WHERE id=$1`, s.UserID); err != nil {
+			return mapError(err)
+		}
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO auth_sessions
 		(id,user_id,access_hash,refresh_hash,access_expires_at,refresh_expires_at)
@@ -705,12 +737,14 @@ func (p *Postgres) CreateSession(ctx context.Context, s domain.NewSession) error
 func (p *Postgres) AccessToken(ctx context.Context, hash []byte, now time.Time) (domain.TokenRecord, error) {
 	var token domain.TokenRecord
 	err := p.db.QueryRowContext(ctx, `SELECT u.id,u.role,p.display_name,COALESCE(p.avatar_id,''),
-		(u.password_hash LIKE 'pbkdf2-sha256$%'),s.access_expires_at
+		(u.password_hash LIKE 'pbkdf2-sha256$%'),u.reactivation_reset_pending,u.data_reset_at,s.access_expires_at
 		FROM auth_sessions s JOIN users u ON u.id=s.user_id JOIN player_profiles p ON p.user_id=u.id
 		WHERE s.access_hash=$1 AND s.revoked_at IS NULL AND s.access_expires_at>$2
+		AND u.deleted_at IS NULL
 		AND NOT EXISTS (SELECT 1 FROM player_bans b WHERE b.user_id=u.id AND b.lifted_at IS NULL)`, hash, now).
 		Scan(&token.Principal.UserID, &token.Principal.Role, &token.Principal.DisplayName, &token.Principal.AvatarID,
-			&token.Principal.PasswordSet, &token.ExpiresAt)
+			&token.Principal.PasswordSet, &token.Principal.ReactivationResetPending,
+			&token.Principal.DataResetAt, &token.ExpiresAt)
 	return token, mapError(err)
 }
 
@@ -725,6 +759,7 @@ func (p *Postgres) RotateSession(ctx context.Context, old []byte, next domain.Ro
 	var revoked sql.NullTime
 	err = tx.QueryRowContext(ctx, `SELECT s.id,s.user_id,s.refresh_expires_at,s.revoked_at FROM auth_sessions s
 		WHERE s.refresh_hash=$1
+		AND EXISTS (SELECT 1 FROM users u WHERE u.id=s.user_id AND u.deleted_at IS NULL)
 		AND NOT EXISTS (SELECT 1 FROM player_bans b WHERE b.user_id=s.user_id AND b.lifted_at IS NULL)
 		FOR UPDATE`, old).Scan(&id, &userID, &expires, &revoked)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -877,7 +912,7 @@ func scanDeck(row interface{ Scan(...any) error }) (domain.Deck, error) {
 
 func (p *Postgres) ListDecks(ctx context.Context, userID string) ([]domain.Deck, error) {
 	rows, err := p.db.QueryContext(ctx, `SELECT id,user_id,name,champion_id,ruleset_version,version,active,locked_until,system_provided,created_at,updated_at
-		FROM decks WHERE user_id=$1 ORDER BY updated_at DESC,id`, userID)
+		FROM decks WHERE user_id=$1 AND archived_at IS NULL ORDER BY updated_at DESC,id`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -898,7 +933,7 @@ func (p *Postgres) ListDecks(ctx context.Context, userID string) ([]domain.Deck,
 
 func (p *Postgres) Deck(ctx context.Context, userID, deckID string) (domain.Deck, error) {
 	d, err := scanDeck(p.db.QueryRowContext(ctx, `SELECT id,user_id,name,champion_id,ruleset_version,version,active,locked_until,system_provided,created_at,updated_at
-		FROM decks WHERE user_id=$1 AND id=$2`, userID, deckID))
+		FROM decks WHERE user_id=$1 AND id=$2 AND archived_at IS NULL`, userID, deckID))
 	if err != nil {
 		return d, err
 	}
@@ -946,7 +981,7 @@ func (p *Postgres) SaveDeck(ctx context.Context, d domain.Deck, expected *int64,
 	} else {
 		err = tx.QueryRowContext(ctx, `UPDATE decks SET name=$1,champion_id=$2,ruleset_version=$3,
 			active=$4,locked_until=$5,system_provided=$6,version=version+1,updated_at=now()
-			WHERE id=$7 AND user_id=$8 AND version=$9
+			WHERE id=$7 AND user_id=$8 AND version=$9 AND archived_at IS NULL
 			  AND (system_provided OR locked_until IS NULL OR locked_until<=now()
 			       OR NOT EXISTS (SELECT 1 FROM rulesets r WHERE r.version=decks.ruleset_version AND r.mode='confront'))
 			RETURNING version,created_at,updated_at`, d.Name, d.ChampionID, d.RulesetVersion,
@@ -991,7 +1026,8 @@ func (p *Postgres) DeleteDeck(ctx context.Context, userID, deckID string, expect
 		}
 		return false, err
 	}
-	result, err := tx.ExecContext(ctx, `DELETE FROM decks WHERE id=$1 AND user_id=$2 AND version=$3`, deckID, userID, expected)
+	result, err := tx.ExecContext(ctx, `DELETE FROM decks WHERE id=$1 AND user_id=$2 AND version=$3
+		AND archived_at IS NULL`, deckID, userID, expected)
 	if err != nil {
 		return false, mapError(err)
 	}

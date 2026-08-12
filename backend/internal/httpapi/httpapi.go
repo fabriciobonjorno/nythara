@@ -105,6 +105,8 @@ func NewWithOptions(service *app.Service, battles *battle.Manager, logger *slog.
 	mux.Handle("GET /v1/me", api.auth(http.HandlerFunc(api.me)))
 	mux.Handle("PUT /v1/me/profile", api.auth(http.HandlerFunc(api.updateProfile)))
 	mux.Handle("PUT /v1/me/password", api.auth(http.HandlerFunc(api.changePassword)))
+	mux.Handle("POST /v1/me/deactivate", api.auth(http.HandlerFunc(api.deactivateAccount)))
+	mux.Handle("POST /v1/me/reactivation", api.auth(http.HandlerFunc(api.resolveAccountReactivation)))
 	mux.Handle("GET /v1/collection", api.auth(http.HandlerFunc(api.collection)))
 	mux.Handle("GET /v1/decks", api.auth(http.HandlerFunc(api.listDecks)))
 	mux.Handle("POST /v1/decks", api.auth(http.HandlerFunc(api.createDeck)))
@@ -472,6 +474,11 @@ func (a *API) auth(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "unauthorized", "token inválido ou expirado")
 			return
 		}
+		if principal.ReactivationResetPending && r.URL.Path != "/v1/me" &&
+			r.URL.Path != "/v1/me/reactivation" && r.URL.Path != "/v1/me/deactivate" {
+			writeError(w, http.StatusConflict, "reactivation_pending", "decida como continuar após a reativação")
+			return
+		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey{}, principal)))
 	})
 }
@@ -783,6 +790,37 @@ func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) deactivateAccount(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Confirmation    string `json:"confirmation"`
+		CurrentPassword string `json:"current_password"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	if err := a.service.DeactivateAccount(r.Context(), principal(r), input.Confirmation,
+		input.CurrentPassword); err != nil {
+		a.respondError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (a *API) resolveAccountReactivation(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		ResetData bool `json:"reset_data"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	updated, err := a.service.ResolveAccountReactivation(r.Context(), principal(r), input.ResetData)
+	if err != nil {
+		a.respondError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
 }
 
 func (a *API) collection(w http.ResponseWriter, r *http.Request) {
