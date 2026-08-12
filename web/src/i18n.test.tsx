@@ -32,6 +32,9 @@ describe("catálogo de apresentação", () => {
     expect(translateText("Declare este Assalto com Poder 9. O rival pode responder com uma Guarda.", "es"))
       .toContain("Declara este Asalto con Poder 9");
     expect(translateText("Corte Rubro", "en")).toBe("Corte Rubro");
+    expect(translateText("Um jogo de cartas competitivo, gratuito e original.", "en"))
+      .toBe("A free, original competitive card game.");
+    expect(translateText("Treine sem espera", "es")).toBe("Entrena sin esperar");
   });
 
   it("traduz todas as descrições de acessibilidade sem misturar idiomas", () => {

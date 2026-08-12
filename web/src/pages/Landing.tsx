@@ -89,12 +89,12 @@ export function Landing() {
       <div className="landing-art" aria-hidden="true" />
       <header className="landing-header"><a href="#inicio" className="brand" aria-label="Nythara — início"><NytharaBrand /></a><div className="landing-header__tools"><LanguageSelector compact /><span className="alpha-tag">ALPHA · MODO CONFRONTO</span></div></header>
       <section id="inicio" className="landing-copy">
-        <img className="landing-hero-logo" src="/assets/nythara-apocalypse-logo.webp" alt="Nythara" />
+        <img className="landing-hero-logo" src="/assets/nythara-apocalypse-logo.webp" width="817" height="413" alt="Nythara — jogo de cartas online PvP" />
         <p className="eyebrow">UM CONFRONTO. UMA DECISÃO POR VEZ.</p>
-        <h1>Jogue sua carta.<br /><em>Veja o duelo acontecer.</em></h1>
-		<p>Assalte, defenda e use Ritos em uma mesa direta. As cartas se encontram no centro, a perdedora se estilhaça e toda escolha pesa na sua Vitalidade.</p>
+		<h1><span>Nythara: jogo de cartas online PvP.</span> Jogue sua carta.<br /><em>Veja o duelo acontecer.</em></h1>
+		<p>Monte um baralho de 30 cartas e dispute duelos estratégicos 1v1 em tempo real. Assalte, defenda e use Ritos em uma mesa direta: as cartas se encontram no centro, a perdedora se estilhaça e toda escolha pesa na sua Vitalidade.</p>
 		<div className="feature-row" aria-label="Características"><span><b>30</b> cartas no baralho</span><span><b>3</b> ações claras</span><span><b>1v1</b> em tempo real</span></div>
-		<a className="landing-glimpse" href="#conheca-o-jogo"><span><img src="/card-art/vr-001.webp" alt="" /><img src="/card-art/vr-014.webp" alt="" /><img src="/card-art/vr-076.webp" alt="" /></span><strong>Ver a mesa, as cartas e o duelo antes de criar conta <UiIcon name="arrow-right" /></strong></a>
+		<a className="landing-glimpse" href="#conheca-o-jogo"><span><img src="/card-art/vr-001.webp" width="640" height="960" alt="" /><img src="/card-art/vr-014.webp" width="640" height="960" alt="" /><img src="/card-art/vr-076.webp" width="640" height="960" alt="" /></span><strong>Ver a mesa, as cartas e o duelo antes de criar conta <UiIcon name="arrow-right" /></strong></a>
       </section>
       <section className="auth-panel" aria-labelledby="auth-title">
 		{adminInvite && <div className="admin-invite-banner"><strong>Convite administrativo</strong><span>Crie a conta com o mesmo e-mail para aceitar este convite de uso único.</span></div>}
@@ -116,18 +116,22 @@ export function Landing() {
         </form>
       </section>
 	  <section className="landing-showcase" id="conheca-o-jogo" aria-labelledby="showcase-title">
-		<header><p className="eyebrow">VEJA ANTES DE ENTRAR</p><h2 id="showcase-title">É assim que uma decisão vira confronto.</h2><p>As cartas são reais do catálogo. Na partida, elas viajam até o centro, comparam Assalto e Guarda e resolvem o impacto diante de você.</p></header>
+		<header><p className="eyebrow">VEJA ANTES DE ENTRAR</p><h2 id="showcase-title">Como funciona o duelo de cartas.</h2><p>As cartas são reais do catálogo. Na partida, elas viajam até o centro, comparam Assalto e Guarda e resolvem o impacto diante de você.</p></header>
 		<div className="landing-duel-preview" aria-label="Prévia visual da arena de Nythara">
 		  <div className="preview-player preview-player--rival"><span>RIVAL</span><b>26</b><small>VITALIDADE</small></div>
 		  <div className="preview-stage">
-			<div className="preview-card preview-card--assault"><img src="/card-art/vr-001.webp" alt="" /><span><b>{catalog?.cards.find((card) => card.id === "VR-001")?.name ?? "Corte Rubro"}</b><small>ASSALTO · PODER 6</small></span></div>
+			<div className="preview-card preview-card--assault"><img src="/card-art/vr-001.webp" width="640" height="960" loading="lazy" alt="Carta de Assalto Corte Rubro" /><span><b>{catalog?.cards.find((card) => card.id === "VR-001")?.name ?? "Corte Rubro"}</b><small>ASSALTO · PODER 6</small></span></div>
 			<div className="preview-impact"><UiIcon name="versus" /><strong>CONFRONTO</strong><small>6 ATAQUE × 3 DEFESA</small></div>
-			<div className="preview-card preview-card--guard"><img src="/card-art/vr-014.webp" alt="" /><span><b>{catalog?.cards.find((card) => card.id === "VR-014")?.name ?? "Guarda do Limiar"}</b><small>GUARDA · PREVENÇÃO 3</small></span></div>
+			<div className="preview-card preview-card--guard"><img src="/card-art/vr-014.webp" width="640" height="960" loading="lazy" alt="Carta de Guarda do Limiar" /><span><b>{catalog?.cards.find((card) => card.id === "VR-014")?.name ?? "Guarda do Limiar"}</b><small>GUARDA · PREVENÇÃO 3</small></span></div>
 		  </div>
 		  <div className="preview-player"><span>VOCÊ</span><b>30</b><small>VITALIDADE</small></div>
 		</div>
 		<div className="landing-flow"><article><b>1</b><span><strong>Escolha uma carta</strong><small>Sua mão mostra somente jogadas válidas.</small></span></article><article><b>2</b><span><strong>Veja a comparação</strong><small>Assalto e Guarda se encontram no centro.</small></span></article><article><b>3</b><span><strong>Sinta o resultado</strong><small>A carta derrotada se rompe e o dano é aplicado.</small></span></article></div>
 		<a className="secondary-button landing-showcase__cta" href="#inicio">Gostei — quero montar meu baralho</a>
+	  </section>
+	  <section className="landing-discovery" aria-labelledby="discovery-title">
+		<header><p className="eyebrow">JOGUE NO NAVEGADOR</p><h2 id="discovery-title">Um jogo de cartas competitivo, gratuito e original.</h2><p>Nythara reúne construção de baralho, treino contra bot e PvP em tempo real em uma experiência direta para computador e celular.</p></header>
+		<div><article><h3>Monte seu baralho</h3><p>Escolha 30 cartas entre Assaltos, Guardas e Ritos. Cada tipo ocupa um papel claro durante o confronto.</p></article><article><h3>Treine sem espera</h3><p>Teste suas decisões contra o bot antes de buscar um rival na Arena competitiva.</p></article><article><h3>Dispute duelos 1v1</h3><p>Enfrente jogadores reais, acompanhe sua progressão e reveja o histórico das partidas.</p></article></div>
 	  </section>
       <footer className="landing-footer">NYTHARA · IP ORIGINAL · ALPHA FECHADO</footer>
     </main>

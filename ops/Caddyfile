@@ -29,6 +29,13 @@ www.{$NYTHARA_DOMAIN} {
 		X-Frame-Options "DENY"
 	}
 
+	# Somente a landing pública participa do índice. As demais rotas são
+	# autenticação, dados pessoais ou telas transitórias da aplicação.
+	@privatePages path_regexp privatePages ^/(?:app|arena|battle|champions|collection|cronica|decks|forgot-password|profile|queue|replay|reset-password|result|salao|settings|tutorial)(?:/.*)?$
+	header @privatePages X-Robots-Tag "noindex, nofollow, noarchive"
+	@privateInvite expression `{query.admin_invite} != ""`
+	header @privateInvite X-Robots-Tag "noindex, nofollow, noarchive"
+
 	handle /internal/* {
 		respond 404
 	}
