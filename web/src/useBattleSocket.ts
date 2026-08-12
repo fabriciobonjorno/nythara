@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, websocketURL } from "./api";
-import { useSessionStore } from "./store";
+import { usePreferencesStore, useSessionStore } from "./store";
 import type { BattleEvent, BattleIntent, BattleServerMessage, BattleState, BattleTicket } from "./types";
+import { translateError } from "./i18n";
 
 interface PendingCommand { sequence: number; intent: BattleIntent }
 
@@ -92,7 +93,7 @@ export function useBattleSocket(matchId: string) {
             if (pendingRef.current?.sequence === message.client_sequence) rememberPending(null);
           }
           if (message.type === "error" && message.error) {
-            setError(message.error.message);
+            setError(translateError(message.error.code, message.error.message, usePreferencesStore.getState().locale));
             if (message.error.code === "sequence_gap" || message.error.code === "sequence_reuse") {
               ws.close(4000, "resync");
             } else {

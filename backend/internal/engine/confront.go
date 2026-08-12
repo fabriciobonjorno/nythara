@@ -36,7 +36,29 @@ func (rs *Ruleset) ConfrontImplementationReport() []ImplementationEntry {
 	return out
 }
 
+// applyCardAdjustments reescreve valores de carta apenas nesta versão. Cada
+// Ruleset compila suas próprias cópias do catálogo, então mexer aqui não vaza
+// para as versões já publicadas nem muda o significado de um replay antigo.
+func applyCardAdjustments(rs *Ruleset) {
+	for id, adjustment := range rs.ConfrontRules.CardAdjustments {
+		card, fx := rs.Cards[id], rs.Effects.Cards[id]
+		if card == nil || fx == nil {
+			continue
+		}
+		if adjustment.Cost != nil {
+			card.Cost = max(0, *adjustment.Cost)
+		}
+		if adjustment.Damage != nil && fx.Assault != nil {
+			fx.Assault.Damage = max(0, *adjustment.Damage)
+		}
+		if adjustment.Prevent != nil && fx.Guard != nil {
+			fx.Guard.Prevent = max(0, *adjustment.Prevent)
+		}
+	}
+}
+
 func prepareConfrontRuleset(rs *Ruleset) {
+	applyCardAdjustments(rs)
 	for _, card := range rs.CardList {
 		legacyText := card.RulesText
 		profile := &ConfrontCardProfile{Defendable: true}
@@ -61,7 +83,7 @@ func prepareConfrontRuleset(rs *Ruleset) {
 			}
 			if a.PreExile || confrontUnsupportedBonuses(a.Bonuses) != "" ||
 				(a.UndefendableIf != nil && !confrontCondAllowed(*a.UndefendableIf)) ||
-				confrontUnsupportedOps(a.After, rs.ConfrontRules.TacticalSeals) != "" {
+				confrontUnsupportedOps(a.After, rs.ConfrontRules.TacticalSeals, rs.ConfrontRules.Decisions) != "" {
 				profile.Adapted = true
 				profile.Reason = "efeito secundário do ruleset legado removido; Poder base preservado"
 			}
@@ -88,7 +110,7 @@ func prepareConfrontRuleset(rs *Ruleset) {
 			}
 			if (!rs.ConfrontRules.TacticalSeals && gd.CounterRite) || gd.ToHandAfter || gd.SelfCostAfter != 0 ||
 				confrontUnsupportedBonuses(gd.Bonuses) != "" ||
-				confrontUnsupportedOps(append(append([]Op{}, gd.OnPlay...), gd.After...), rs.ConfrontRules.TacticalSeals) != "" {
+				confrontUnsupportedOps(append(append([]Op{}, gd.OnPlay...), gd.After...), rs.ConfrontRules.TacticalSeals, rs.ConfrontRules.Decisions) != "" {
 				profile.Adapted = true
 				if profile.Reason == "" {
 					profile.Reason = "efeito secundário do ruleset legado removido; Prevenção preservada"
@@ -122,7 +144,7 @@ func prepareConfrontRuleset(rs *Ruleset) {
 			if profile.Reason != "" {
 				break
 			}
-			if reason := confrontUnsupportedOps(rite.Steps, rs.ConfrontRules.TacticalSeals); reason != "" {
+			if reason := confrontUnsupportedOps(rite.Steps, rs.ConfrontRules.TacticalSeals, rs.ConfrontRules.Decisions); reason != "" {
 				profile.Reason = reason
 				break
 			}
@@ -153,7 +175,7 @@ func confrontUnsupportedBonuses(bonuses []Bonus) string {
 	return ""
 }
 
-func confrontUnsupportedOps(ops []Op, tacticalSeals bool) string {
+func confrontUnsupportedOps(ops []Op, tacticalSeals, decisions bool) string {
 	for _, op := range ops {
 		switch op.Op {
 		case "damage", "heal", "draw", "both_draw", "ward", "lose_vitality",
@@ -163,6 +185,14 @@ func confrontUnsupportedOps(ops []Op, tacticalSeals bool) string {
 			if !tacticalSeals {
 				return "operação reveal_lock_assault depende do ruleset legado"
 			}
+		case "choose_discard":
+			// Sem decisões, o motivo é o texto histórico EXATO: as versões já
+			// publicadas foram sincronizadas com ele, e o guard do catálogo
+			// rejeita — corretamente — qualquer byte diferente sob o mesmo
+			// número de versão.
+			if !decisions {
+				return fmt.Sprintf("operação %s depende do ruleset legado", op.Op)
+			}
 		case "conditional":
 			if op.If == nil || !confrontCondAllowed(*op.If) {
 				return "efeito condicional depende de sistema removido"
@@ -170,10 +200,10 @@ func confrontUnsupportedOps(ops []Op, tacticalSeals bool) string {
 		default:
 			return fmt.Sprintf("operação %s depende do ruleset legado", op.Op)
 		}
-		if reason := confrontUnsupportedOps(op.Then, tacticalSeals); reason != "" {
+		if reason := confrontUnsupportedOps(op.Then, tacticalSeals, decisions); reason != "" {
 			return reason
 		}
-		if reason := confrontUnsupportedOps(op.Else, tacticalSeals); reason != "" {
+		if reason := confrontUnsupportedOps(op.Else, tacticalSeals, decisions); reason != "" {
 			return reason
 		}
 	}
@@ -192,11 +222,18 @@ func confrontCondAllowed(cond Cond) bool {
 }
 
 func (g *Game) applyConfront(cmd Command) error {
+	// Decisão pendente trava a mesa: aceitar outra ação no meio deixaria o
+	// estado ambíguo no replay.
+	if g.s.Pending != nil && cmd.Kind != CmdKindChoose {
+		return errCmd(ErrPendingChoice, "há uma decisão pendente do jogador %d", g.s.Pending.Player)
+	}
 	switch cmd.Kind {
 	case CmdKindPlay:
 		return g.applyConfrontPlay(cmd)
 	case CmdKindPass:
 		return g.applyConfrontPass(cmd)
+	case CmdKindChoose:
+		return g.applyConfrontChoose(cmd)
 	default:
 		return errCmd(ErrBadCommand, "comando %q não existe no Modo Confronto", cmd.Kind)
 	}
@@ -314,6 +351,7 @@ func (g *Game) applyConfrontPlay(cmd Command) error {
 		if err := g.payConfrontCost(cmd.Player, def.Cost+rite.Sacrifice, def.ID); err != nil {
 			return err
 		}
+		p.RitesRound++
 		g.moveToClash(cmd.Player, inst)
 		g.emit(Event{Kind: EvCardPlayed, P: cmd.Player, Card: inst.ID, Def: def.ID, N: def.Cost + rite.Sacrifice})
 		g.confrontRunOps(rite.Steps, &opCtx{player: cmd.Player, source: def.ID, inst: inst.ID})
@@ -369,6 +407,10 @@ func (g *Game) applyConfrontPass(cmd Command) error {
 
 func (g *Game) payConfrontCost(player, cost int, source string) error {
 	p := g.s.Players[player]
+	if discount := g.championDiscountFor(player, source); discount > 0 {
+		cost = max(0, cost-discount)
+		g.emit(Event{Kind: EvStatusApplied, P: player, N: discount, S: championPowerEvent, Def: source})
+	}
 	if cost < 0 || p.Vitality-cost < 1 {
 		return errCmd(ErrCantAfford, "%s custa %d de Vitalidade e deve restar pelo menos 1", source, cost)
 	}
@@ -418,6 +460,12 @@ func (g *Game) resolveConfront(undefendable bool) {
 		raw = cap
 	}
 	net := g.confrontDealDamage(ctx.Defender, raw, ctx.AssaultDef)
+	if net > 0 {
+		g.championOnTrigger(ctx.Attacker, "connected_hit")
+		if ctx.GuardInst == "" {
+			g.championOnTrigger(ctx.Defender, "undefended_hit")
+		}
+	}
 	outcome := "assault"
 	shattered := ctx.GuardInst
 	if ctx.GuardInst == "" {
@@ -434,6 +482,7 @@ func (g *Game) resolveConfront(undefendable bool) {
 	if shattered != "" {
 		inst := s.Cards[shattered]
 		g.emit(Event{Kind: EvCardShattered, P: inst.Owner, Card: inst.ID, Def: inst.Def, S: outcome})
+		g.championOnTrigger(inst.Owner, "own_shatter")
 	}
 	assaultFx := g.rs.Effects.Cards[ctx.AssaultDef].Assault
 	g.confrontRunOps(assaultFx.After, &opCtx{player: ctx.Attacker, source: ctx.AssaultDef,
@@ -462,7 +511,8 @@ func (g *Game) startConfrontTurn(player int, first bool) {
 	s.Round++
 	s.Active = player
 	for _, p := range s.Players {
-		p.AssaultsRound, p.GuardsRound, p.SacrificesRound, p.DamageTakenRound, p.DrawsRound = 0, 0, 0, 0, 0
+		p.AssaultsRound, p.GuardsRound, p.RitesRound = 0, 0, 0
+		p.SacrificesRound, p.DamageTakenRound, p.DrawsRound = 0, 0, 0
 	}
 	g.resolveConfrontDawn(player)
 	pressureStart := g.rs.ConfrontRules.PressureStartTurn
@@ -568,7 +618,7 @@ func (g *Game) resolveConfrontDawn(player int) {
 func (g *Game) drawConfront(player int) *CardInstance {
 	s, p := g.s, g.s.Players[player]
 	if len(p.Deck) == 0 {
-		p.Fatigue += 2
+		p.Fatigue += max(1, 2-g.championFatigueRelief(player))
 		g.emit(Event{Kind: EvFatigue, P: player, N: p.Fatigue})
 		g.confrontLoseVitality(player, p.Fatigue, "Fadiga")
 		return nil
@@ -614,6 +664,10 @@ func (g *Game) confrontDealDamage(player, amount int, source string) int {
 	p.Vitality -= amount
 	p.DamageTakenRound += amount
 	g.emit(Event{Kind: EvDamage, P: player, N: amount, From: from, To: p.Vitality, S: source})
+	// Poderes de resiliência: reagem ao golpe, mas só depois que a Vitalidade
+	// desce até o limiar do Avatar. É o que os torna estáveis entre baralhos
+	// agressivos e defensivos — o gatilho depende do placar, não do estilo.
+	g.championOnTrigger(player, "low_vitality")
 	return amount
 }
 
@@ -646,6 +700,8 @@ func (g *Game) confrontRunOps(ops []Op, ctx *opCtx) {
 			if p.Vitality > from {
 				g.emit(Event{Kind: EvHealed, P: target, N: p.Vitality - from, From: from, To: p.Vitality, S: ctx.source})
 			}
+		case "choose_discard":
+			g.confrontRequestDiscard(target, op.N, op.Then, ctx.source)
 		case "draw":
 			for range op.N {
 				g.drawConfront(target)

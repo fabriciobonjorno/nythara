@@ -1,0 +1,151 @@
+name: nythara
+
+services:
+  postgres:
+    image: postgres:16.14-alpine3.24
+    environment:
+      POSTGRES_DB: nythara
+      POSTGRES_USER: nythara
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nythara -d nythara"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 128mb
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  migrate:
+    build:
+      context: .
+      target: api
+    image: nythara-api:${NYTHARA_IMAGE_TAG:-local}
+    entrypoint: ["/app/nythara-migrate"]
+    command: ["up"]
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+    secrets:
+      - database_url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+    logging: *default-logging
+
+  api:
+    build:
+      context: .
+      target: api
+    image: nythara-api:${NYTHARA_IMAGE_TAG:-local}
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      PORT: "8080"
+      TRUSTED_PROXY_CIDRS: 172.28.16.10/32
+      OTEL_SERVICE_NAME: nythara-api
+    secrets:
+      - database_url
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    expose:
+      - "8080"
+    networks:
+      - edge
+      - data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 20s
+    logging: *default-logging
+
+  web:
+    build:
+      context: .
+      target: web
+    image: nythara-web:${NYTHARA_IMAGE_TAG:-local}
+    environment:
+      NYTHARA_DOMAIN: ${NYTHARA_DOMAIN:?defina NYTHARA_DOMAIN no arquivo .env.production}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      edge:
+        ipv4_address: 172.28.16.10
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 15s
+    logging: *default-logging
+
+secrets:
+  postgres_password:
+    file: ${NYTHARA_SECRETS_DIR:-./secrets}/postgres_password
+  database_url:
+    file: ${NYTHARA_SECRETS_DIR:-./secrets}/database_url
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.28.16.0/24
+  data:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.17.0/24

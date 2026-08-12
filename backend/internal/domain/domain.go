@@ -335,11 +335,25 @@ type ChampionMatchStats struct {
 	WinRate    float64 `json:"win_rate"`
 }
 
+// MatchRhythmStats mede duração humana sem transformar observação em regra.
+// Percentis e médias usam somente PvP encerrado com started_at/ended_at.
+type MatchRhythmStats struct {
+	SampleMatches          int     `json:"sample_matches"`
+	AverageDurationSeconds float64 `json:"average_duration_seconds"`
+	P50DurationSeconds     float64 `json:"p50_duration_seconds"`
+	P95DurationSeconds     float64 `json:"p95_duration_seconds"`
+	AverageRounds          float64 `json:"average_rounds"`
+	P50Rounds              float64 `json:"p50_rounds"`
+	P95Rounds              float64 `json:"p95_rounds"`
+	OverThirtyMinutes      int     `json:"over_thirty_minutes"`
+}
+
 // MatchTelemetry agrega as partidas persistidas pelo battle server.
 type MatchTelemetry struct {
 	TotalMatches    int                  `json:"total_matches"`
 	FinishedMatches int                  `json:"finished_matches"`
 	ByChampion      []ChampionMatchStats `json:"by_champion"`
+	Rhythm          MatchRhythmStats     `json:"rhythm"`
 }
 
 type Store interface {
@@ -403,6 +417,7 @@ type Store interface {
 
 	// Recado do Alpha: opcional, um por partida.
 	SaveFeedback(ctx context.Context, entry Feedback) error
+	RecentFeedback(ctx context.Context, limit int) ([]Feedback, error)
 }
 
 // Feedback é o recado que o jogador decide deixar depois de um duelo. Nada no

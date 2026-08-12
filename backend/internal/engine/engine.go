@@ -134,6 +134,11 @@ func NewGame(cfg Config) (*Game, error) {
 				g.drawConfront(1 - s.Initiative)
 			}
 		}
+		for i := range 2 {
+			for range g.championOpeningDraw(i) {
+				g.drawConfront(i)
+			}
+		}
 		g.startConfrontTurn(s.Initiative, true)
 		return g, nil
 	}
@@ -164,8 +169,14 @@ const (
 	TacticalRulesetVersion        = "alpha-0.10.2"
 	// LongDuelRulesetVersion é o duelo longo: Guarda com bônus simétrico ao
 	// Assalto, Vitalidade maior e relógio de pressão adiado. Ver ADR-035.
-	LongDuelRulesetVersion    = "alpha-0.11.0"
-	CompetitiveRulesetVersion = LongDuelRulesetVersion
+	LongDuelRulesetVersion = "alpha-0.11.0"
+	// AvatarRulesetVersion devolve identidade mecânica aos Avatares e reequilibra
+	// as Guardas que morriam na mão. Ver ADR-057.
+	AvatarRulesetVersion = "alpha-0.12.0"
+	// DecisionRulesetVersion abre cartas que pedem escolha ao jogador, com
+	// calibragem própria aprovada nos dois gates de 100 mil. Ver ADR-059.
+	DecisionRulesetVersion    = "alpha-0.13.0"
+	CompetitiveRulesetVersion = DecisionRulesetVersion
 	ConfrontStartingVitality  = 30
 	ConfrontPowerBonus        = 4
 	ConfrontFirstTurnPenalty  = 2
@@ -198,6 +209,13 @@ const (
 	// e sem teto a duração da partida passa a depender de quão agressivo é o
 	// baralho do rival em vez das decisões da mesa.
 	LongDuelGuardLeakCap = 1
+)
+
+// Parâmetros do ruleset de Avatares (ADR-057).
+const (
+	// A Vitalidade cede 4 pontos para compensar a sustentação que os poderes
+	// somam aos dois lados; sem isso a Fadiga passa a decidir a partida.
+	AvatarStartingVitality = 52
 )
 
 // DeckSizeForVersion evita reinterpretar snapshots/decks de 36 cartas.

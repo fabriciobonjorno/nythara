@@ -70,11 +70,11 @@
   font-size: .6rem;
   letter-spacing: .1em;
 }
-.duel-topbar > a { display: grid; place-items: center; color: var(--gold); text-decoration: none; }
+.duel-topbar > a { min-width: 2.75rem; min-height: 2.75rem; display: grid; place-items: center; color: var(--gold); text-decoration: none; }
 .duel-topbar > a .nythara-mark { width: 1.9rem; height: 1.9rem; }
 .duel-topbar__link { display: inline-flex; align-items: center; gap: .35rem; color: var(--muted); }
 .duel-topbar__turn { justify-self: center; color: var(--gold-bright); font-family: Georgia, serif; font-size: .78rem; letter-spacing: .28em; }
-.duel-topbar button { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .5rem; color: var(--gold); background: transparent; border: 1px solid transparent; cursor: pointer; }
+.duel-topbar button { min-width: 2.75rem; min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; gap: .35rem; padding: .3rem .5rem; color: var(--gold); background: transparent; border: 1px solid transparent; cursor: pointer; }
 .duel-topbar button:hover { border-color: var(--brass-dim); }
 .duel-topbar button .ui-icon { width: 1rem; height: 1rem; }
 .connection-dot { width: .45rem; height: .45rem; background: var(--danger); border-radius: 50%; }
@@ -403,7 +403,7 @@
 .inspector__keywords { display: flex; flex-wrap: wrap; gap: .25rem; }
 .inspector__keywords span { padding: .16rem .35rem; color: var(--moon); border: 1px solid #46545f; font-size: .38rem; letter-spacing: .1em; }
 .inspector__flavor { margin: 0; padding-left: .55rem; border-left: 2px solid var(--wine); color: #9d9095; font: italic .55rem/1.5 Georgia, serif; }
-.inspector__zoom { padding: .5rem; color: var(--gold-bright); background: transparent; border: 1px solid var(--brass-dim); cursor: pointer; font-size: .52rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.inspector__zoom { min-height: 2.75rem; padding: .5rem; color: var(--gold-bright); background: transparent; border: 1px solid var(--brass-dim); cursor: pointer; font-size: .52rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .inspector__zoom:hover { background: #2a1e14; }
 .inspector.is-empty { align-content: start; }
 .inspector__blank { display: grid; justify-items: center; gap: .35rem; padding: 2rem .8rem; text-align: center; border: 1px dashed #4a3a3e; }
@@ -592,7 +592,13 @@
   box-shadow: 0 8px 22px #000c;
   transform: translate(-50%, -50%);
 }
+/* As opções nascem no hover: ninguém deveria clicar numa carta só para
+   descobrir o que dá para fazer com ela. O clique continua existindo para
+   fixar a carta no painel — e é o caminho de quem usa toque ou teclado. */
+.hand-slot:hover .hand-slot__tools,
+.hand-slot:focus-within .hand-slot__tools,
 .hand-slot.is-selected .hand-slot__tools { display: flex; animation: tools-in .16s ease both; }
+.hand-slot.is-dragging .hand-slot__tools { display: none; }
 @keyframes tools-in { from { opacity: 0; transform: translate(-50%, calc(-50% + .4rem)); } }
 .tool {
   display: grid; place-items: center; gap: .05rem;
@@ -636,31 +642,118 @@
 .inspector__choice-minor button { padding: .45rem; color: var(--muted); background: transparent; border: 1px solid var(--line); cursor: pointer; font-size: .48rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .inspector__choice-minor button:hover { color: var(--ivory); border-color: var(--brass-dim); }
 
+/* Placa de ação. Mesma linguagem da mesa — moldura de latão, filete interno e
+   glifo da fase — para o painel pertencer ao tabuleiro em vez de parecer um
+   aviso do sistema colado no canto. */
 .action-panel {
+  position: relative;
   align-self: center;
-  display: grid; justify-items: start; gap: .12rem;
-  min-width: 12rem; max-width: 17rem;
-  padding: .45rem .65rem;
-  background: #150f13;
-  border: 1px solid var(--brass-deep);
+  min-width: 13.5rem;
+  max-width: 18rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: .1rem .7rem;
+  padding: .85rem .8rem .7rem;
+  background:
+    linear-gradient(#241a1f, #150e13) padding-box,
+    linear-gradient(150deg, #6d5430, #2a2026 55%, #6d5430) border-box;
+  border: 1px solid transparent;
+  box-shadow: inset 0 0 0 1px #00000099, inset 0 1px 0 #ffffff0d, 0 12px 30px #0009;
 }
-.action-panel.phase-guarda { border-color: #4a6a7c; box-shadow: 0 0 22px #5389a326; }
-.action-panel strong { font: 400 .74rem Georgia, serif; }
-.action-panel small { color: var(--muted); font-size: .48rem; line-height: 1.35; }
-.action-panel__flag { padding: .12rem .38rem; color: #1a1013; background: var(--stamp); font-size: .36rem; font-weight: 900; letter-spacing: .14em; }
-.action-panel.is-waiting { align-content: center; color: var(--muted); }
-.action-panel.is-waiting strong { color: var(--ivory); }
+.action-panel::after {
+  content: "";
+  position: absolute;
+  inset: .28rem;
+  pointer-events: none;
+  border: 1px solid #6d543047;
+}
+
+/* Faixa de "SUA VEZ" cavalgando a borda superior, como um selo aplicado. */
+.action-panel__ribbon {
+  position: absolute;
+  top: -.55rem; left: .8rem;
+  padding: .16rem .55rem;
+  color: #1a1013;
+  background: linear-gradient(#f6e3b0, #c9a35a);
+  border: 1px solid #fff0bd;
+  box-shadow: 0 3px 10px #000a;
+  font-size: .38rem; font-weight: 900; letter-spacing: .18em;
+}
+
+.action-panel__glyph {
+  grid-row: span 2;
+  width: 2.4rem; height: 2.4rem;
+  display: grid; place-items: center;
+  color: var(--gold);
+  background: radial-gradient(circle at 45% 35%, #3a2a20, #130d11 72%);
+  border: 1px solid var(--brass-dim);
+  border-radius: 50%;
+  box-shadow: inset 0 0 10px #000, 0 3px 8px #0009;
+}
+.action-panel__glyph .ui-icon { width: 1.25rem; height: 1.25rem; }
+.action-panel__copy { min-width: 0; }
+.action-panel__copy strong { display: block; font: 400 .84rem/1.15 Georgia, serif; color: #f4e6c9; }
+.action-panel__copy small { display: block; margin-top: .12rem; color: var(--muted); font-size: .5rem; line-height: 1.4; }
+
+/* A opção fica nomeada: contar "1 opção" obriga a varrer a mão para descobrir
+   qual é. */
+.action-panel__options {
+  grid-column: 1 / -1;
+  margin: .55rem 0 0;
+  padding: .32rem .45rem;
+  background: #0e0a0d;
+  border: 1px solid #3d3034;
+  color: #cdbca6;
+  font-size: .54rem;
+}
+.action-panel__options b { color: var(--gold-bright); font-weight: 700; }
+
+/* Botão sólido e tátil, mas nunca dourado: o dourado é de jogar carta. */
 .action-panel__pass {
-  width: 100%;
-  margin-top: .3rem;
-  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
-  padding: .42rem .6rem;
-  color: #cabdc0; background: transparent; border: 1px solid #4d3c42;
+  grid-column: 1 / -1;
+  min-height: 2.75rem;
+  margin-top: .5rem;
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  padding: .55rem .7rem;
+  color: #e7d9c6;
+  background: linear-gradient(#3a2b31, #241a1e);
+  border: 1px solid #6b5560;
+  box-shadow: inset 0 1px 0 #ffffff14, 0 4px 12px #0008;
   cursor: pointer;
-  font-size: .5rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  font-size: .58rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
 }
-.action-panel__pass:hover { color: var(--ivory); border-color: var(--brass); }
-.action-panel__pass kbd { color: #8f7e82; font-size: .36rem; }
+.action-panel__pass:hover:not(:disabled) { color: #fff6e6; border-color: var(--brass); background: linear-gradient(#4a3729, #2b1f1c); transform: translateY(-1px); }
+.action-panel__pass:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 2px 6px #000a; }
+.action-panel__pass kbd { padding: .1rem .3rem; color: #b6a49a; background: #120d10; border: 1px solid #4d3c42; font-size: .38rem; letter-spacing: .1em; }
+
+/* Sua vez respira; a vez do rival esfria. */
+.action-panel.is-live { animation: action-breathe 2.4s ease-in-out infinite alternate; }
+@keyframes action-breathe { to { box-shadow: inset 0 0 0 1px #00000099, inset 0 1px 0 #ffffff0d, 0 12px 30px #0009, 0 0 26px #c9a35a2e; } }
+.action-panel.phase-guarda .action-panel__glyph { color: var(--guard); border-color: #4a6a7c; }
+.action-panel.phase-rito .action-panel__glyph { color: var(--rite); border-color: #6a4f7c; }
+
+.action-panel.is-waiting {
+  background: linear-gradient(#1a161c, #110d12) padding-box, linear-gradient(150deg, #3e4a55, #22202a 55%, #3e4a55) border-box;
+  animation: none;
+}
+.action-panel.is-waiting .action-panel__glyph { color: var(--moon); border-color: #45525d; }
+.action-panel.is-waiting .action-panel__copy strong { color: #cfdae2; font-size: .76rem; }
+.action-panel__wait { grid-column: 1 / -1; display: flex; justify-content: center; gap: .3rem; margin-top: .5rem; }
+.action-panel__wait i { width: .3rem; height: .3rem; background: var(--moon); border-radius: 50%; opacity: .3; animation: wait-dots 1.2s ease-in-out infinite; }
+.action-panel__wait i:nth-child(2) { animation-delay: .18s; }
+.action-panel__wait i:nth-child(3) { animation-delay: .36s; }
+@keyframes wait-dots { 40% { opacity: 1; transform: translateY(-2px); } }
+
+/* Sem carta jogável a mesa passa sozinha. A barra mostra que a espera acaba —
+   um "avançando…" parado é indistinguível de tela travada. */
+.action-panel.is-auto { animation: none; }
+.action-panel.is-auto .action-panel__glyph { opacity: .55; }
+.action-panel__auto { grid-column: 1 / -1; width: 100%; height: 3px; margin-top: .6rem; display: block; overflow: hidden; background: #2a2126; }
+.action-panel__auto i { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, var(--brass-dim), var(--gold-bright)); transform-origin: left center; animation: auto-pass linear forwards; }
+@keyframes auto-pass { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
 .pulse-dot { width: .5rem; height: .5rem; background: var(--gold); border-radius: 50%; animation: pulse .9s infinite alternate; }
 
 .duel-error { position: fixed; z-index: 40; bottom: 1rem; left: 50%; margin: 0; padding: .6rem 1rem; transform: translateX(-50%); background: #2b1219; border-left: 3px solid var(--danger); color: #ffd7d9; font-size: .62rem; }
@@ -687,7 +780,7 @@
 }
 .battle-log.is-open, .battle-help.is-open { transform: none; }
 .battle-log header, .battle-help header { display: flex; align-items: start; justify-content: space-between; padding-bottom: .8rem; border-bottom: 1px solid var(--line); }
-.battle-log header button, .battle-help header button { width: 2.4rem; height: 2.4rem; display: grid; place-items: center; padding: .55rem; color: var(--muted); background: transparent; border: 1px solid var(--line); cursor: pointer; }
+.battle-log header button, .battle-help header button { width: 2.75rem; height: 2.75rem; display: grid; place-items: center; padding: .65rem; color: var(--muted); background: transparent; border: 1px solid var(--line); cursor: pointer; }
 .battle-log > div { height: calc(100% - 4rem); overflow-y: auto; }
 .battle-log article { display: grid; grid-template-columns: auto 1fr; gap: .6rem; padding: .55rem 0; border-bottom: 1px solid #30262a; }
 .battle-log article > span { color: var(--gold); font-size: .62rem; }
@@ -705,7 +798,7 @@
 .battle-help__toggle { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1rem 0; padding: .75rem; border: 1px solid var(--line); cursor: pointer; }
 .battle-help__toggle strong, .battle-help__toggle small { display: block; }
 .battle-help__toggle small { color: var(--muted); font-size: .62rem; }
-.battle-help > a { color: var(--gold); font-size: .7rem; }
+.battle-help > a { min-height: 2.75rem; display: inline-flex; align-items: center; color: var(--gold); font-size: .7rem; }
 .battle-help__concede { width: 100%; margin-top: 1.4rem; padding: .75rem; color: #ef7887; background: transparent; border: 1px solid #6e2d39; cursor: pointer; }
 
 .guided-coach { position: fixed; z-index: 30; left: .8rem; top: 3.6rem; width: min(17rem, 42vw); display: grid; gap: .25rem; padding: .7rem; background: #150f14f2; border: 1px solid var(--brass-dim); box-shadow: 0 16px 40px #000a; }
@@ -729,25 +822,194 @@
 
 /* ------------------------------------------------------------ adaptação */
 
+/* ==================================================================== mobile
+   A mesa em telefone segue três leis:
+   1. A arena nunca é coberta — a leitura de carta vira bottom sheet.
+   2. Tudo que decide fica ao alcance do polegar: ação e mão coladas embaixo.
+   3. Informação permanente encolhe para ícone; o rótulo vive no title/aria.
+   ========================================================================== */
+
+.rail-scrim { display: none; }
+
 @media (max-width: 1180px) {
   .duel-frame { grid-template-columns: minmax(0, 1fr); }
-  .duel-rail { position: fixed; z-index: 20; right: .5rem; bottom: 13rem; width: 13rem; max-height: 60svh; }
-  .duel-rail .inspector { box-shadow: 0 18px 44px #000c; }
-  .size-inspect .duel-card__text { font-size: .55rem; }
+
+  /* Leitura como bottom sheet: fechada não existe, aberta domina — nunca as
+     duas coisas ao mesmo tempo, que era o erro do rail fixo. */
+  .rail-scrim {
+    display: block;
+    position: fixed;
+    z-index: 39;
+    inset: 0;
+    background: #05030566;
+    border: 0;
+    backdrop-filter: blur(2px);
+    cursor: pointer;
+  }
+  .duel-rail {
+    position: fixed;
+    z-index: 40;
+    left: 0; right: 0; bottom: 0;
+    transform: translateY(108%);
+    transition: transform .28s cubic-bezier(.2, .9, .25, 1);
+  }
+  .duel-room.is-inspecting .duel-rail { transform: none; }
+  .duel-rail .inspector {
+    max-height: 74svh;
+    border-radius: .9rem .9rem 0 0;
+    border-color: var(--brass-dim);
+    padding-bottom: calc(.7rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -24px 60px #000d;
+  }
+  /* Alça de arrastar: convenção universal de sheet. */
+  .duel-rail .inspector::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 2.6rem; height: .28rem;
+    margin: 0 auto .2rem;
+    background: #5c4a50;
+    border-radius: 99px;
+  }
+  /* No sheet, o texto decide antes da estampa: ordem de leitura invertida. */
+  .duel-rail .inspector__brief { order: 1; }
+  .duel-rail .inspector__stats { order: 2; }
+  .duel-rail .inspector__keywords { order: 3; }
+  .duel-rail .inspector__choice, .duel-rail .inspector__zoom { order: 4; }
+  .duel-rail .inspector .duel-card { order: 5; height: clamp(8rem, 24svh, 10.5rem); }
+  .duel-rail .inspector__role { order: 6; }
 }
+
 @media (max-width: 860px) {
-  .duel-room { --hand-w: 6.6rem; }
-  .duelist { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id vial" "seals piles"; row-gap: .35rem; }
-  .duelist__identity { grid-area: id; }
-  .vial { grid-area: vial; }
-  .seals { grid-area: seals; }
-  .duelist__piles { grid-area: piles; }
-  .duel-base { grid-template-columns: minmax(0, 1fr); grid-template-areas: "hand" "phase" "action"; justify-items: center; }
-  .duel-base__hand { grid-area: hand; width: 100%; overflow-x: auto; }
-  .duel-hand { justify-content: flex-start; }
-  .phase-panel { grid-area: phase; }
-  .action-panel { grid-area: action; width: 100%; max-width: none; }
-  .duel-rail { bottom: auto; top: 3.4rem; }
+  .duel-room { --hand-w: clamp(5.8rem, 34vw, 7rem); }
+  .duel-frame { padding: .4rem; gap: .4rem; }
+  /* Válvula de segurança: se a tela for mais baixa que o orçamento, o meio
+     rola por dentro — nada transborda por cima do rodapé. */
+  .duel-board { gap: .4rem; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+  /* Barra do duelista em uma linha densa. */
+  .duelist {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: .4rem;
+    padding: .28rem .45rem;
+  }
+  .duelist__portrait { width: 2.1rem; height: 2.1rem; border-width: 1px; }
+  .duelist__portrait svg { width: 1.3rem; height: 1.3rem; }
+  .duelist__identity { gap: .45rem; }
+  .duelist__identity small { font-size: .38rem; }
+  .duelist__identity strong { font-size: .74rem; }
+  .duelist__identity em { font-size: .4rem; }
+  .vial { gap: .35rem; }
+  .vial__glass { width: .8rem; height: 2rem; }
+  .vial__read b { font-size: 1.15rem; }
+  .vial__read small { display: none; }
+
+  /* Selos viram medalhões puros: o rótulo mora no title/aria. */
+  .seals { order: 4; grid-column: 1 / -1; justify-content: center; gap: .85rem; padding: .08rem 0 .04rem; border: 0; background: transparent; }
+  .seal { width: auto; gap: 0; }
+  .seal i { width: 1.35rem; height: 1.35rem; border-width: 1px; }
+  .seal i::after { inset: .26rem; }
+  .seal small { display: none; }
+
+  .duelist__piles { gap: .3rem; }
+  .pile { width: 2.15rem; min-height: 2rem; padding: .15rem; }
+  .pile b { font-size: .62rem; }
+  .pile small { font-size: .26rem; }
+  .pile .ui-icon { width: .7rem; height: .7rem; }
+  /* O leque do rival não cabe: vira contador como os demais. */
+  .hidden-hand { width: 2.15rem; min-height: 2rem; display: grid; place-items: center; align-content: center; background: linear-gradient(#241a1c, #140d10); border: 1px solid var(--brass-deep); }
+  .hidden-hand i { display: none; }
+  .hidden-hand b { margin: 0; color: var(--gold-bright); font: 700 .62rem Georgia, serif; }
+  .hidden-hand::after { content: "MÃO"; color: var(--muted); font-size: .26rem; letter-spacing: .1em; }
+
+  /* Arena vertical: os dois slots lado a lado, o veredito como faixa. O
+     clipping é intencional: conteúdo da arena jamais pinta sobre as barras. */
+  .arena { padding: .45rem .45rem .55rem; gap: .3rem; overflow: hidden; }
+  .arena__lane {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "assault guard" "verdict verdict";
+    gap: .5rem;
+  }
+  .arena-slot.is-assault { grid-area: assault; }
+  .arena-slot.is-guard { grid-area: guard; }
+  .arena-slot__label { font-size: .36rem; letter-spacing: .2em; }
+  .arena-slot__card .duel-card, .arena-slot__ghost { width: clamp(5.4rem, 27vw, 6.6rem); }
+  .arena-slot__ghost { aspect-ratio: 5 / 6; padding: .4rem; }
+  .arena-slot__ghost .ui-icon { width: 1.2rem; height: 1.2rem; }
+  .arena-slot__ghost small { font-size: .38rem; }
+  .arena-slot__stamp { bottom: -.5rem; font-size: .38rem; padding: .16rem .4rem; }
+
+  .verdict { grid-area: verdict; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .25rem .55rem; padding: .35rem .45rem; text-align: left; }
+  .verdict.is-idle, .verdict.is-drop { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: .4rem; gap: .12rem; }
+  .verdict.is-idle .ui-icon, .verdict.is-drop .ui-icon { width: 1.4rem; height: 1.4rem; }
+  .verdict.is-idle strong { font-size: .6rem; }
+  .verdict.is-idle small { font-size: .42rem; }
+  .verdict__math { gap: .35rem; }
+  .verdict__math span { min-width: 2.6rem; padding: .22rem .25rem; }
+  .verdict__math b { font-size: .85rem; }
+  .verdict__math small { font-size: .3rem; }
+  .verdict__result { width: auto; padding: .3rem .5rem; font-size: .6rem; }
+  .verdict__result small { font-size: .38rem; }
+  .verdict__cap { grid-column: 1 / -1; justify-self: start; }
+
+  /* Crônica: só as duas últimas linhas; o resto vive no Histórico. */
+  .arena__chronicle { display: flex; flex-direction: column; justify-content: flex-end; height: 1.9rem; overflow: hidden; gap: .08rem; }
+  .arena__chronicle li { font-size: .44rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .arena__pressure { padding: .22rem .5rem; }
+  .arena__pressure strong { font-size: .48rem; }
+  .arena__pressure small { display: none; }
+
+  /* Rodapé ao alcance do polegar: fase → ação → mão, coladas. */
+  .duel-base {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "phase" "action" "hand";
+    gap: .32rem;
+    padding: .35rem .45rem max(.35rem, env(safe-area-inset-bottom));
+  }
+  .phase-panel { grid-area: phase; width: 100%; display: flex; align-items: center; gap: .7rem; padding: .28rem .55rem; }
+  .phase-panel__title { display: none; }
+  .phase-panel__orbs { gap: .7rem; }
+  .orb { width: auto; }
+  .orb i { width: 1.05rem; height: 1.05rem; }
+  .orb b { font-size: .34rem; }
+  .orb em { display: none; }
+  .phase-panel__actor { margin-left: auto; font-size: .34rem; }
+
+  .action-panel { grid-area: action; width: 100%; max-width: none; min-width: 0; padding: .48rem .55rem .45rem; }
+  .action-panel__glyph { width: 1.9rem; height: 1.9rem; grid-row: span 2; }
+  .action-panel__glyph .ui-icon { width: 1rem; height: 1rem; }
+  .action-panel__copy strong { font-size: .74rem; }
+  .action-panel__copy small { font-size: .46rem; }
+  .action-panel__options { margin-top: .4rem; padding: .28rem .4rem; font-size: .5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .action-panel__pass { margin-top: .35rem; padding: .55rem .65rem; font-size: .54rem; }
+  .action-panel.is-waiting .action-panel__copy strong { font-size: .68rem; }
+
+  .duel-base__hand { grid-area: hand; width: 100%; }
+  .duel-hand {
+    justify-content: flex-start;
+    gap: .3rem;
+    padding: .45rem .15rem .15rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+  }
+  .hand-slot { scroll-snap-align: center; flex: 0 0 auto; }
+  .hand-slot:hover, .hand-slot:focus-within { transform: none; }
+  .hand-slot.is-selected { transform: translateY(-.5rem); }
+  .hand-slot__key { top: -.25rem; left: -.25rem; min-width: .95rem; height: .95rem; font-size: .42rem; }
+  .tool { min-width: 2.6rem; padding: .34rem .3rem; font-size: .34rem; }
+
+  .match-over-overlay h2 { font-size: 2.2rem; }
+}
+
+@media (max-width: 560px) {
+  .duel-topbar { height: 3rem; gap: .2rem; padding: 0 .25rem; font-size: .5rem; }
+  .duel-topbar > a .nythara-mark { width: 1.5rem; height: 1.5rem; }
+  .duel-topbar__turn { font-size: .6rem; letter-spacing: .16em; white-space: nowrap; }
+  .duel-topbar__label { display: none; }
+  .duel-topbar button span { display: none; }
+  .fx-banner strong { font-size: .95rem; letter-spacing: .16em; }
+  .fx-floater.is-crit { font-size: 1.6rem; }
+  .guided-coach { width: min(15rem, 78vw); top: 2.9rem; left: .5rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -757,3 +1019,163 @@
 /* Teto de vazamento: aparece só quando age, explicando por que a conta na tela
    não fecha sozinha. */
 .verdict__cap { padding: .1rem .4rem; color: #bfe0ef; background: #10222b; border: 1px solid #4d7a90; font-size: .36rem; font-weight: 800; letter-spacing: .12em; }
+
+/* =================================================================== juice */
+
+/* Palco de partículas: um canvas sobre a mesa inteira, aditivo, nunca
+   interativo. O loop dorme quando não há partícula viva. */
+.fx-particles { position: absolute; z-index: 7; inset: 0; pointer-events: none; }
+
+/* Vitalidade em duas camadas: o fluido cai rápido, o fantasma desce devagar —
+   o "pedaço perdido" fica visível por um segundo, como em jogo de luta. */
+.vial__glass { position: relative; }
+.vial__fluid { transition: height .22s cubic-bezier(.3, .8, .3, 1); }
+.vial__ghost {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: linear-gradient(#f2b7c0, #b06a76);
+  opacity: .55;
+  transition: height 1.15s cubic-bezier(.2, .7, .2, 1) .12s;
+}
+
+/* Sala em perigo: vinheta rubra respirando + o frasco já alarma. É informação
+   ambiente — visível de canto de olho, sem cobrir nada. */
+.duel-room.is-danger::after {
+  content: "";
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 50%, transparent 58%, #8c17264d 100%);
+  animation: danger-breathe 1.9s ease-in-out infinite alternate;
+}
+@keyframes danger-breathe { from { opacity: .35; } to { opacity: 1; } }
+
+/* Número de crítico: entra com soco, fica um instante a mais. */
+.fx-floater.is-crit {
+  font-size: 2.1rem;
+  color: #ffd873;
+  text-shadow: 0 2px 0 #7a1420, 0 0 26px #ff5d54cc, 0 0 3px #000;
+  animation: crit-pop .38s cubic-bezier(.2, 1.9, .4, 1) both, floater-rise 1.85s ease-out .3s both;
+}
+@keyframes crit-pop {
+  0% { transform: scale(.3) rotate(-7deg); opacity: 0; }
+  60% { transform: scale(1.28) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* Tilt 3D da mão: a carta acompanha o ponteiro. Barato — só transform. */
+.hand-slot { perspective: 620px; }
+.hand-slot .duel-card {
+  transform: rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  transition: transform .14s ease, box-shadow .18s ease, border-color .18s ease, filter .18s ease;
+  will-change: transform;
+}
+.hand-slot.is-dragging .duel-card { transform: none; }
+
+/* Faixa de anúncio com corpo de cinema: serifa grande, brilho varrendo. */
+.fx-banner strong { position: relative; font-family: Georgia, serif; letter-spacing: .3em; animation: banner-track 1.5s ease both; }
+@keyframes banner-track { from { letter-spacing: .55em; opacity: 0; } 30% { opacity: 1; } to { letter-spacing: .3em; } }
+.fx-banner::after {
+  content: "";
+  position: absolute;
+  left: 12%; right: 12%; bottom: -.4rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+  animation: banner-sweep 1.3s ease both;
+}
+@keyframes banner-sweep { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+
+/* ============================================================== decisões */
+
+/* A escolha trava a mesa por regra; a camada torna isso visível e coloca as
+   opções no centro. Sheet no telefone, modal no desktop — mesma peça. */
+.decision-layer {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: end center;
+  background: #05030580;
+  backdrop-filter: blur(3px);
+}
+.decision-sheet {
+  width: min(34rem, 100%);
+  max-height: 82svh;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  padding: .8rem .8rem calc(.8rem + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  background: linear-gradient(#221720, #130d12);
+  border: 1px solid var(--brass-dim);
+  border-bottom: 0;
+  border-radius: .9rem .9rem 0 0;
+  box-shadow: 0 -24px 70px #000d, inset 0 0 0 1px #00000099;
+}
+.decision-sheet::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 2.6rem; height: .28rem;
+  margin: 0 auto .1rem;
+  background: #5c4a50;
+  border-radius: 99px;
+}
+.decision-sheet h2 { margin: 0; font: 400 1.15rem Georgia, serif; }
+.decision-sheet__hint { margin: 0; color: var(--muted); font-size: .58rem; }
+.decision-sheet__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.4rem, 1fr));
+  gap: .45rem;
+  margin: .3rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.decision-option { position: relative; width: 100%; padding: 0; background: none; border: 0; cursor: pointer; }
+.decision-option .duel-card { width: 100%; }
+.decision-option.is-picked .duel-card {
+  border-color: var(--stamp);
+  box-shadow: 0 0 0 2px var(--stamp), 0 0 22px #f0dca44d, inset 0 0 0 1px #00000099;
+  transform: translateY(-.2rem);
+}
+.decision-option__badge {
+  position: absolute;
+  z-index: 3;
+  top: -.4rem; left: -.4rem;
+  width: 1.35rem; height: 1.35rem;
+  display: grid; place-items: center;
+  color: #1a1013;
+  background: linear-gradient(#f6e3b0, #c9a35a);
+  border: 1px solid #fff0bd;
+  border-radius: 50%;
+  box-shadow: 0 3px 10px #000a;
+  font: 800 .6rem/1 sans-serif;
+}
+.decision-sheet__foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin: .3rem -.8rem calc(-.8rem - env(safe-area-inset-bottom));
+  padding: .55rem .8rem calc(.7rem + env(safe-area-inset-bottom));
+  background: linear-gradient(#130d1200, #130d12 30%);
+}
+.decision-sheet__foot small { color: var(--muted); font-size: .6rem; font-variant-numeric: tabular-nums; }
+.decision-sheet__confirm {
+  flex: 1;
+  padding: .75rem;
+  color: #1a1013;
+  background: linear-gradient(#f3d9a4, #c9a35a);
+  border: 1px solid #fff0bd;
+  box-shadow: 0 6px 18px #0008;
+  cursor: pointer;
+  font-size: .62rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase;
+}
+.decision-sheet__confirm:disabled { filter: saturate(.4) brightness(.75); cursor: default; }
+
+@media (min-width: 861px) {
+  .decision-layer { place-items: center; padding: 2rem; }
+  .decision-sheet { border-radius: .6rem; border-bottom: 1px solid var(--brass-dim); }
+  .decision-sheet::before { display: none; }
+}

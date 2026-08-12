@@ -2,13 +2,15 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { UiIcon } from "../components/UiIcon";
 import { useChampions, useLeaderboard, useMatchHistory, useProgress } from "../queries";
-import { useSessionStore } from "../store";
+import { usePreferencesStore, useSessionStore } from "../store";
+import { formatDate } from "../i18n";
 import "../arena.css";
 
 // Arena — a casa do duelista: patente da temporada, escada, histórico com
 // crônicas e códigos de deck para compartilhar listas.
 
 export function ArenaPage() {
+  const locale = usePreferencesStore((state) => state.locale);
   const { data: progress } = useProgress();
   const { data: board } = useLeaderboard();
   const { data: history } = useMatchHistory();
@@ -70,7 +72,7 @@ export function ArenaPage() {
             <strong>{championName(match.my_champion)} × {championName(match.opponent_champion)}</strong>
             <small>{match.opponent || "Duelista velado"} · {match.mode === "practice" ? "treino" : "ranqueada"}
               {match.end_reason ? ` · ${endReasonLabel(match.end_reason)}` : ""}
-              {match.finished_at ? ` · ${new Date(match.finished_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}</small>
+              {match.finished_at ? ` · ${formatDate(match.finished_at, locale, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}` : ""}</small>
           </div>
           <nav className="arena-history__actions" aria-label={`Abrir registros da partida contra ${match.opponent || "Duelista velado"}`}><Link className="secondary-button" to={`/replay/${match.match_id}`}><UiIcon name="versus" /> Rever duelo</Link><Link className="ghost-button" to={`/cronica/${match.match_id}`}><UiIcon name="history" /> Crônica</Link></nav>
         </li>)}

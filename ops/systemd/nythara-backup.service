@@ -1,0 +1,12 @@
+[Unit]
+Description=Backup PostgreSQL do Nythara
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/nythara
+ExecStart=/opt/nythara/ops/vps-backup.sh
+User=nythara
+Group=nythara
+UMask=0077

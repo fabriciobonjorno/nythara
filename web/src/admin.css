@@ -50,3 +50,11 @@
 .admin-feedback { margin: .6rem 0 0; color: #8fd39a; }
 .admin-feedback.is-error { color: #ff5d6e; }
 .admin-empty { color: var(--muted); }
+
+/* Recados do Alpha: texto de gente, então a leitura vem antes da densidade. */
+.alpha-notes { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; max-height: 26rem; overflow-y: auto; }
+.alpha-notes li { padding: .7rem; background: #120d11; border: 1px solid var(--line); border-left: 3px solid var(--gold); }
+.alpha-notes header { display: flex; align-items: center; gap: .6rem; margin-bottom: .35rem; color: var(--muted); font-size: .62rem; }
+.alpha-notes__ruleset { padding: .1rem .35rem; border: 1px solid var(--line); color: var(--gold); font-size: .58rem; }
+.alpha-notes header a { color: var(--gold-bright); }
+.alpha-notes p { margin: 0; font-size: .78rem; line-height: 1.55; white-space: pre-wrap; }

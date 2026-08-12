@@ -43,17 +43,62 @@ type ConfrontRulesConfig struct {
 	// formato promete. O gate de balanceamento valida contra estes números em
 	// vez de um teto fixo, e o piso impede que o formato longo volte a
 	// encurtar sem que alguém perceba. Zero = faixa histórica.
-	TargetP95Rounds    int  `json:"target_p95_rounds,omitempty"`
-	TargetMinP50Rounds int  `json:"target_min_p50_rounds,omitempty"`
-	FirstTurnPenalty  int  `json:"first_turn_penalty"`
-	ExposedPowerBonus int  `json:"exposed_power_bonus,omitempty"`
-	DrawOnFirstTurn   bool `json:"draw_on_first_turn"`
-	PressureStartTurn int  `json:"pressure_start_turn,omitempty"`
-	PressureBaseLoss  int  `json:"pressure_base_loss,omitempty"`
-	MinAssaults       int  `json:"min_assaults,omitempty"`
-	MinGuards         int  `json:"min_guards,omitempty"`
-	MinRites          int  `json:"min_rites,omitempty"`
-	TacticalSeals     bool `json:"tactical_seals,omitempty"`
+	TargetP95Rounds    int `json:"target_p95_rounds,omitempty"`
+	TargetMinP50Rounds int `json:"target_min_p50_rounds,omitempty"`
+	// CardAdjustments reequilibra cartas específicas nesta versão sem tocar no
+	// catálogo compartilhado. Todos os rulesets compilam do mesmo JSON, então
+	// editar a carta na fonte reescreveria o significado das versões anteriores
+	// e dos replays já gravados. Aqui a mudança fica presa à versão que a pediu.
+	CardAdjustments map[string]CardAdjustment `json:"card_adjustments,omitempty"`
+	// ChampionPowers devolve identidade mecânica aos Avatares. Fica aqui, e não
+	// no catálogo de campeões, pelo mesmo motivo dos ajustes de carta: o
+	// catálogo é compartilhado por todas as versões.
+	ChampionPowers    map[string]ChampionPower `json:"champion_powers,omitempty"`
+	FirstTurnPenalty  int                      `json:"first_turn_penalty"`
+	ExposedPowerBonus int                      `json:"exposed_power_bonus,omitempty"`
+	DrawOnFirstTurn   bool                     `json:"draw_on_first_turn"`
+	PressureStartTurn int                      `json:"pressure_start_turn,omitempty"`
+	PressureBaseLoss  int                      `json:"pressure_base_loss,omitempty"`
+	MinAssaults       int                      `json:"min_assaults,omitempty"`
+	MinGuards         int                      `json:"min_guards,omitempty"`
+	MinRites          int                      `json:"min_rites,omitempty"`
+	TacticalSeals     bool                     `json:"tactical_seals,omitempty"`
+	// Decisions abre o comando de escolha no Modo Confronto e, com ele, as
+	// cartas que pedem uma decisão ao jogador. Ver ADR-058.
+	Decisions bool `json:"decisions,omitempty"`
+}
+
+// ChampionPower é o poder do Avatar no Modo Confronto, descrito por dados: um
+// gatilho, um efeito e uma grandeza. Nada de ramificar por ID de campeão no
+// meio da engine — a mesma disciplina que vale para carta vale para Avatar.
+type ChampionPower struct {
+	Text    string `json:"text"`
+	Trigger string `json:"trigger"` // first_play_of_round | first_guard_of_round | low_vitality | after_guard | opening | undefended_hit | connected_hit | own_shatter | deck_out
+	Effect  string `json:"effect"`  // discount | ward | heal | draw | fatigue_relief
+	N       int    `json:"n"`
+	At      int    `json:"at,omitempty"` // limiar de Vitalidade para low_vitality
+}
+
+// ChampionTriggers e ChampionEffects são os vocabulários aceitos; o validador
+// rejeita qualquer poder fora deles em vez de ignorá-lo em silêncio.
+var (
+	ChampionTriggers = map[string]bool{
+		"first_play_of_round": true, "first_guard_of_round": true, "low_vitality": true,
+		"after_guard": true, "opening": true, "undefended_hit": true, "connected_hit": true,
+		"own_shatter": true, "deck_out": true,
+	}
+	ChampionEffects = map[string]bool{
+		"discount": true, "ward": true, "heal": true, "draw": true, "fatigue_relief": true,
+	}
+)
+
+// CardAdjustment é um reequilíbrio pontual de carta, válido só na versão que o
+// declara. Campos nulos preservam o valor original.
+type CardAdjustment struct {
+	Damage  *int   `json:"damage,omitempty"`  // Assalto: dano base por instância
+	Prevent *int   `json:"prevent,omitempty"` // Guarda: prevenção base
+	Cost    *int   `json:"cost,omitempty"`    // custo em Vitalidade
+	Reason  string `json:"reason,omitempty"`  // aparece no relatório de implementação
 }
 
 // CardFx é a definição de efeitos de uma carta (exatamente uma seção,

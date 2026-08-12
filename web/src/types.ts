@@ -36,6 +36,8 @@ export interface Champion {
   passive: string;
   ultimate: string;
   eclipse_form: string;
+  /** Poder do Avatar no ruleset ativo; ausente quando o modo não concede um. */
+  confront_power?: string;
 }
 
 export interface Principal {

@@ -1,5 +1,6 @@
-import { useSessionStore } from "./store";
+import { usePreferencesStore, useSessionStore } from "./store";
 import type { SessionTokens } from "./types";
+import { translateError } from "./i18n";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -13,14 +14,16 @@ async function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T;
   const body = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new ApiError(response.status, body?.error?.code ?? "request_failed", body?.error?.message ?? "Não foi possível concluir a solicitação.");
+    const code = body?.error?.code ?? "request_failed";
+    const message = body?.error?.message ?? "Não foi possível concluir a solicitação.";
+    throw new ApiError(response.status, code, translateError(code, message, usePreferencesStore.getState().locale));
   }
   return body as T;
 }
 
 async function refreshSession(): Promise<SessionTokens> {
   const refreshToken = useSessionStore.getState().tokens?.refresh_token;
-  if (!refreshToken) throw new ApiError(401, "unauthorized", "Sua sessão terminou.");
+  if (!refreshToken) throw new ApiError(401, "unauthorized", translateError("unauthorized", "Sua sessão terminou.", usePreferencesStore.getState().locale));
   if (!refreshInFlight) {
     refreshInFlight = fetch("/v1/auth/refresh", {
       method: "POST",

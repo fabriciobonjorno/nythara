@@ -13,7 +13,7 @@ const introSteps = [
     eyebrow: "BEM-VINDO A NYTHARA",
     title: "Um objetivo. Trinta cartas.",
     body: "Reduza a Vitalidade rival a zero. Sua própria Vitalidade também paga as cartas, então toda jogada forte deixa uma abertura.",
-    points: ["O primeiro duelo começa em poucos segundos", "A engine mostra somente jogadas válidas", "Avatar é aparência, nunca vantagem"],
+    points: ["O primeiro duelo começa em poucos segundos", "A engine mostra somente jogadas válidas", "Cada Avatar tem um poder próprio, todos equilibrados"],
   },
   {
     icon: "duel",

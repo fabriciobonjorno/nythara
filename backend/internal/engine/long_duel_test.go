@@ -258,3 +258,55 @@ func compileConfrontVariant(t *testing.T, version string, tune func(*engine.Conf
 	}
 	return rs
 }
+
+// Os poderes de Avatar são o gancho de identidade do formato (ADR-057). Estes
+// testes travam o que a calibragem descobriu: todo Avatar tem poder, o poder
+// muda resultado de jogo, e nenhum Avatar compra cartas — no duelo longo o
+// baralho é o relógio, e acelerar a compra chegou a derrubar um Avatar para 28%
+// de win rate.
+func TestEveryAvatarHasAPowerAndNoneDrawsCards(t *testing.T) {
+	rs := engine.CompetitiveRuleset()
+	powers := rs.ConfrontRules.ChampionPowers
+	if len(powers) != len(rs.Champions) {
+		t.Fatalf("Avatares sem poder: %d poderes para %d Campeões", len(powers), len(rs.Champions))
+	}
+	for id, power := range powers {
+		if power.Text == "" {
+			t.Fatalf("%s: poder sem texto para o jogador", id)
+		}
+		if power.Effect == "draw" {
+			t.Fatalf("%s: comprar carta é desvantagem neste formato; ver ADR-057", id)
+		}
+	}
+}
+
+func TestChampionPowerChangesTheGame(t *testing.T) {
+	// CH-SO-02 ganha Ward quando o Assalto dele conecta. Sem o poder, o mesmo
+	// confronto não gera Ward nenhum.
+	deck0 := deckForVersion(t, engine.CompetitiveRuleset(), "CH-SO-02", "VR-001")
+	deck1 := deckForVersion(t, engine.CompetitiveRuleset(), "CH-VH-01")
+	g, err := engine.NewGame(engine.Config{RulesetVersion: engine.CompetitiveRulesetVersion,
+		Seed: 7401, SkipShuffle: true, FirstPlayer: 0,
+		Players: [2]engine.PlayerSetup{{ChampionID: "CH-SO-02", Deck: deck0}, {ChampionID: "CH-VH-01", Deck: deck1}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.Apply(engine.Command{Player: 0, Kind: engine.CmdKindPlay, Card: instanceByDef(t, g, 0, "VR-001")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.Apply(engine.Command{Player: 1, Kind: engine.CmdKindPass}); err != nil {
+		t.Fatal(err)
+	}
+	if g.State().Players[0].Ward == 0 {
+		t.Fatal("o poder do Avatar não concedeu Ward ao conectar o Assalto")
+	}
+	var announced bool
+	for _, event := range g.Log {
+		if event.Kind == engine.EvWardGained && event.P == 0 {
+			announced = true
+		}
+	}
+	if !announced {
+		t.Fatal("poder de Avatar agiu sem emitir evento: efeito invisível é indistinguível de bug")
+	}
+}

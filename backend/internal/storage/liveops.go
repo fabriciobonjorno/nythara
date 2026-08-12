@@ -463,6 +463,32 @@ func (p *Postgres) MatchTelemetry(ctx context.Context) (domain.MatchTelemetry, e
 	if err != nil {
 		return t, mapError(err)
 	}
+	err = p.db.QueryRowContext(ctx, `
+		WITH samples AS (
+			SELECT m.id,
+				extract(epoch FROM (m.ended_at - m.started_at))::double precision AS duration_seconds,
+				COALESCE(max((e.event->>'round')::int), 0)::double precision AS rounds
+			FROM matches m
+			LEFT JOIN match_events e ON e.match_id = m.id
+			WHERE m.mode = 'pvp' AND m.status = 'finished'
+				AND m.started_at IS NOT NULL AND m.ended_at IS NOT NULL
+			GROUP BY m.id
+		)
+		SELECT count(*),
+			COALESCE(avg(duration_seconds), 0),
+			COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_seconds), 0),
+			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_seconds), 0),
+			COALESCE(avg(rounds), 0),
+			COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY rounds), 0),
+			COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY rounds), 0),
+			count(*) FILTER (WHERE duration_seconds >= 1800)
+		FROM samples`).Scan(&t.Rhythm.SampleMatches, &t.Rhythm.AverageDurationSeconds,
+		&t.Rhythm.P50DurationSeconds, &t.Rhythm.P95DurationSeconds,
+		&t.Rhythm.AverageRounds, &t.Rhythm.P50Rounds, &t.Rhythm.P95Rounds,
+		&t.Rhythm.OverThirtyMinutes)
+	if err != nil {
+		return t, mapError(err)
+	}
 	// O campeão de um assento vem do deck (match_players não tem coluna
 	// própria) — bug pego pelo primeiro consumidor real (painel LiveOps).
 	rows, err := p.db.QueryContext(ctx, `

@@ -6,15 +6,16 @@ import (
 	"os"
 	"time"
 
+	"veurubro/backend/internal/config"
 	"veurubro/backend/internal/storage"
 )
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		databaseURL = "postgres://veurubro:veurubro_dev@localhost:55432/veurubro?sslmode=disable"
+	databaseURL, err := config.RequiredSecret("DATABASE_URL")
+	if err != nil {
+		log.Fatal(err)
 	}
 	db, err := storage.Open(ctx, databaseURL)
 	if err != nil {

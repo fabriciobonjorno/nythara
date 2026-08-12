@@ -13,7 +13,22 @@ interface CardBan { id: string; card_id: string; reason: string; created_by: str
 interface Season { id: string; name: string; ruleset_version: string; starts_at: string }
 interface AuditEntry { id: number; actor: string; action: string; subject: string; created_at: string }
 interface ChampionStat { champion_id: string; games: number; wins: number; win_rate: number }
-interface Telemetry { total_matches: number; finished_matches: number; by_champion: ChampionStat[] | null }
+interface RhythmStats {
+  sample_matches: number;
+  average_duration_seconds: number;
+  p50_duration_seconds: number;
+  p95_duration_seconds: number;
+  average_rounds: number;
+  p50_rounds: number;
+  p95_rounds: number;
+  over_thirty_minutes: number;
+}
+interface Telemetry {
+  total_matches: number;
+  finished_matches: number;
+  by_champion: ChampionStat[] | null;
+  rhythm: RhythmStats;
+}
 interface Draft {
   id: string; card_id: string; status: string; note: string;
   card: unknown; effects: unknown; last_validation?: unknown; published_version?: string; updated_at: string;
@@ -22,7 +37,13 @@ interface Draft {
 export function AdminPage() {
   const principal = useSessionStore((state) => state.principal);
   if (principal?.role !== "admin") {
-    return <div className="page admin-page"><p className="admin-empty">O Salão de Controle é restrito aos guardiões do Véu (papel <code>admin</code>).</p></div>;
+    return <main className="page admin-page">
+      <header className="admin-head">
+        <p className="eyebrow">ACESSO RESTRITO</p>
+        <h1>Salão de Controle</h1>
+        <p className="admin-empty">Esta área é exclusiva para contas com o papel <code>admin</code>.</p>
+      </header>
+    </main>;
   }
   return <div className="page admin-page">
     <header className="admin-head"><p className="eyebrow">SALÃO DE CONTROLE</p><h1>LiveOps</h1>
@@ -33,9 +54,47 @@ export function AdminPage() {
       <SeasonPanel />
     </div>
     <TelemetryPanel />
+    <AlphaNotesPanel />
     <DraftsPanel />
     <AuditPanel />
   </div>;
+}
+
+interface AlphaNote {
+  id: string;
+  user_id: string;
+  match_id?: string;
+  ruleset_version: string;
+  message: string;
+  created_at: string;
+}
+
+// Recados do Alpha. Pedir opinião e não ler é pior que não pedir: este painel
+// existe para que o convite da tela de resultado tenha destino.
+function AlphaNotesPanel() {
+  const [notes, setNotes] = useState<AlphaNote[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    void api<{ feedback: AlphaNote[] | null }>("/v1/admin/feedback?limit=100")
+      .then((data) => setNotes(data.feedback ?? []))
+      .catch(() => undefined)
+      .finally(() => setLoaded(true));
+  }, []);
+  return <section className="panel admin-panel" aria-label="Recados do Alpha">
+    <header><p className="eyebrow">VOZ DE QUEM JOGA</p><h2>Recados do Alpha</h2></header>
+    {!loaded ? <p className="admin-empty">Carregando…</p>
+      : notes.length === 0 ? <p className="admin-empty">Nenhum recado ainda. O convite aparece na tela de resultado e é opcional.</p>
+      : <ul className="alpha-notes">
+          {notes.map((note) => <li key={note.id}>
+            <header>
+              <time dateTime={note.created_at}>{new Date(note.created_at).toLocaleString("pt-BR")}</time>
+              <span className="alpha-notes__ruleset">{note.ruleset_version}</span>
+              {note.match_id && <a href={`/cronica/${note.match_id}`}>ver a partida</a>}
+            </header>
+            <p>{note.message}</p>
+          </li>)}
+        </ul>}
+  </section>;
 }
 
 function useFeedback(): [string, (tone: "ok" | "erro", text: string) => void, boolean] {
@@ -167,6 +226,13 @@ function TelemetryPanel() {
     <header><p className="eyebrow">O QUE A MESA CONTA</p><h2>Telemetria</h2></header>
     {data ? <>
       <p className="admin-season"><strong>{data.finished_matches}</strong><small>partidas encerradas de {data.total_matches} criadas</small></p>
+      {data.rhythm.sample_matches > 0 ? <>
+        <div className="admin-grid">
+          <p className="admin-season"><strong>{formatDuration(data.rhythm.p50_duration_seconds)}</strong><small>duração mediana · p95 {formatDuration(data.rhythm.p95_duration_seconds)}</small></p>
+          <p className="admin-season"><strong>{data.rhythm.p50_rounds.toFixed(0)}</strong><small>rodadas medianas · p95 {data.rhythm.p95_rounds.toFixed(0)}</small></p>
+        </div>
+        <p className="admin-empty">Amostra humana: {data.rhythm.sample_matches} PvP · média {formatDuration(data.rhythm.average_duration_seconds)} / {data.rhythm.average_rounds.toFixed(1)} rodadas · {data.rhythm.over_thirty_minutes} acima de 30 min.</p>
+      </> : <p className="admin-empty">O ritmo humano aparecerá após a primeira PvP concluída.</p>}
       {data.by_champion?.length ? <table className="admin-table"><thead><tr><th>Avatar</th><th>Partidas</th><th>Vitórias</th><th>WR</th></tr></thead>
         <tbody>{data.by_champion.map((stat) => <tr key={stat.champion_id}>
           <td><code>{stat.champion_id}</code></td><td>{stat.games}</td><td>{stat.wins}</td>
@@ -174,6 +240,12 @@ function TelemetryPanel() {
         </tr>)}</tbody></table> : <p className="admin-empty">Sem partidas suficientes para agregados.</p>}
     </> : <p className="admin-empty">Carregando…</p>}
   </section>;
+}
+
+function formatDuration(seconds: number) {
+  const minutes = Math.max(0, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}min`;
 }
 
 function AuditPanel() {

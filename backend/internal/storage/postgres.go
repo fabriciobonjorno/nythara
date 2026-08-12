@@ -367,6 +367,9 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 	}
 
 	const alphaSeasonStart = "2026-08-11T00:00:00Z"
+	// O nome deriva da versão ativa: um literal fixo aqui já produziu
+	// temporadas de alpha-0.12.0 batizadas de "Alpha 0.10.2".
+	seasonName := fmt.Sprintf("Alpha %s", strings.TrimPrefix(activeVersion, "alpha-"))
 	// Fecha no relógio real (ends_at > starts_at garantido para temporadas já
 	// iniciadas); a constante seguia igual ao starts_at e violava o check.
 	if _, err := tx.ExecContext(ctx, `UPDATE seasons SET ends_at=now()
@@ -383,8 +386,14 @@ func (p *Postgres) SyncCatalog(ctx context.Context) error {
 			WHEN EXISTS (SELECT 1 FROM seasons WHERE id='00000000-0000-4000-8000-000000000012')
 			THEN gen_random_uuid()
 			ELSE '00000000-0000-4000-8000-000000000012'::uuid
-		END,'Alpha 0.10.2 — Selos Táticos',$1,$2::timestamptz
-		WHERE NOT EXISTS (SELECT 1 FROM seasons WHERE ends_at IS NULL)`, activeVersion, alphaSeasonStart); err != nil {
+		END,$3,$1,$2::timestamptz
+		WHERE NOT EXISTS (SELECT 1 FROM seasons WHERE ends_at IS NULL)`, activeVersion, alphaSeasonStart, seasonName); err != nil {
+		return err
+	}
+	// A temporada aberta acompanha o nome da própria versão; as encerradas
+	// preservam o nome com que foram jogadas.
+	if _, err := tx.ExecContext(ctx, `UPDATE seasons SET name=$2
+		WHERE ends_at IS NULL AND ruleset_version=$1 AND name<>$2`, activeVersion, seasonName); err != nil {
 		return err
 	}
 	var openRuleset string

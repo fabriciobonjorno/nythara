@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CardTile } from "../components/CardTile";
 import { ChampionEmblem } from "../components/ChampionEmblem";
+import { DecisionSheet } from "../components/DecisionSheet";
 import { DuelCard } from "../components/DuelCard";
 import { NytharaMark } from "../components/NytharaMark";
 import { UiIcon } from "../components/UiIcon";
 import { FloaterLayer, FxBanner } from "../fx/BattleFx";
+import { ParticleStage } from "../fx/ParticleStage";
 import { engageAmbience, setAmbienceEnabled, stopAmbience, updateAmbience } from "../fx/sfx";
 import { buildGuidedProgress, guidedLesson, type GuidedLesson } from "../guidedTraining";
 import { cardBrief, cardRole, cardStat } from "../cardText";
@@ -14,6 +16,7 @@ import { useCards, useChampions, useRuleset } from "../queries";
 import { usePreferencesStore, useSessionStore } from "../store";
 import type { BattleEvent, BattleState, CardDefinition, Champion, PlayerView } from "../types";
 import { useBattleSocket } from "../useBattleSocket";
+import { translateText } from "../i18n";
 
 // Mesa de duelo. A regra continua inteiramente na engine: esta tela só desenha
 // o estado publicado. A permanência das cartas na arena é apresentação — nada
@@ -87,7 +90,7 @@ export function BattlePage() {
 
   useEffect(() => {
     if (!liveState || liveSlot === null || liveState.over || battle.pending || battle.status !== "connected" ||
-      liveState.active !== liveSlot || !["assalto", "guarda", "rito"].includes(liveState.phase) ||
+      liveState.pending || liveState.active !== liveSlot || !["assalto", "guarda", "rito"].includes(liveState.phase) ||
       (liveState.playable ?? []).length > 0) return;
     const key = `${liveState.round}:${liveState.phase}:${liveState.active}`;
     if (autoPassKey.current === key) return;
@@ -95,7 +98,7 @@ export function BattlePage() {
       autoPassKey.current = key;
       engageAmbience();
       battle.send({ kind: "pass" });
-    }, reducedMotion ? 350 : 1050);
+    }, autoPassDelay(reducedMotion));
     return () => window.clearTimeout(timer);
   }, [battle, liveSlot, liveState, reducedMotion]);
 
@@ -132,6 +135,7 @@ export function BattlePage() {
         return;
       }
       if (target?.closest("input, select, textarea") || !liveState || liveSlot === null || liveState.over) return;
+      if (liveState.pending) return;
       if (event.key.toLocaleLowerCase("pt-BR") === "h") {
         event.preventDefault();
         setHelpOpen((open) => !open);
@@ -186,12 +190,10 @@ export function BattlePage() {
     phase: state.confront.guard_def ? "guard" as const : "waiting" as const,
   } : null);
 
-  // A carta escolhida manda no preview; o ponteiro só passeia enquanto nada
-  // estiver escolhido. Assim o painel e os botões nunca falam de cartas
-  // diferentes.
-  const focused = selectedId
-    ? hand.find((item) => item.instanceId === selectedId)
-    : hand.find((item) => item.instanceId === hoverId);
+  // O ponteiro manda na leitura: passar o mouse já mostra a carta inteira no
+  // trilho. A carta fixada por clique é só o alvo dos botões do painel.
+  const focused = hand.find((item) => item.instanceId === hoverId)
+    ?? hand.find((item) => item.instanceId === selectedId);
   const arenaCard = visual ? cardsById.get(visual.guardDef ?? visual.attackDef) : undefined;
   const inspected = focused?.card ?? arenaCard;
   const inspectSource: InspectSource = focused ? "hand" : arenaCard ? "arena" : "none";
@@ -200,12 +202,14 @@ export function BattlePage() {
     onPlay: () => playCard(focused.instanceId),
     onCancel: () => setSelectedId(null),
   } : undefined;
-  const coachLesson = guidedLesson(state, mySlot, trainingProgress);
+  const playableItems = hand.filter((item) => playable(item.instanceId));
+  const coachLesson = guidedLesson(state, mySlot, trainingProgress, { guardLeakCap: leakCap });
 
-  return <main className={`duel-room phase-${state.phase} ${myTurn ? "is-my-turn" : "is-rival-turn"} ${fx.shaking ? "is-shaking" : ""} ${draggingCardId ? "is-card-dragging" : ""}`}>
+  return <main className={`duel-room phase-${state.phase} ${myTurn ? "is-my-turn" : "is-rival-turn"} ${fx.shaking ? "is-shaking" : ""} ${draggingCardId ? "is-card-dragging" : ""} ${me.vitality <= 12 && !state.over ? "is-danger" : ""} ${selectedId ? "is-inspecting" : ""}`}>
+    <h1 className="sr-only">Duelo em andamento</h1>
     <header className="duel-topbar">
       <Link to="/app" aria-label="Sair para o início"><NytharaMark /></Link>
-      <span className="duel-topbar__link"><span className={`connection-dot ${battle.status}`} />{battle.status === "connected" ? "Conectado" : "Reconectando"}</span>
+      <span className="duel-topbar__link"><span className={`connection-dot ${battle.status}`} /><span className="duel-topbar__label">{battle.status === "connected" ? "Conectado" : "Reconectando"}</span></span>
       <strong className="duel-topbar__turn">TURNO {state.round}</strong>
       <Deadline value={battle.deadline} />
       <button type="button" onClick={() => setHelpOpen((open) => !open)} aria-expanded={helpOpen}><UiIcon name="info" /><span>Ajuda</span></button>
@@ -231,6 +235,8 @@ export function BattlePage() {
         <DuelistBar own player={me} avatar={avatars.get(me.champion)} active={myTurn} round={state.round} state={state} cards={cardsById} />
       </section>
 
+      {/* Scrim só existe no sheet móvel (CSS); tocar fora solta a carta. */}
+      {selectedId && <button type="button" className="rail-scrim" aria-label="Fechar a leitura da carta" onClick={() => setSelectedId(null)} />}
       <aside className="duel-rail" aria-label="Leitura da carta">
         <Inspector card={inspected} source={inspectSource} myTurn={myTurn} choice={choice} onZoom={setZoomed} />
       </aside>
@@ -247,6 +253,7 @@ export function BattlePage() {
             fresh={freshHandCards.has(item.instanceId)}
             selected={selectedId === item.instanceId}
             playable={playable(item.instanceId)}
+            tilt={!reducedMotion}
             onSelect={() => setSelectedId((current) => (current === item.instanceId ? null : item.instanceId))}
             onHover={setHoverId}
             onPlay={() => playCard(item.instanceId)}
@@ -257,11 +264,12 @@ export function BattlePage() {
           {!hand.length && <li className="duel-hand__empty">Mão vazia — a compra do próximo turno reabastece.</li>}
         </ol>
       </div>
-      <ActionPanel state={state} mySlot={mySlot} myTurn={myTurn} connected={!battle.pending} playableCount={(state.playable ?? []).length} onPass={passPhase} />
+      <ActionPanel state={state} mySlot={mySlot} myTurn={myTurn} connected={!battle.pending} options={playableItems} autoPassMs={autoPassDelay(reducedMotion)} onPass={passPhase} />
     </footer>
 
     {battle.error && <p className="duel-error" role="alert">{battle.error}</p>}
 
+    {!reducedMotion && <ParticleStage />}
     <FloaterLayer floaters={fx.floaters} mySlot={mySlot} />
     <FxBanner banner={fx.banner} />
 
@@ -269,6 +277,13 @@ export function BattlePage() {
 
     <aside className={`battle-help ${helpOpen ? "is-open" : ""}`} aria-label="Ajuda do duelo"><header><div><p className="eyebrow">COMO SE JOGA</p><h2>Controles e regra</h2></div><button type="button" onClick={() => setHelpOpen(false)} aria-label="Fechar ajuda"><UiIcon name="close" /></button></header><ol><li><kbd>1×</kbd><span><strong>Clique para ler</strong><small>A carta sobe e aparece inteira no painel da direita.</small></span></li><li><kbd>↑</kbd><span><strong>Confirme para jogar</strong><small>Use o botão de jogar da carta ou arraste-a para a mesa.</small></span></li><li><kbd>1–7</kbd><span><strong>Teclado</strong><small>O número lê a carta; o mesmo número de novo confirma.</small></span></li><li><kbd>Espaço</kbd><span><strong>Passar a fase</strong><small>Sem carta legal, a mesa avança sozinha.</small></span></li></ol><div className="battle-help__rule"><strong>Assalto → Guarda → Rito</strong><p>No seu turno você declara o <b>Assalto</b> e, depois, pode usar um <b>Rito</b> — duas cartas na mesma vez. A <b>Guarda</b> é a janela do defensor: você só escolhe uma quando o rival ataca. Poder menos Prevenção vira dano{leakCap > 0 ? <>, e <b>uma Guarda nunca deixa passar mais que {leakCap}</b>. Quem não responde leva o golpe inteiro</> : null}. As cartas ficam na mesa até o próximo confronto, com o resultado carimbado. Os medalhões ao lado de cada duelista mostram os Selos ativos o tempo todo.</p></div><label className="battle-help__toggle"><span><strong>Movimento reduzido</strong><small>Corta voo de carta e tremor de impacto.</small></span><input type="checkbox" checked={reducedMotion} onChange={(event) => setPreference("reducedMotion", event.target.checked)} /></label><Link to="/settings">Som, trilha, vibração e acessibilidade</Link><button className="battle-help__concede" type="button" onClick={() => window.confirm("Conceder esta partida?") && battle.send({ kind: "concede" })}>Conceder partida</button></aside>
 
+    {state.pending && state.pending.player === mySlot && <DecisionSheet
+      pending={state.pending}
+      cards={state.cards}
+      byId={cardsById}
+      busy={Boolean(battle.pending) || battle.status !== "connected"}
+      onConfirm={(picked) => { engageAmbience(); battle.send({ kind: "choose", decision_id: state.pending!.id, cards: picked }); }}
+    />}
     {state.over && <div className="match-over-overlay" role="dialog" aria-modal="true"><p className="eyebrow">CONFRONTO ENCERRADO</p><h2>{state.winner === mySlot ? "Vitória" : "Derrota"}</h2><p>{endReason(state.end_reason)}</p><button className="primary-button" type="button" onClick={() => navigate("/result")}>Ver resultado</button></div>}
     {zoomed && <div className="modal-backdrop" onMouseDown={() => setZoomed(null)}><div className="battle-card-zoom" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setZoomed(null)} aria-label="Fechar"><UiIcon name="close" /></button><CardTile card={zoomed} /></div></div>}
   </main>;
@@ -353,7 +368,7 @@ function ArenaSlot({ kind, card, broken, side, stamp, idleTitle, idleHint, waiti
   idleHint: string;
   waiting?: boolean;
 }) {
-  return <div className={`arena-slot is-${kind} from-${side} ${card ? "is-filled" : "is-empty"} ${waiting ? "is-waiting" : ""}`}>
+  return <div className={`arena-slot is-${kind} from-${side} ${card ? "is-filled" : "is-empty"} ${waiting ? "is-waiting" : ""}`} data-fx={`slot-${kind}`}>
     <span className="arena-slot__label">{idleTitle}</span>
     {card
       ? <div className="arena-slot__card"><DuelCard card={card} size="table" broken={broken} />{stamp && <b className={`arena-slot__stamp ${broken ? "is-broken" : ""}`}>{stamp}</b>}</div>
@@ -375,7 +390,7 @@ function Verdict({ visual, mySlot, state, dragging }: { visual: ArenaVisual | nu
   const damageToMe = resolved && visual.attacker !== mySlot && visual.damage > 0;
   // O teto de vazamento age quando a subtração daria mais do que passou.
   const capped = resolved && Boolean(visual.guardDef) && visual.power - visual.prevention > visual.damage;
-  return <div className={`verdict is-live ${resolved ? "is-resolved" : ""} ${damageToMe ? "is-against-me" : ""}`}>
+  return <div className={`verdict is-live ${resolved ? "is-resolved" : ""} ${damageToMe ? "is-against-me" : ""}`} data-fx="verdict">
     <div className="verdict__math">
       <span><small>PODER</small><b>{visual.power}</b></span>
       <i aria-hidden="true">−</i>
@@ -442,6 +457,7 @@ function DuelistBar({ own, player, avatar, active, round, state, cards }: {
   state: BattleState;
   cards: Map<string, CardDefinition>;
 }) {
+  const locale = usePreferencesStore((preferences) => preferences.locale);
   const vitality = Math.max(0, player.vitality);
   const maximum = Math.max(1, player.max_vitality || 30);
   const percentage = Math.min(100, Math.round((vitality / maximum) * 100));
@@ -455,13 +471,18 @@ function DuelistBar({ own, player, avatar, active, round, state, cards }: {
       <div>
         <small>{own ? "VOCÊ" : "RIVAL"}</small>
         <strong>{(avatar?.name ?? (own ? "Seu Avatar" : "Duelista rival")).split(",")[0]}</strong>
-        <em>Avatar · sem efeito de regra</em>
+        <em title={avatar?.confront_power ? translateText(avatar.confront_power, locale) : undefined}>{avatar?.confront_power ? translateText(avatar.confront_power, locale) : "Avatar · sem efeito de regra"}</em>
       </div>
     </div>
 
-    <div className="vial" role="progressbar" aria-label={`Vitalidade ${vitality} de ${maximum}`} aria-valuemin={0} aria-valuemax={maximum} aria-valuenow={vitality}>
-      <span className="vial__glass"><i className="vial__fluid" style={{ height: `${percentage}%` }} /></span>
-      <span className="vial__read"><b>{vitality}</b><small>VITALIDADE</small></span>
+    <div className="vial" data-fx={own ? "vial-own" : "vial-rival"} role="progressbar" aria-label={`Vitalidade ${vitality} de ${maximum}`} aria-valuemin={0} aria-valuemax={maximum} aria-valuenow={vitality}>
+      <span className="vial__glass">
+        {/* O fantasma desce devagar atrás do fluido: o "pedaço perdido" fica
+            visível por um segundo, como em jogo de luta. */}
+        <i className="vial__ghost" style={{ height: `${percentage}%` }} />
+        <i className="vial__fluid" style={{ height: `${percentage}%` }} />
+      </span>
+      <span className="vial__read"><b><TickedNumber value={vitality} /></b><small>VITALIDADE</small></span>
     </div>
 
     <SealMedals player={player} round={round} />
@@ -481,6 +502,30 @@ function DuelistBar({ own, player, avatar, active, round, state, cards }: {
       <span className="pile pile-ward" aria-label={`Ward ${player.ward}`}><UiIcon name="ward" /><b>{player.ward}</b><small>WARD</small></span>
     </div>
   </section>;
+}
+
+// Número que corre até o valor novo: a perda é lida como movimento, não como
+// troca de dígito. Puro estado local — o valor autoritativo chega pronto.
+function TickedNumber({ value }: { value: number }) {
+  const [shown, setShown] = useState(value);
+  const raf = useRef(0);
+  useEffect(() => {
+    cancelAnimationFrame(raf.current);
+    const from = shown;
+    if (from === value) return;
+    const start = performance.now();
+    const duration = Math.min(700, 160 + Math.abs(value - from) * 60);
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setShown(Math.round(from + (value - from) * eased));
+      if (t < 1) raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return <>{shown}</>;
 }
 
 function SealMedals({ player, round }: { player: PlayerView; round: number }) {
@@ -532,12 +577,13 @@ function PhaseOrbs({ phase, active, mySlot, turnOwner }: {
   </div>;
 }
 
-function HandSlot({ item, index, fresh, selected, playable, onSelect, onHover, onPlay, onZoom, onCancel, onDragChange }: {
+function HandSlot({ item, index, fresh, selected, playable, tilt, onSelect, onHover, onPlay, onZoom, onCancel, onDragChange }: {
   item: HandItem;
   index: number;
   fresh: boolean;
   selected: boolean;
   playable: boolean;
+  tilt: boolean;
   onSelect: () => void;
   onHover: (id: string | null) => void;
   onPlay: () => void;
@@ -548,6 +594,21 @@ function HandSlot({ item, index, fresh, selected, playable, onSelect, onHover, o
   const [drag, setDrag] = useState({ x: 0, y: 0, progress: 0, active: false });
   const gesture = useRef<{ pointerId: number; x: number; y: number; active: boolean } | null>(null);
   const suppressClick = useRef(false);
+  const slotRef = useRef<HTMLLIElement>(null);
+
+  // Tilt 3D seguindo o ponteiro — imperativo de propósito: um setState por
+  // pointermove faria a mão inteira re-renderizar a 60Hz.
+  const setTilt = (rx: number, ry: number) => {
+    slotRef.current?.style.setProperty("--tilt-rx", `${rx}deg`);
+    slotRef.current?.style.setProperty("--tilt-ry", `${ry}deg`);
+  };
+  const followTilt = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!tilt || gesture.current?.active) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const nx = (event.clientX - rect.left) / rect.width - 0.5;
+    const ny = (event.clientY - rect.top) / rect.height - 0.5;
+    setTilt(-ny * 10, nx * 12);
+  };
 
   const resetDrag = () => {
     if (gesture.current?.active) onDragChange(false);
@@ -560,6 +621,7 @@ function HandSlot({ item, index, fresh, selected, playable, onSelect, onHover, o
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* captura é melhoria, não requisito do gesto */ }
   };
   const pointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    followTilt(event);
     const current = gesture.current;
     if (!current || current.pointerId !== event.pointerId) return;
     const rawX = event.clientX - current.x;
@@ -569,6 +631,7 @@ function HandSlot({ item, index, fresh, selected, playable, onSelect, onHover, o
       current.active = true;
       onSelect();
       onDragChange(true);
+      setTilt(0, 0);
     }
     if (!active) return;
     event.preventDefault();
@@ -605,12 +668,12 @@ function HandSlot({ item, index, fresh, selected, playable, onSelect, onHover, o
     "--drag-scale": 1 + drag.progress * 0.08,
   } as CSSProperties;
 
-  return <li className={`hand-slot ${selected ? "is-selected" : ""} ${playable ? "is-playable" : "is-idle"} ${fresh ? "is-new" : ""} ${drag.active ? "is-dragging" : ""} ${drag.progress >= 1 ? "is-armed" : ""}`} style={style}>
+  return <li ref={slotRef} className={`hand-slot ${selected ? "is-selected" : ""} ${playable ? "is-playable" : "is-idle"} ${fresh ? "is-new" : ""} ${drag.active ? "is-dragging" : ""} ${drag.progress >= 1 ? "is-armed" : ""}`} style={style}>
     <button
       type="button"
       className="hand-slot__grab"
       onMouseEnter={() => onHover(item.instanceId)}
-      onMouseLeave={() => onHover(null)}
+      onMouseLeave={() => { onHover(null); setTilt(0, 0); }}
       onFocus={() => onHover(item.instanceId)}
       onBlur={() => onHover(null)}
       onPointerDown={pointerDown}
@@ -630,40 +693,81 @@ function HandSlot({ item, index, fresh, selected, playable, onSelect, onHover, o
     <div className="hand-slot__tools" role="group" aria-label={`Ações de ${item.card.name}`}>
       {playable && <button type="button" className="tool tool-play" onClick={onPlay} aria-label={`Usar ${item.card.name}`}><i aria-hidden="true">↑</i><span>USAR</span></button>}
       <button type="button" className="tool tool-zoom" onClick={onZoom} aria-label={`Ampliar ${item.card.name}`}><UiIcon name="info" /><span>VER</span></button>
-      <button type="button" className="tool tool-cancel" onClick={onCancel} aria-label={`Cancelar a escolha de ${item.card.name}`}><UiIcon name="close" /><span>SAIR</span></button>
+      {selected && <button type="button" className="tool tool-cancel" onClick={onCancel} aria-label={`Soltar ${item.card.name}`}><UiIcon name="close" /><span>SOLTAR</span></button>}
     </div>
   </li>;
 }
 
-function ActionPanel({ state, mySlot, myTurn, connected, playableCount, onPass }: {
+// Painel de ação. Quatro decisões de leitura sustentam este bloco: o título é
+// sempre um verbo (o que fazer), a opção é nomeada em vez de contada (ninguém
+// deveria varrer a mão para descobrir qual carta é), a espera do avanço
+// automático tem barra, e o botão de passar é sólido mas nunca dourado — o
+// dourado é de jogar carta, e inverter isso convidaria a passar o turno.
+function ActionPanel({ state, mySlot, myTurn, connected, options, autoPassMs, onPass }: {
   state: BattleState;
   mySlot: number;
   myTurn: boolean;
   connected: boolean;
-  playableCount: number;
+  options: HandItem[];
+  autoPassMs: number;
   onPass: () => void;
 }) {
-  const labels: Record<string, [string, string]> = {
-    assalto: ["Declare um Assalto", "Escolha a carta e confirme."],
-    guarda: ["Responda com uma Guarda", "Bloqueie agora ou deixe o golpe atravessar."],
-    rito: ["Rito opcional", "Use uma tática ou entregue o turno."],
-  };
-  const [title, copy] = labels[state.phase] ?? ["A engine está resolvendo", "Aguarde a próxima ação."];
-  if (!myTurn) {
-    return <div className="action-panel is-waiting">
-      <span className="pulse-dot" aria-hidden="true" />
-      <strong>{state.phase === "guarda" && state.active !== mySlot ? "O rival escolhe a Guarda" : "Vez do rival"}</strong>
-      <small>A próxima decisão aparece no centro da mesa.</small>
-    </div>;
+  if (!myTurn || (state.pending && state.pending.player !== mySlot)) {
+    const rivalDeciding = Boolean(state.pending && state.pending.player !== mySlot);
+    const rivalGuard = state.phase === "guarda" && state.active !== mySlot;
+    return <aside className="action-panel is-waiting" aria-label="Vez do rival">
+      <span className="action-panel__glyph"><UiIcon name="clock" /></span>
+      <div className="action-panel__copy">
+        <strong>{rivalDeciding ? "O rival faz uma escolha" : rivalGuard ? "O rival decide a Guarda" : "Vez do rival"}</strong>
+        <small>{rivalDeciding ? "Uma carta dele exige decisão antes de a mesa seguir." : rivalGuard ? "Ele pode bloquear seu Assalto ou deixá-lo passar." : "A próxima decisão aparece no centro da mesa."}</small>
+      </div>
+      <span className="action-panel__wait" aria-hidden="true"><i /><i /><i /></span>
+    </aside>;
   }
-  return <div className={`action-panel phase-${state.phase} ${playableCount === 0 ? "is-auto" : ""}`}>
-    <span className="action-panel__flag">SUA VEZ</span>
-    <strong>{playableCount === 0 ? "Sem carta legal" : title}</strong>
-    <small>{playableCount === 0 ? "Avançando a fase…" : `${copy} ${playableCount} ${playableCount === 1 ? "opção" : "opções"}.`}</small>
-    {playableCount > 0 && <button className="action-panel__pass" disabled={!connected} type="button" onClick={onPass}>
-      {state.phase === "guarda" ? "Deixar passar" : state.phase === "assalto" ? "Ir ao Rito" : "Finalizar turno"}<kbd>ESPAÇO</kbd>
-    </button>}
-  </div>;
+
+  const prompts: Record<string, { title: string; hint: string; pass: string; icon: "duel" | "ward" | "sigil" }> = {
+    assalto: { title: "Ataque agora", hint: "Mande um Assalto ao centro da mesa.", pass: "Não atacar neste turno", icon: "duel" },
+    guarda: { title: "Defenda-se", hint: "Bloqueie o Assalto ou deixe o golpe passar.", pass: "Deixar passar", icon: "ward" },
+    rito: { title: "Feche o turno", hint: "Ainda dá para usar um Rito antes de encerrar.", pass: "Encerrar meu turno", icon: "sigil" },
+  };
+  const prompt = prompts[state.phase] ?? { title: "A mesa está resolvendo", hint: "Aguarde a próxima ação.", pass: "Continuar", icon: "duel" as const };
+
+  if (!options.length) {
+    const reason: Record<string, string> = {
+      assalto: "Nenhum Assalto na sua mão",
+      guarda: "Nenhuma Guarda na sua mão",
+      rito: "Nenhum Rito na sua mão",
+    };
+    return <aside className="action-panel is-auto" role="status">
+      <span className="action-panel__ribbon">SUA VEZ</span>
+      <span className="action-panel__glyph"><UiIcon name={prompt.icon} /></span>
+      <div className="action-panel__copy">
+        <strong>{reason[state.phase] ?? "Nada para jogar agora"}</strong>
+        <small>A mesa avança sozinha — você não perdeu nada.</small>
+      </div>
+      {/* A barra reinicia a cada janela: a chave é a fase daquela rodada. */}
+      <span className="action-panel__auto" key={`${state.round}:${state.phase}`} aria-hidden="true">
+        <i style={{ animationDuration: `${autoPassMs}ms` }} />
+      </span>
+    </aside>;
+  }
+
+  return <aside className={`action-panel is-live phase-${state.phase}`} aria-label="Sua ação">
+    <span className="action-panel__ribbon">SUA VEZ</span>
+    <span className="action-panel__glyph"><UiIcon name={prompt.icon} /></span>
+    <div className="action-panel__copy">
+      <strong>{prompt.title}</strong>
+      <small>{prompt.hint}</small>
+    </div>
+    <p className="action-panel__options">
+      {options.length === 1
+        ? <>Pronta na mão: <b>{options[0].card.name}</b></>
+        : <><b>{options.length}</b> cartas prontas na sua mão</>}
+    </p>
+    <button className="action-panel__pass" disabled={!connected} type="button" onClick={onPass}>
+      <span>{prompt.pass}</span><kbd>ESPAÇO</kbd>
+    </button>
+  </aside>;
 }
 
 /* -------------------------------------------------------------- inspetor */
@@ -798,6 +902,12 @@ function useArena(events: BattleEvent[], reducedMotion: boolean, pace: Pace) {
   }, [events, pace, reducedMotion]);
 
   return visual;
+}
+
+// A mesa espera este tanto antes de passar sozinha por falta de carta. O
+// painel desenha a mesma duração como barra, então o número vive num lugar só.
+function autoPassDelay(reducedMotion: boolean) {
+  return reducedMotion ? 350 : 1050;
 }
 
 function paceScale(pace: Pace) {

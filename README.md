@@ -1,121 +1,210 @@
-# Projeto NYTHARA
+<p align="center">
+  <img src="web/public/assets/nythara-apocalypse-logo.webp" alt="Nythara" width="540">
+</p>
 
-Card game PvP digital de fantasia sombria — monorepo do MVP Web/PWA.
+<p align="center">
+  <strong>Um confronto. Uma decisão por vez.</strong><br>
+  Card game competitivo 1v1 de fantasia sombria para Web/PWA, desktop e mobile.
+</p>
 
-Pacote de design completo em [docs/design/](docs/design/) (GDD, 130 cartas, 10 Avatares,
-arquitetura, plano de balanceamento).
+<p align="center">
+  <img alt="Alpha 0.13" src="https://img.shields.io/badge/alpha-0.13-b44c61?style=flat-square">
+  <img alt="Go" src="https://img.shields.io/badge/backend-Go-6b91a7?style=flat-square&logo=go&logoColor=white">
+  <img alt="React" src="https://img.shields.io/badge/web-React%20%2B%20TypeScript-6b91a7?style=flat-square&logo=react&logoColor=white">
+  <img alt="PWA" src="https://img.shields.io/badge/platform-PWA-c6a75b?style=flat-square">
+  <img alt="Languages" src="https://img.shields.io/badge/languages-PT--BR%20%C2%B7%20ES%20%C2%B7%20EN-c6a75b?style=flat-square">
+</p>
 
-Contrato da persistência/API: [docs/API.md](docs/API.md).
+<p align="center">
+  <a href="#português">Português</a> · <a href="#english">English</a> ·
+  <a href="docs/design/GDD.md">GDD</a> · <a href="CONTRIBUTING.md">Contribuir</a>
+</p>
 
-## Estrutura
+![Arte principal de Nythara: um eclipse sobre a arena](web/public/assets/nythara-key-art.webp)
 
-- `backend/` — Go. Engine determinística de regras (`internal/engine`) e servidor HTTP mínimo.
-- `web/` — PWA React + TypeScript + Vite, mesa visual PixiJS e controles HTML acessíveis.
-- `shared/` — JSON Schemas do catálogo e contratos de protocolo.
-- `docs/` — design (`docs/design/`) e decisões (`DECISIONS.md` na raiz).
-- `ops/` — infraestrutura local e de deploy.
+## Português
 
-## Começando
+**Nythara** é um card game digital competitivo de universo 100% original. Não
+existe mana: sua **Vitalidade é vida e recurso**. Assaltos e Guardas se
+enfrentam no centro da mesa, Ritos mudam o rumo do duelo e cada Avatar oferece
+um poder próprio.
 
-Requisitos: Go 1.25+, Node 20+, Docker.
+> 🤖 **Construído 100% com IA:** o projeto foi gerado com **OpenAI Codex** e
+> **Anthropic Claude Code**, sob direção, curadoria e validação humanas.
 
-```bash
-make setup   # sobe PostgreSQL :55432 + Redis :56379 e aplica migrações
-make test    # testes da engine (inclui simulação bot-vs-bot e replays)
-make run     # API do jogo em :18080, isolada de outros projetos
-make web-dev # cliente em :5173, com proxy REST/WebSocket para :18080
+### Alpha jogável
+
+| Conteúdo | Jogo e plataforma | Engenharia |
+| --- | --- | --- |
+| 130 cartas originais ilustradas | PvP casual e ranked em tempo real | Servidor autoritativo |
+| 65 cartas no pool competitivo | Treino contra bot heurístico | Engine determinística e pura |
+| 10 Avatares com poderes próprios | Deck building, coleção e progressão | Replay e regras versionadas |
+| 5 facções + cartas neutras | Desktop e mobile em PWA | LiveOps, auditoria e telemetria |
+| Cartas com escolhas interativas | PT-BR, Espanhol e Inglês | Reconexão e persistência |
+
+O Alpha 0.13 já permite jogar cartas com decisões reais: a mesa apresenta as
+opções da mão, registra a ordem da escolha e só continua após uma confirmação
+válida. O mesmo comando fica persistido e pode ser reproduzido no replay.
+
+### O confronto é o palco
+
+![Mesa de batalha durante uma resposta de Guarda](docs/screenshots/battle.jpg)
+
+Cada duelista começa com **52 de Vitalidade** e um baralho de **30 cartas**.
+Jogar consome a própria Vitalidade, então toda ação poderosa também aproxima o
+jogador da derrota.
+
+1. **Assalto** — pressione o adversário e envie a carta ao confronto.
+2. **Guarda** — responda ao ataque ou aceite o dano.
+3. **Rito** — use cura, descarte, Sangramento, Selos e outras decisões táticas.
+
+Fadiga crescente e a Pressão de Nythara impedem partidas infinitas. O cliente
+envia somente a intenção; o servidor valida a jogada, calcula o resultado e
+publica eventos em ordem determinística.
+
+### Dentro do jogo
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/landing.jpg" alt="Entrada do Nythara"></td>
+    <td width="50%"><img src="docs/screenshots/home.jpg" alt="Painel do jogador"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Entrada e criação de conta</sub></td>
+    <td align="center"><sub>Painel, treino, ranked e progressão</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/collection.jpg" alt="Coleção ilustrada de cartas"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>Catálogo ilustrado e pool competitivo</sub></td>
+  </tr>
+</table>
+
+### Balanceamento com evidência
+
+O Alpha 0.13 passou por dois gates de **100 mil batalhas** cada, com replay
+integral e validação de saúde da partida:
+
+| Cenário | Vitória do 1º jogador | Faixa dos Avatares | Rodadas p50 |
+| --- | ---: | ---: | ---: |
+| Baralhos oficiais | **50,22%** | 45,93%–52,70% | 45 |
+| Decks variados | **47,59%** | 45,98%–53,21% | — |
+
+Os relatórios e cada mudança de regra ficam registrados em
+[DECISIONS.md](DECISIONS.md). Rulesets anteriores permanecem imutáveis para
+que partidas históricas continuem reproduzíveis.
+
+---
+
+## English
+
+**Nythara** is an open-source competitive digital card game set in a completely
+original dark-fantasy universe. There is no mana: **Vitality is both health and
+resource**. Assaults and Guards meet at the center of the board, Rites reshape
+the duel, and every Avatar brings a unique power.
+
+> 🤖 **100% AI-built:** the project was generated with **OpenAI Codex** and
+> **Anthropic Claude Code**, with human direction, curation, and validation.
+
+### Playable Alpha
+
+| Content | Game and platform | Engineering |
+| --- | --- | --- |
+| 130 original illustrated cards | Real-time casual and ranked PvP | Authoritative server |
+| 65 cards in the competitive pool | Practice against a heuristic bot | Pure deterministic engine |
+| 10 Avatars with unique powers | Deck building, collection, and progression | Replays and versioned rules |
+| 5 factions + neutral cards | Desktop and mobile PWA | LiveOps, auditing, and telemetry |
+| Cards with interactive choices | Brazilian Portuguese, Spanish, and English | Reconnection and persistence |
+
+Alpha 0.13 supports real card decisions: the board presents the available
+options, records their selection order, and only resumes after a valid
+confirmation. The command is persisted and reproduced by the replay system.
+
+Every player starts with **52 Vitality** and a **30-card deck**. Playing a card
+costs Vitality, so every powerful move also brings its owner closer to defeat.
+Assaults apply pressure, Guards answer attacks, and Rites introduce healing,
+discarding, Bleeding, Phase Seals, and other tactical effects.
+
+The latest release passed two **100,000-battle** balance gates with complete
+replay verification. First-player win rate reached **50.22%** with official
+decks and **47.59%** with varied decks.
+
+---
+
+## Arquitetura / Architecture
+
+```text
+web/       React + TypeScript + Vite; responsive PWA
+backend/   Go; API, WebSocket, persistence, and deterministic engine
+shared/    JSON Schemas and protocol contracts
+docs/      game design, architecture, balance, and player experience
+ops/       Compose, Caddy, backups, observability, and VPS deployment
 ```
 
-Use os três comandos de desenvolvimento em terminais separados (`make setup`
-termina após preparar o banco). Overrides explícitos: `VEURUBRO_DEV_API_PORT`,
-`VEURUBRO_DEV_DATABASE_URL`, `VEURUBRO_POSTGRES_PORT`,
-`VEURUBRO_REDIS_PORT` e `VITE_API_TARGET`.
+The engine in `backend/internal/engine` is pure: it receives state + command
+and returns new state + events. It does not depend on HTTP, WebSocket, the
+database, a clock, or global randomness. A match is reproduced bit for bit
+from `ruleset + seed + decks + command_log`.
 
-## Estado atual (alpha 0.10 — Selos Táticos)
+See the [Game Design Document](docs/design/GDD.md),
+[API contract](docs/API.md), and
+[technical architecture](docs/design/TECH_ARCHITECTURE.md).
 
-O produto servido foi simplificado para um card game direto: um baralho ativo
-de 30 cartas (mínimo 8 Assaltos, 8 Guardas e 4 Ritos), Vitalidade como vida e
-recurso, turno Compra → Assalto → Guarda reativa → Rito e Avatares sem poder.
-A camada tática inclui Selos que pulam a próxima janela de Assalto, Guarda ou
-Rito; o texto profissional de cada carta é derivado do efeito executável.
-A Arena mostra as cartas no centro, calcula Poder − Prevenção e estilhaça a
-perdedora. O baralho fica protegido por 24 horas após salvar.
+## Rodando localmente / Running locally
 
-Treino com bot, casual/ranked por WebSocket, reconexão, histórico, progressão e
-LiveOps usam o mesmo motor authoritative. Os gates do `alpha-0.10.2` foram
-aprovados em **200 mil partidas**: precons com iniciativa 47,87% e p95 23;
-decks variados com iniciativa 49,54% e p95 25. Não houve crash, loop, estado
-inválido, comando rejeitado ou divergência de replay. Snapshots
-0.9.1/0.10.0/0.10.1 continuam registrados para replay.
+### Requisitos / Requirements
 
-- **Fase 0** — monorepo, compose, CI, governança: pronto.
-- **Fase 1** — engine determinística legado: pronto e preservado para replay. Essência, Posturas, Eclipse,
-  Ressonância (trilha própria + linha do tempo global), Ward/Sangramento/Exposto/
-  Véu/Maldição, Fadiga, janelas de Rito/Confronto/Guarda, decisões pendentes
-  tipadas, mulligan, limite de mão, replay integral por `seed + decks + comandos`.
-- **Fase 2** — DSL de cartas: pronto. Efeitos declarativos versionados em
-  `backend/internal/engine/data/effects_alpha.json`, validador anti-loop no
-  boot, intérprete + compilador (zero `switch` por carta).
-- **Conteúdo versionado**: **130/130 cartas** e os kits legados dos 10
-  personagens continuam executáveis em replays ≤0.8.3. No produto 0.10.2,
-  **63 cartas** formam o pool competitivo e os 10 personagens são Avatares
-  cosméticos; o relatório explicita por que cada uma das outras 68 cartas
-  permanece no arquivo.
-- **Fase 3** — persistência/API: contas e perfis, auth com refresh rotacionado,
-  catálogo, coleção Alpha, decks com validação dupla, Campeões, ruleset,
-  temporada, recompensas auditadas, RBAC e idempotência.
-- **Fase 4** — battle server authoritative: fila/lobby 1v1, ready, salas actor,
-  WebSocket com ticket de uso único, sequência idempotente, timer server-side,
-  persistência de comandos/eventos/snapshots, reconexão e espectador read-only.
-- **Fase 5** — Web/PWA: landing/login, home, coleção, Avatares, construtor,
-  fila, batalha, resultado, replay da sessão, ranked/perfil, tutorial e ajustes.
-  Mesa mobile-first com confronto central, Assalto em voo, Guarda reativa,
-  impacto/estilhaço, pilhas de compra/descarte, histórico, zoom de carta,
-  teclado/toque, preferências de acessibilidade e reconexão.
-  As **130/130 cartas** têm ilustrações originais otimizadas, exibidas no catálogo,
-  no montador de decks, na ampliação e na mão durante a batalha.
-- **Fase 6** — bots e balanceamento: bots random e heuristic, simulador headless
-  com matriz 10×10 de Avatares, baralhos preconstruídos legais, métricas por
-  Avatar/carta/iniciativa/duração, validação de saúde e replay integral. Pull
-  requests rodam smoke; CI noturna/manual salva o relatório de 100 mil partidas.
-- **Fase 7** — Admin/LiveOps: rulesets versionados executáveis (engine compila
-  e registra qualquer versão publicada; replays históricos preservados),
-  drafts de carta com validar/simular/publicar, ativação com rollback,
-  bans emergenciais de ranked, temporadas, telemetria de partidas e trilha de
-  auditoria em toda mutação — via API admin com RBAC (página web do painel
-  fica para o ciclo de UI).
-- **Fase 8** — segurança e produção: threat model vivo em `SECURITY.md`,
-  rate limiting (HTTP por IP, autenticação estrita, flood de comandos WS),
-  cabeçalhos de segurança + CSP (API e PWA), `govulncheck` bloqueante na CI
-  (base zerada), backups com prova executável de restauração
-  (`make backup-test`), métricas em `/internal/metrics` e runbook de alertas
-  em `ops/observability.md`.
-- **Fase 9** — conteúdo completo: 130 cartas e 10 Campeões (núcleo + Set 2,
-  engine), 10 precons oficiais como produto (`GET /v1/catalog/precons` +
-  `POST /v1/decks/precon`), tutorial com os 8 fundamentos exigidos e rotação
-  de coleção/decks entre versões (`rotate`, fechando o ADR-022).
-- **Jogabilidade P0 (alpha-0.8.0)** — modo treino contra o bot heurístico
-  (`POST /v1/practice`, mesmo pipeline authoritative, replays inclusos),
-  ritmo competitivo (Vitalidade 27–30, Fadiga 6/12/18, Essência máx. 10 e
-  Ruptura do Véu — p95 29 rodadas) e rodada
-  de balanceamento guiada por 100 mil simulações por iteração
-  (ADR-024; fundo da tabela 20–30%→24–42%; dívida Solara documentada).
-- **Progressão P1** — rituais diários compatíveis com o Confronto (3/dia,
-  sorteio determinístico por jogador), maestria cosmética por Avatar, ranked Elo por temporada e carteira de
-  Fragmentos do Véu auditada. Gravação idempotente por partida, derivada só
-  dos eventos authoritative (`GET /v1/progress`, `GET /v1/ranked/leaderboard`;
-  ADR-025). Home mostra tudo; a fila ganhou treino em um clique.
-- **Game feel P1½** — eventos authoritative alimentam voo das cartas para o
-  centro, choque Poder × Prevenção, números de dano/cura, estilhaçamento,
-  partículas, sons, banners de turno e pressão final, com áudio opcional e
-  redução de movimento preservada (ADRs 026 e 044).
-- **Fase 10** — Definition of Done: suíte race verde, 100 mil partidas locais
-  bit a bit idênticas à baseline, zero TODOs críticos, backup/restore provado,
-  scan de vulnerabilidades zerado. O painel web LiveOps está disponível;
-  2FA permanece no backlog pós-alpha.
+- Go 1.25+
+- Node.js 20+
+- Docker with Compose
 
-Decisões de regra onde o GDD era ambíguo estão registradas em [DECISIONS.md](DECISIONS.md).
+```bash
+git clone git@github.com:fabriciobonjorno/nythara.git
+cd nythara
+make setup
+```
 
-## Nome
+Execute a API e o cliente em terminais separados / Run the API and web client
+in separate terminals:
 
-“Nythara” é o nome atual do projeto — busca marcária (INPI etc.) antes de lançamento.
+```bash
+make run       # API: http://localhost:18080
+make web-dev   # PWA: http://localhost:5173
+```
+
+## Testes e qualidade / Tests and quality
+
+```bash
+make test-race        # complete Go suite with race detector
+make lint             # go vet
+make web-test         # web unit and interaction tests
+make web-browser-test # browser regression in Chromium
+make web-build        # typecheck and production build
+make sim-smoke        # short battle simulation with replay verification
+```
+
+Rule or architecture changes require an ADR in [DECISIONS.md](DECISIONS.md).
+The CI also runs dependency audits, vulnerability scanning, deterministic
+simulations, and scheduled 100,000-battle balance gates.
+
+## Produção / Production
+
+The repository includes multi-stage container images, blocking migrations,
+private service networks, file-mounted secrets, automatic HTTPS with Caddy,
+health checks, and testable backups. See the
+[VPS deployment guide](ops/DEPLOY_VPS.md).
+
+## Contribuindo / Contributing
+
+Contributions involving code, tests, game balance, cards, art, writing, audio,
+security, accessibility, or translation are welcome. Read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request and report
+security issues privately as described in [SECURITY.md](SECURITY.md).
+
+Nythara's universe, characters, cards, rules, writing, artwork, audio, and code
+are original. Historical references are used only as genre context.
+
+<p align="center">
+  <strong>🌘 Command the Eclipse.</strong>
+</p>

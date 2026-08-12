@@ -188,6 +188,14 @@ func confrontOpsCopy(ops []Op, keywords map[string]bool) []string {
 		case "draw":
 			keywords["COMPRA"] = true
 			parts = append(parts, fmt.Sprintf("%s compra %s", target, confrontCardsLabel(op.N)))
+		case "choose_discard":
+			keywords["ESCOLHA"] = true
+			inner := strings.Join(confrontOpsCopy(op.Then, keywords), "; ")
+			line := fmt.Sprintf("descarte %s à sua escolha", confrontCardsLabel(op.N))
+			if inner != "" {
+				line += "; depois, " + inner
+			}
+			parts = append(parts, line)
 		case "both_draw":
 			keywords["COMPRA"] = true
 			parts = append(parts, "cada duelista compra 1 carta")
@@ -277,7 +285,7 @@ func confrontRiteRole(ops []Op) string {
 			if role == "TÁTICA" {
 				role = "SUSTENTAÇÃO"
 			}
-		case "draw", "both_draw":
+		case "draw", "both_draw", "choose_discard":
 			if role == "TÁTICA" {
 				role = "RECURSO"
 			}

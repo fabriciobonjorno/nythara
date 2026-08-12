@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { NytharaBrand } from "../components/NytharaBrand";
+import { LanguageSelector } from "../components/LanguageSelector";
 import { useSessionStore } from "../store";
 import type { AuthEnvelope } from "../types";
 
@@ -35,7 +36,7 @@ export function Landing() {
   return (
     <main className="landing">
       <div className="landing-art" aria-hidden="true" />
-      <header className="landing-header"><a href="#inicio" className="brand" aria-label="Nythara — início"><NytharaBrand /></a><span className="alpha-tag">ALPHA · SELOS TÁTICOS 0.10</span></header>
+      <header className="landing-header"><a href="#inicio" className="brand" aria-label="Nythara — início"><NytharaBrand /></a><div className="landing-header__tools"><LanguageSelector compact /><span className="alpha-tag">ALPHA · MODO CONFRONTO</span></div></header>
       <section id="inicio" className="landing-copy">
         <img className="landing-hero-logo" src="/assets/nythara-apocalypse-logo.webp" alt="Nythara" />
         <p className="eyebrow">UM CONFRONTO. UMA DECISÃO POR VEZ.</p>

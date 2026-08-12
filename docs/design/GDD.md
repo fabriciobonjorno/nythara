@@ -1,5 +1,5 @@
 # Projeto NYTHARA
-## Game Design Document — Alpha 0.10 ("Selos Táticos")
+## Game Design Document — Alpha 0.13 ("Decisões Servidas")
 
 **Status:** conceito original / pré-produção  
 **Plataforma inicial:** Web/PWA, desktop e mobile browser  
@@ -8,8 +8,10 @@
 > **Nota de versão.** O Alpha ≤ 0.8.3 usava um ruleset com Campeões, Essência,
 > Posturas, Eclipse e Ressonância. A validação humana mostrou que a partida
 > ficou ilegível (ADR-044). O Alpha 0.9 pivotou para o **Modo Confronto** e o
-> Alpha 0.10 acrescenta os **Selos de Fase** (ADR-051),
-> descrito neste documento. O ruleset legado permanece no motor apenas para
+> Alpha 0.10 acrescentou os **Selos de Fase** (ADR-051), o 0.11 estabeleceu o
+> duelo longo e a composição 8/10/4 (ADRs 054–055), o 0.12 devolveu poderes
+> versionados aos Avatares (ADR-057) e o 0.13 publicou decisões de cartas
+> (ADRs 058–059). O ruleset legado permanece no motor apenas para
 > replay de partidas históricas; seu design está no histórico do git e nos
 > ADRs 001–043.
 
@@ -45,27 +47,29 @@ No Modo Confronto as facções são **identidade visual e temática** das cartas
 
 ## 3. Condição de vitória
 
-Cada duelista começa com **30 de Vitalidade**.
+Cada duelista começa com **52 de Vitalidade**.
 
 Você vence quando a Vitalidade inimiga chega a **0 ou menos**. Duplo nocaute segue os critérios determinísticos do ADR-013.
 
 Concessão, timeout competitivo e desconexão prolongada também encerram a
-partida. No treino contra bot, expirar uma janela apenas passa a fase atual;
-nenhuma carta é escolhida pelo sistema em nome do jogador.
+partida. No treino contra bot, expirar uma fase comum apenas passa; se uma
+decisão de carta estiver aberta, o sistema confirma deterministicamente as
+primeiras N opções para que a partida e o replay não travem.
 
 ---
 
 ## 4. Deck
 
 - **30 cartas**, apenas dos tipos **Assalto, Guarda e Rito** (pool legal do modo).
-- Composição mínima: **8 Assaltos, 8 Guardas e 4 Ritos**; os 10 slots
+- Composição mínima: **8 Assaltos, 10 Guardas e 4 Ritos**; os 8 slots
   restantes são livres dentro do pool. Isso impede baralhos sem condição real
   de confronto sem tirar a autoria do jogador.
 - Sem Campeão e sem restrição de facção: qualquer combinação do pool.
 - Máximo de **2 cópias** por carta; Lendárias, **1 cópia**.
 - **Um deck ativo por conta.** Salvar o deck inicia uma **trava de edição de 24h** — o deck é um compromisso, não um ajuste entre partidas. O deck inicial gerado pelo sistema não trava.
 - Mão inicial: 5 cartas. Sem mulligan. A Compra acontece inclusive no
-  primeiro turno, portanto cada duelista toma sua primeira ação com 6.
+  primeiro turno; quem tem a iniciativa toma sua primeira ação com 6 e o
+  segundo duelista recebe uma carta adicional de compensação na abertura.
 - Limite de mão: 7. Compra com a mão cheia **queima** a carta (vai ao descarte).
 - Deck vazio: cada compra vira **Fadiga** crescente (2, depois 4, 6…). O descarte **não** é reembaralhado — o esgotamento pressiona o fim.
 
@@ -88,11 +92,16 @@ Turnos **alternados** (iniciativa sorteada pelo RNG da partida):
 1. **Alvorada** — Sangramentos sobre o jogador ativo resolvem; efeitos de início expiram/ativam.
 2. **Compra** — compra 1 carta (Fadiga se o deck acabou; queima se a mão está cheia).
 3. **Assalto** — pode jogar **até 1 carta de Assalto** (paga o custo em Vitalidade):
-   - o primeiro Assalto da partida recebe **−2 de Poder**. Os dois jogadores
-     compram antes de sua primeira ação; essa compensação preserva a escolha
-     de iniciativa sem entregar o primeiro golpe.
+   - os dois jogadores compram antes de sua primeira ação e o segundo recebe
+     uma carta adicional na abertura. No 0.13, o primeiro Assalto não recebe
+     penalidade: a carta extra calibra a iniciativa nos dois perfis de baralho.
    - Assalto **defensável** abre a **janela de Guarda**: o defensor pode jogar **até 1 Guarda** (pagando o custo) ou passar.
-   - **Resolução do confronto**: dano final = poder do Assalto − prevenção da Guarda (piso 0), passando por Ward. A carta **perdedora se estilhaça**: dano 0 → o Assalto perde; dano > 0 → a Guarda perde; sem resposta → acerto direto. Efeitos adicionais da Guarda (Selo do Rito, Ward, cura) resolvem conforme o texto.
+   - **Resolução do confronto**: dano final = poder do Assalto − prevenção da
+     Guarda (incluindo o bônus de 3 do formato, piso 0), passando por Ward.
+     Quando uma Guarda foi comprometida, no máximo 1 de dano atravessa. A carta
+     **perdedora se estilhaça**: dano 0 → o Assalto perde; dano > 0 → a Guarda
+     perde; sem resposta → acerto direto. Efeitos adicionais da Guarda (Selo do
+     Rito, Ward, cura) resolvem conforme o texto.
    - Assalto **indefensável** não abre janela.
 4. **Rito** — pode jogar **até 1 carta de Rito** (cura, compra, Selos, Sangramento, remoção…).
 5. **Crepúsculo** — durações do jogador ativo decrementam; excessos resolvem; passa a vez.
@@ -103,7 +112,7 @@ O servidor é o único árbitro da ordem dos eventos.
 
 ## 7. Pressão de Nythara — antitrava
 
-No início do turno 25, a névoa fecha a arena e ambos perdem **2 de
+No início do turno 58, a névoa fecha a arena e ambos perdem **2 de
 Vitalidade**; a perda cresce para 4, 6, 8… nos turnos seguintes. A interface
 avisa desde o turno 20. Se a pressão derrubar os dois com a mesma Vitalidade,
 vence quem ganhou o confronto mais recente; sem confronto anterior, aplica-se
@@ -162,7 +171,12 @@ Manipulação jogada no próprio turno: cura, compra, descarte do oponente, Selo
 
 ## 10. Avatares
 
-Os 10 personagens do Alpha (Kaedor, Seris, Mara, Ilyan, Nyra, Oren, Rauk, Saela, Voren, Edda) deixam de ser mecânica e viram **Avatares**: retrato, título e presença na arena. Zero efeito de regra. A lore e a arte permanecem; a escolha é cosmética.
+Os 10 personagens do Alpha (Kaedor, Seris, Mara, Ilyan, Nyra, Oren, Rauk,
+Saela, Voren, Edda) são **Avatares**: retrato, título, presença na arena e um
+poder próprio versionado. Os poderes usam apenas sistemas do Confronto — cura,
+Ward e desconto de custo ao atingir um limiar — e foram calibrados nos dois
+perfis de baralho. A escolha muda a linha tática, mas não coleção, quantidade de
+cartas nem acesso a poder comprado.
 
 Arquivo: `champions_alpha.json` (reinterpretado como catálogo de avatares).
 

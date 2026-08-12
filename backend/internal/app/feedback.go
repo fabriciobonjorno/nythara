@@ -15,6 +15,17 @@ import (
 // Por isso a validação aqui é mínima e o erro é sempre legível — quem tentou
 // ajudar não merece uma mensagem de sistema.
 
+// RecentFeedback devolve os recados mais recentes para leitura administrativa.
+func (s *Service) RecentFeedback(ctx context.Context, principal domain.Principal, limit int) ([]domain.Feedback, error) {
+	if principal.Role != domain.RoleAdmin {
+		return nil, domain.ErrForbidden
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	return s.store.RecentFeedback(ctx, limit)
+}
+
 // SubmitFeedback grava um recado do jogador sobre a partida que acabou.
 func (s *Service) SubmitFeedback(ctx context.Context, principal domain.Principal,
 	matchID, message string) error {

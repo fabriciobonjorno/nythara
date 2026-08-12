@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { detectLocale, type Locale } from "./locales";
 import type { LastBattle, Principal, SessionTokens, User } from "./types";
 
 function migrateLegacyStorage(storage: Storage, legacyKey: string, nextKey: string) {
@@ -57,6 +58,7 @@ export const useSessionStore = create<SessionState>()(
 );
 
 interface PreferencesState {
+  locale: Locale;
   animationPace: "cinematic" | "normal" | "quick";
   reducedMotion: boolean;
   highContrast: boolean;
@@ -70,11 +72,13 @@ interface PreferencesState {
   setAnimationPace: (value: "cinematic" | "normal" | "quick") => void;
   completeOnboarding: (userId: string) => void;
   restartOnboarding: () => void;
+  setLocale: (locale: Locale) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>()(
   persist(
     (set) => ({
+      locale: detectLocale(),
       animationPace: "cinematic",
       reducedMotion: false,
       highContrast: false,
@@ -88,6 +92,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       setAnimationPace: (animationPace) => set({ animationPace }),
       completeOnboarding: (onboardingUserId) => set({ onboardingUserId }),
       restartOnboarding: () => set({ onboardingUserId: null }),
+      setLocale: (locale) => set({ locale }),
     }),
     { name: "nythara-preferences", storage: createJSONStorage(() => localStorage) },
   ),

@@ -4,6 +4,7 @@ import { useSessionStore } from "../store";
 import { NytharaBrand } from "./NytharaBrand";
 import { Onboarding } from "./Onboarding";
 import { UiIcon, type UiIconName } from "./UiIcon";
+import { LanguageSelector } from "./LanguageSelector";
 
 const navItems: Array<{ to: string; icon: UiIconName; label: string }> = [
   { to: "/app", icon: "home", label: "Início" },
@@ -48,6 +49,7 @@ export function Shell() {
       <div className="shell-body">
         <header className="top-bar">
           <NavLink className="mobile-brand" to="/app" aria-label="Nythara — início"><NytharaBrand /></NavLink>
+          <LanguageSelector compact />
           <NavLink className="profile-chip" to="/profile"><span className="avatar">{user?.display_name?.slice(0, 1).toUpperCase() ?? "V"}</span><span>{user?.display_name ?? "Viajante"}<small>Perfil</small></span></NavLink>
         </header>
         <main id="main-content" tabIndex={-1}><Outlet /></main>

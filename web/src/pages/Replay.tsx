@@ -17,6 +17,12 @@ interface ReplayCardState {
   shattered?: boolean;
 }
 
+interface ReplayHandCardState {
+  instance: string;
+  def?: string;
+  addedAt: number;
+}
+
 interface ReplayFrame {
   event: BattleEvent;
   round: number;
@@ -26,6 +32,7 @@ interface ReplayFrame {
   maximum: [number, number];
   deck: [number, number];
   hand: [number, number];
+  handCards: [ReplayHandCardState[], ReplayHandCardState[]];
   assault?: ReplayCardState;
   guard?: ReplayCardState;
   rite?: ReplayCardState;
@@ -123,6 +130,7 @@ export function ReplayPage() {
       <section className="replay-player is-rival" aria-label="Estado do rival">
         <ReplayDuelist label="RIVAL" champion={source.champions[rival]} vitality={frame.vitality[rival]} maximum={frame.maximum[rival]} active={frame.active === rival} champions={champions} />
         <ReplayResources hand={frame.hand[rival]} deck={frame.deck[rival]} />
+        <ReplayHand label="Mão do rival" items={frame.handCards[rival]} count={frame.hand[rival]} currentSeq={frame.event.seq} cards={cards} />
       </section>
 
       <section className={`replay-board phase-${frame.phase}`} aria-label={`Mesa do replay, rodada ${frame.round}`}>
@@ -146,6 +154,7 @@ export function ReplayPage() {
       <section className="replay-player is-own" aria-label="Seu estado">
         <ReplayDuelist label="VOCÊ" champion={source.champions[mine]} vitality={frame.vitality[mine]} maximum={frame.maximum[mine]} active={frame.active === mine} champions={champions} />
         <ReplayResources hand={frame.hand[mine]} deck={frame.deck[mine]} />
+        <ReplayHand label="Sua mão" items={frame.handCards[mine]} count={frame.hand[mine]} currentSeq={frame.event.seq} cards={cards} />
       </section>
 
       <section className="replay-transport" aria-label="Controles de reprodução">
@@ -219,6 +228,30 @@ function ReplayResources({ hand, deck }: { hand: number; deck: number }) {
   return <div className="replay-resources"><span><UiIcon name="deck" /><small>BARALHO</small><b>{deck}</b></span><span><UiIcon name="collection" /><small>MÃO</small><b>{hand}</b></span></div>;
 }
 
+function ReplayHand({ label, items, count, currentSeq, cards }: {
+  label: string;
+  items: ReplayHandCardState[];
+  count: number;
+  currentSeq: number;
+  cards: Map<string, CardDefinition>;
+}) {
+  const missing = Math.max(0, count - items.length);
+  const visible: ReplayHandCardState[] = [
+    ...items,
+    ...Array.from({ length: missing }, (_, index) => ({ instance: `unknown-${label}-${index}`, addedAt: -1 })),
+  ];
+  return <div className="replay-hand"><strong>{label}</strong><ol aria-label={`${label}, ${count} ${count === 1 ? "carta" : "cartas"}`}>
+    {visible.map((item) => {
+      const card = item.def ? cards.get(item.def) : undefined;
+      const name = card?.name ?? item.def;
+      return <li className={`${item.def ? "is-known" : "is-hidden"} ${item.addedAt === currentSeq ? "is-current" : ""}`} key={item.instance} aria-label={name ?? "Carta oculta"}>
+        {item.def ? <><img src={cardArt(item.def)} alt="" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.hidden = true; }} /><span><small>{card?.type ?? "CARTA"}</small><b>{name}</b></span></> : <><NytharaMark /><span><small>CARTA</small><b>OCULTA</b></span></>}
+      </li>;
+    })}
+    {!visible.length && <li className="is-empty">Mão vazia</li>}
+  </ol></div>;
+}
+
 function ReplayPhaseRail({ phase, active }: { phase: ReplayPhase; active: string }) {
   const current = phaseSteps.findIndex((step) => step.id === phase);
   return <div className="replay-phase"><small>{active}</small>{phaseSteps.map((step, index) => <span className={step.id === phase ? "is-current" : current > index ? "is-complete" : ""} key={step.id}><i>{current > index ? "✓" : index + 1}</i><b>{step.label}</b></span>)}</div>;
@@ -244,10 +277,11 @@ function projectReplay(battle: ReplaySource, cards: Map<string, CardDefinition>)
       maximum: [...frame.maximum] as [number, number],
       deck: [...frame.deck] as [number, number],
       hand: [...frame.hand] as [number, number],
+      handCards: [frame.handCards[0].map((card) => ({ ...card })), frame.handCards[1].map((card) => ({ ...card }))],
       assault: frame.assault ? { ...frame.assault } : undefined,
       guard: frame.guard ? { ...frame.guard } : undefined,
       rite: frame.rite ? { ...frame.rite } : undefined,
-    } : { event, round: event.round, active: event.p >= 0 ? event.p : 0, phase: "início", vitality: [...maximum], maximum, deck: [30, 30], hand: [0, 0] };
+    } : { event, round: event.round, active: event.p >= 0 ? event.p : 0, phase: "início", vitality: [...maximum], maximum, deck: [30, 30], hand: [0, 0], handCards: [[], []] };
     next.round = Math.max(next.round, event.round);
     if (event.kind === "turn_started") {
       next.active = event.p;
@@ -264,14 +298,25 @@ function projectReplay(battle: ReplaySource, cards: Map<string, CardDefinition>)
     } else if (event.kind === "card_drawn" && validPlayer(event.p)) {
       next.deck[event.p] = Math.max(0, next.deck[event.p] - 1);
       next.hand[event.p] += 1;
+      addReplayHandCard(next.handCards[event.p], event);
       next.phase = next.phase === "início" ? "compra" : next.phase;
     } else if (event.kind === "card_burned" && validPlayer(event.p)) {
       next.deck[event.p] = Math.max(0, next.deck[event.p] - 1);
-    } else if (event.kind === "card_to_hand" && validPlayer(event.p)) {
+    } else if ((event.kind === "card_to_hand" || event.kind === "card_returned") && validPlayer(event.p)) {
       next.hand[event.p] += 1;
+      addReplayHandCard(next.handCards[event.p], event);
     } else if (event.kind === "card_played" && validPlayer(event.p)) {
       next.hand[event.p] = Math.max(0, next.hand[event.p] - 1);
+      removeReplayHandCard(next.handCards[event.p], event);
       if (event.def && (next.phase === "rito" || cards.get(event.def)?.type === "Rito")) next.rite = { def: event.def, owner: event.p, stat: event.n };
+    } else if (["card_discarded", "card_exiled", "card_to_bottom"].includes(event.kind) && validPlayer(event.p)) {
+      const leftHand = removeReplayHandCard(next.handCards[event.p], event);
+      if (leftHand) next.hand[event.p] = Math.max(0, next.hand[event.p] - 1);
+      if (leftHand && event.kind === "card_to_bottom") next.deck[event.p] += 1;
+    } else if (event.kind === "hand_revealed" && event.def && validPlayer(event.p)) {
+      revealReplayHandCard(next.handCards[1 - event.p], event);
+    } else if (event.kind === "card_locked" && event.def && validPlayer(event.p)) {
+      revealReplayHandCard(next.handCards[event.p], event);
     } else if (event.kind === "confrontation_opened" && event.def) {
       next.phase = "guarda";
       next.assault = { def: event.def, owner: event.p, stat: event.n };
@@ -299,6 +344,34 @@ function projectReplay(battle: ReplaySource, cards: Map<string, CardDefinition>)
     frames.push(next);
   }
   return frames;
+}
+
+function addReplayHandCard(hand: ReplayHandCardState[], event: BattleEvent) {
+  const instance = event.card ?? `hidden-${event.p}-${event.seq}`;
+  const existing = hand.find((item) => item.instance === instance);
+  if (existing) {
+    if (event.def) existing.def = event.def;
+    existing.addedAt = event.seq;
+    return;
+  }
+  hand.push({ instance, def: event.def, addedAt: event.seq });
+}
+
+function removeReplayHandCard(hand: ReplayHandCardState[], event: BattleEvent) {
+  let index = event.card ? hand.findIndex((item) => item.instance === event.card) : -1;
+  if (index < 0 && event.def) index = hand.findIndex((item) => item.def === event.def);
+  if (index < 0) index = hand.findIndex((item) => !item.def);
+  if (index < 0) return false;
+  hand.splice(index, 1);
+  return true;
+}
+
+function revealReplayHandCard(hand: ReplayHandCardState[], event: BattleEvent) {
+  let item = event.card ? hand.find((candidate) => candidate.instance === event.card) : undefined;
+  if (!item) item = hand.find((candidate) => !candidate.def);
+  if (!item) return;
+  if (event.card) item.instance = event.card;
+  item.def = event.def;
 }
 
 function validPlayer(player: number): player is 0 | 1 { return player === 0 || player === 1; }

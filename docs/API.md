@@ -19,7 +19,9 @@ protegidas recebem `Authorization: Bearer <access_token>`.
 
 - `GET /v1/catalog/cards`
 - `GET /v1/catalog/champions`
-- `GET /v1/rulesets/current`
+- `GET /v1/rulesets/current` — versão e parâmetros de apresentação do ruleset
+  ativo (`starting_vitality`, pressão, teto de vazamento, tamanho e mínimos de
+  composição do baralho). O cliente não repete esses números como autoridade.
 - `GET /v1/seasons/current`
 - `GET /v1/collection`
 - `GET /v1/rewards`
@@ -104,7 +106,8 @@ construção e auditadas em `admin_audit` na mesma transação.
   temporada fechada, na mesma transação (trilha em `economy_transactions` e
   resumo `season:rewards` na auditoria; idempotente pela transição — ADR-034).
 - `GET /v1/admin/telemetry` — agregados das partidas persistidas (win rate por
-  Campeão); relatórios de simulação ficam nos artifacts da CI.
+  Campeão e ritmo humano PvP: duração/rodadas média, p50, p95 e partidas acima
+  de 30 minutos); relatórios de simulação ficam nos artifacts da CI.
 - `GET /v1/admin/audit?limit=n` — trilha de auditoria administrativa.
 
 ## Matchmaking e batalha realtime
@@ -138,7 +141,10 @@ escolha usam o comando tipado `choose`; a engine atual não recebe `target_id`.
 O servidor envia `sync`, `ready`, `events`, `match_cancelled` e `error`.
 `sync` contém a visão atual redigida e os eventos posteriores a `after_event`.
 Para jogadores, `sync.client_sequence` informa a última sequência confirmada
-pelo servidor, permitindo retomar com segurança após queda entre envio e ACK.
+daquele assento pelo servidor, permitindo retomar com segurança após queda
+entre envio e ACK. Erros de transporte distinguem `connection_closed` (conexão
+já encerrada) e `subscriber_too_slow` (cliente deixou de consumir o fluxo) de
+`spectator_read_only`, reservado ao espectador conectado que tentou escrever.
 Cada jogador tem sequência própria, iniciando em 1. Repetição da mesma intenção
 canônica é idempotente; salto ou reutilização com outro conteúdo é erro de protocolo.
 

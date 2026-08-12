@@ -122,6 +122,9 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 
 	lastSeqBefore := r.match.Players[0].LastSequence
 	c0.Close()
+	if err := c0.Submit(ctx, lastSeqBefore+1, Intent{Kind: engine.CmdKindPass}); !errors.Is(err, ErrConnectionClosed) {
+		t.Fatalf("conexão encerrada devolveu diagnóstico incorreto: %v", err)
+	}
 	reconnectTicket, err := manager.IssueTicket(ctx, p0, matched.MatchID, TicketPlayer)
 	if err != nil {
 		t.Fatal(err)
@@ -181,6 +184,34 @@ func TestBattleCommandsAreAuthoritativeIdempotentAndReconnectable(t *testing.T) 
 	if err != nil || persisted.Match.Status != StatusFinished || persisted.Match.EndReason != "timeout" {
 		t.Fatalf("timeout não persistido: status=%s reason=%s err=%v",
 			persisted.Match.Status, persisted.Match.EndReason, err)
+	}
+}
+
+func TestSubscriberDisconnectReasonIsNotReportedAsSpectator(t *testing.T) {
+	r := &room{subscribers: map[string]*subscriber{}, departed: map[string]error{}}
+	slow := &subscriber{id: "slow", mode: TicketPlayer, slot: 0, out: make(chan ServerMessage, 1)}
+	r.subscribers[slow.id] = slow
+	r.send(slow, ServerMessage{Type: "first"})
+	r.send(slow, ServerMessage{Type: "overflow"})
+	if _, err := r.writableSubscriber(slow.id); !errors.Is(err, ErrSubscriberSlow) {
+		t.Fatalf("assinante lento recebeu diagnóstico %v", err)
+	} else if code := ProtocolCode(err); code != "subscriber_too_slow" {
+		t.Fatalf("código do assinante lento: %s", code)
+	}
+
+	closed := &subscriber{id: "closed", mode: TicketPlayer, slot: 0, out: make(chan ServerMessage)}
+	r.subscribers[closed.id] = closed
+	r.dropSubscriber(closed, ErrConnectionClosed)
+	if _, err := r.writableSubscriber(closed.id); !errors.Is(err, ErrConnectionClosed) {
+		t.Fatalf("conexão encerrada recebeu diagnóstico %v", err)
+	} else if code := ProtocolCode(err); code != "connection_closed" {
+		t.Fatalf("código da conexão encerrada: %s", code)
+	}
+
+	spectator := &subscriber{id: "spectator", mode: TicketSpectator, slot: -1, out: make(chan ServerMessage)}
+	r.subscribers[spectator.id] = spectator
+	if _, err := r.writableSubscriber(spectator.id); !errors.Is(err, ErrSpectatorWrite) {
+		t.Fatalf("espectador recebeu diagnóstico %v", err)
 	}
 }
 

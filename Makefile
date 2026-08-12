@@ -1,4 +1,4 @@
-.PHONY: setup migrate-up migrate-down test test-race lint vuln web-build web-dev run e2e-real sim sim-smoke sim-100k sim-varied-100k calibrate down backup restore backup-test
+.PHONY: setup migrate-up migrate-down test test-race test-authoritative-race lint vuln web-build web-test web-browser-test web-dev run e2e-real sim sim-smoke sim-100k sim-varied-100k calibrate down backup restore backup-test
 
 VEURUBRO_DEV_DATABASE_URL ?= postgres://veurubro:veurubro_dev@localhost:55432/veurubro?sslmode=disable
 VEURUBRO_DEV_API_PORT ?= 18080
@@ -22,11 +22,20 @@ test:
 test-race:
 	cd backend && go test -race -count=1 ./...
 
+test-authoritative-race:
+	cd backend && go test -race -count=1 ./internal/engine ./internal/battle
+
 lint:
 	cd backend && go vet ./...
 
 web-build:
 	cd web && npm run build
+
+web-test:
+	cd web && npm run test:ui
+
+web-browser-test:
+	cd web && npm run test:browser
 
 web-dev:
 	cd web && npm run dev
@@ -40,7 +49,7 @@ e2e-real: ## PvP + treino naturais: contas, decks, fila, WebSocket, ocultação 
 sim: sim-smoke
 
 sim-smoke:
-	cd backend && go run ./cmd/sim -games 1000 -json artifacts/smoke.json -markdown artifacts/smoke.md
+	cd backend && go run ./cmd/sim -games 5000 -json artifacts/smoke.json -markdown artifacts/smoke.md
 
 sim-100k:
 	cd backend && go run ./cmd/sim -games 100000 -json artifacts/balance-report.json -markdown artifacts/balance-report.md

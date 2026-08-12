@@ -366,6 +366,7 @@ type room struct {
 	commandIndex int64
 	requests     chan any
 	subscribers  map[string]*subscriber
+	departed     map[string]error
 	cache        [2]map[int64]cachedCommand
 	timer        *time.Timer
 	timerGen     int64
@@ -403,7 +404,8 @@ type participantRequest struct {
 
 func newRoom(manager *Manager, loaded LoadedMatch) (*room, error) {
 	r := &room{manager: manager, match: loaded.Match, requests: make(chan any, 128),
-		subscribers: map[string]*subscriber{}, cache: [2]map[int64]cachedCommand{{}, {}}}
+		subscribers: map[string]*subscriber{}, departed: map[string]error{},
+		cache: [2]map[int64]cachedCommand{{}, {}}}
 	if loaded.Match.Status != StatusActive && loaded.Match.Status != StatusFinished {
 		return r, nil
 	}
@@ -459,13 +461,13 @@ func (r *room) loop() {
 	for request := range r.requests {
 		switch value := request.(type) {
 		case subscribeRequest:
+			delete(r.departed, value.sub.id)
 			r.subscribers[value.sub.id] = value.sub
 			r.sendSync(value.sub, value.afterEvent)
 			value.response <- nil
 		case unsubscribeRequest:
 			if sub := r.subscribers[value.subID]; sub != nil {
-				delete(r.subscribers, value.subID)
-				close(sub.out)
+				r.dropSubscriber(sub, ErrConnectionClosed)
 			}
 		case readyRequest:
 			value.response <- r.handleReady(value.subID)
@@ -492,9 +494,9 @@ func (r *room) loop() {
 }
 
 func (r *room) handleReady(subID string) error {
-	sub := r.subscribers[subID]
-	if sub == nil || sub.mode != TicketPlayer || sub.slot < 0 {
-		return ErrSpectatorWrite
+	sub, err := r.writableSubscriber(subID)
+	if err != nil {
+		return err
 	}
 	if r.match.Status != StatusWaitingReady {
 		return nil
@@ -541,9 +543,9 @@ func (r *room) handleReady(subID string) error {
 }
 
 func (r *room) handleCommand(request commandRequest) error {
-	sub := r.subscribers[request.subID]
-	if sub == nil || sub.mode != TicketPlayer || sub.slot < 0 {
-		return ErrSpectatorWrite
+	sub, err := r.writableSubscriber(request.subID)
+	if err != nil {
+		return err
 	}
 	if r.match.Status != StatusActive || r.game == nil {
 		return ErrNotReady
@@ -634,6 +636,18 @@ func (r *room) handleTimeout() {
 	// authoritative, persistido e reproduzível. Rulesets históricos em que o
 	// passe não for legal conservam o fallback de concessão abaixo.
 	if r.match.Mode == ModePractice {
+		// Decisão pendente não aceita passe: a expiração responde com as
+		// primeiras N opções — determinístico, persistido e reproduzível. O
+		// humano perdeu a janela de escolher, não a partida.
+		if pending := r.game.State().Pending; pending != nil && pending.Player == actor {
+			n := min(pending.N, len(pending.Options))
+			command := engine.Command{Player: actor, Kind: engine.CmdKindChoose,
+				DecisionID: pending.ID, Cards: append([]string{}, pending.Options[:n]...), Reason: "timeout"}
+			if err := r.applyServerCommand(actor, "timeout", command); err == nil {
+				r.pumpBot()
+				return
+			}
+		}
 		command := engine.Command{Player: actor, Kind: engine.CmdKindPass, Reason: "timeout"}
 		if err := r.applyServerCommand(actor, "timeout", command); err == nil {
 			r.pumpBot()
@@ -749,9 +763,31 @@ func (r *room) send(sub *subscriber, message ServerMessage) {
 	select {
 	case sub.out <- message:
 	default:
-		delete(r.subscribers, sub.id)
-		close(sub.out)
+		r.dropSubscriber(sub, ErrSubscriberSlow)
 	}
+}
+
+func (r *room) writableSubscriber(subID string) (*subscriber, error) {
+	sub := r.subscribers[subID]
+	if sub == nil {
+		if reason := r.departed[subID]; reason != nil {
+			return nil, reason
+		}
+		return nil, ErrConnectionClosed
+	}
+	if sub.mode != TicketPlayer || sub.slot < 0 {
+		return nil, ErrSpectatorWrite
+	}
+	return sub, nil
+}
+
+func (r *room) dropSubscriber(sub *subscriber, reason error) {
+	if r.subscribers[sub.id] == nil {
+		return
+	}
+	delete(r.subscribers, sub.id)
+	r.departed[sub.id] = reason
+	close(sub.out)
 }
 
 func (r *room) slotFor(userID string) int {
@@ -898,6 +934,10 @@ func ProtocolCode(err error) string {
 		return "sequence_reuse"
 	case errors.Is(err, ErrSpectatorWrite):
 		return "spectator_read_only"
+	case errors.Is(err, ErrSubscriberSlow):
+		return "subscriber_too_slow"
+	case errors.Is(err, ErrConnectionClosed):
+		return "connection_closed"
 	case errors.Is(err, ErrNotReady):
 		return "not_ready"
 	case errors.Is(err, ErrInvalidIntent):

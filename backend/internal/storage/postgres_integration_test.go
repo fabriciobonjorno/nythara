@@ -605,12 +605,33 @@ func TestPostgresRecordMatchProgress(t *testing.T) {
 // (champion_id); o campeão vem do deck. Pego pelo painel LiveOps.
 func TestPostgresMatchTelemetryQueryRuns(t *testing.T) {
 	ctx, db, _ := integrationDB(t)
+	matchID, _ := security.NewID()
+	endedAt := time.Now().UTC()
+	startedAt := endedAt.Add(-31 * time.Minute)
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO matches
+		(id,ruleset_version,seed,config,status,mode,created_at,started_at,ended_at)
+		VALUES($1,$2,1,'{}','finished','pvp',$3,$3,$4)`, matchID,
+		engine.CompetitiveRulesetVersion, startedAt, endedAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO match_commands
+		(match_id,command_index,player_slot,origin,command) VALUES($1,0,-1,'system','{}')`, matchID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.db.ExecContext(ctx, `INSERT INTO match_events
+		(match_id,event_seq,command_index,event) VALUES($1,0,0,'{"round":37}')`, matchID); err != nil {
+		t.Fatal(err)
+	}
 	telemetry, err := db.MatchTelemetry(ctx)
 	if err != nil {
 		t.Fatalf("telemetria: %v", err)
 	}
 	if telemetry.TotalMatches < 0 {
 		t.Fatal("contagem inválida")
+	}
+	if telemetry.Rhythm.SampleMatches < 1 || telemetry.Rhythm.AverageDurationSeconds <= 0 ||
+		telemetry.Rhythm.AverageRounds <= 0 || telemetry.Rhythm.OverThirtyMinutes < 1 {
+		t.Fatalf("ritmo inválido: %+v", telemetry.Rhythm)
 	}
 }
 

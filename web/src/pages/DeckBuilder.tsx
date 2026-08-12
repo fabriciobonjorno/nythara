@@ -7,12 +7,14 @@ import { ChampionEmblem } from "../components/ChampionEmblem";
 import { DataLoadError } from "../components/DataLoadError";
 import { UiIcon } from "../components/UiIcon";
 import { analyzeDeck } from "../deckAdvisor";
-import { useActiveRulesetVersion, useCards, useChampions, useCollection, useDecks } from "../queries";
+import { useActiveRulesetVersion, useCards, useChampions, useCollection, useDecks, useRuleset } from "../queries";
 import type { CardDefinition, Deck } from "../types";
+import { formatNumber } from "../i18n";
+import { usePreferencesStore } from "../store";
 
 const DECK_SIZE = 30;
 const TYPE_TARGETS: Record<"Assalto" | "Guarda" | "Rito", number> = { Assalto: 10, Guarda: 10, Rito: 10 };
-const TYPE_MINIMUMS: Record<"Assalto" | "Guarda" | "Rito", number> = { Assalto: 8, Guarda: 8, Rito: 4 };
+const DEFAULT_TYPE_MINIMUMS: Record<"Assalto" | "Guarda" | "Rito", number> = { Assalto: 8, Guarda: 10, Rito: 4 };
 
 function remainingLock(deck: Deck | undefined, now: number) {
   if (!deck?.locked_until || deck.system_provided) return 0;
@@ -46,16 +48,23 @@ function balancedDeck(cards: CardDefinition[], maxCopies: (card: CardDefinition)
 }
 
 export function DeckBuilderPage() {
+  const locale = usePreferencesStore((state) => state.locale);
   const [params] = useSearchParams();
   const cardsQuery = useCards();
   const championsQuery = useChampions();
   const collectionQuery = useCollection();
   const decksQuery = useDecks();
+  const rulesetQuery = useRuleset();
   const queryClient = useQueryClient();
   const cards = cardsQuery.data?.cards ?? [];
   const avatars = championsQuery.data?.champions ?? [];
   const collection = collectionQuery.data;
   const rulesetVersion = useActiveRulesetVersion();
+  const typeMinimums = {
+    Assalto: rulesetQuery.data?.min_assaults ?? DEFAULT_TYPE_MINIMUMS.Assalto,
+    Guarda: rulesetQuery.data?.min_guards ?? DEFAULT_TYPE_MINIMUMS.Guarda,
+    Rito: rulesetQuery.data?.min_rites ?? DEFAULT_TYPE_MINIMUMS.Rito,
+  };
   const activeDeck = decksQuery.data?.decks.find((deck) => deck.ruleset_version === rulesetVersion && deck.active)
     ?? decksQuery.data?.decks.find((deck) => deck.ruleset_version === rulesetVersion);
   const legalCards = useMemo(() => cards.filter((card) => card.confront?.legal), [cards]);
@@ -105,7 +114,7 @@ export function DeckBuilderPage() {
     type: cardType,
     count: legalCards.reduce((sum, card) => sum + (card.type === cardType ? counts[card.id] ?? 0 : 0), 0),
   }));
-  const compositionValid = typeCounts.every((item) => item.count >= TYPE_MINIMUMS[item.type]);
+  const compositionValid = typeCounts.every((item) => item.count >= typeMinimums[item.type]);
   const analysis = useMemo(() => analyzeDeck(legalCards, counts), [counts, legalCards]);
 
   const add = (card: CardDefinition) => {
@@ -131,7 +140,7 @@ export function DeckBuilderPage() {
   const save = async () => {
     if (locked) { setMessage(`Este baralho poderá ser alterado em ${formatLock(lockLeft)}.`); return; }
     if (!avatarId || total !== DECK_SIZE || !name.trim()) { setMessage("Defina o nome e escolha exatamente 30 cartas."); return; }
-    if (!compositionValid) { setMessage("O baralho precisa de pelo menos 8 Assaltos, 8 Guardas e 4 Ritos."); return; }
+    if (!compositionValid) { setMessage(`O baralho precisa de pelo menos ${typeMinimums.Assalto} Assaltos, ${typeMinimums.Guarda} Guardas e ${typeMinimums.Rito} Ritos.`); return; }
     setBusy(true); setMessage("");
     const body = {
       name: name.trim(), champion_id: avatarId,
@@ -156,18 +165,18 @@ export function DeckBuilderPage() {
   }
 
   return <div className="deck-builder-page confront-builder">
-    <header className="deck-builder-top"><div><p className="eyebrow">MODO CONFRONTO · 30 CARTAS</p><h1>Seu baralho de duelo</h1><p>Um baralho, três tipos. O Avatar é visual e não concede poder.</p></div><button className="primary-button deck-save-top" type="button" disabled={busy || locked || total !== DECK_SIZE || !compositionValid} onClick={save}>{busy ? "Salvando…" : locked ? `Travado · ${formatLock(lockLeft)}` : "Salvar baralho"}</button></header>
+    <header className="deck-builder-top"><div><p className="eyebrow">MODO CONFRONTO · 30 CARTAS</p><h1>Seu baralho de duelo</h1><p>Um baralho, três tipos. Seu Avatar acrescenta um poder próprio, sem alterar sua coleção.</p></div><button className="primary-button deck-save-top" type="button" disabled={busy || locked || total !== DECK_SIZE || !compositionValid} onClick={save}>{busy ? "Salvando…" : locked ? `Travado · ${formatLock(lockLeft)}` : "Salvar baralho"}</button></header>
 
     <section className={`deck-lock-banner ${locked ? "is-locked" : ""}`} role="status"><span><UiIcon name={locked ? "clock" : "info"} /></span><div><strong>{locked ? "Baralho competitivo protegido" : "Você pode editar agora"}</strong><small>{locked ? `Nova alteração liberada em ${formatLock(lockLeft)}. Você pode jogar normalmente durante a trava.` : "Depois de salvar, a composição fica fixa por 24 horas para dar peso às escolhas."}</small></div></section>
 
     <div className="deck-builder-layout">
       <section className="deck-workbench">
-        <div className="builder-section avatar-cosmetic"><div className="builder-heading"><div><span>1</span><h2>Escolha a aparência</h2></div><small>Sem passiva, Ultimate ou vantagem.</small></div><div className="champion-picker">{avatars.map((avatar) => <button type="button" disabled={locked} className={avatar.id === avatarId ? "is-selected" : ""} onClick={() => setAvatarId(avatar.id)} key={avatar.id}><span className="champion-picker__emblem"><ChampionEmblem id={avatar.id} faction={avatar.faction} /></span><strong>{avatar.name.split(",")[0]}</strong><small>Avatar cosmético</small></button>)}</div></div>
+        <div className="builder-section avatar-cosmetic"><div className="builder-heading"><div><span>1</span><h2>Escolha o Avatar</h2></div><small>Poder próprio · mesma coleção.</small></div><div className="champion-picker">{avatars.map((avatar) => <button type="button" disabled={locked} className={avatar.id === avatarId ? "is-selected" : ""} onClick={() => setAvatarId(avatar.id)} key={avatar.id}><span className="champion-picker__emblem"><ChampionEmblem id={avatar.id} faction={avatar.faction} /></span><strong>{avatar.name.split(",")[0]}</strong><small>{avatar.confront_power ?? "Sem poder neste conjunto de regras."}</small></button>)}</div></div>
 
-        <div className="builder-section"><div className="builder-heading"><div><span>2</span><h2>Escolha 30 cartas</h2></div><button className="secondary-button" type="button" disabled={locked} onClick={autoBuild}>Montar 10 / 10 / 10</button></div><p className="builder-pool-note"><strong>{legalCards.length} cartas jogáveis</strong> neste modo. {archivedCount} cartas do ruleset antigo ficam no arquivo com o motivo explícito e não podem entrar no duelo.</p><div className="filter-bar compact builder-filters"><input aria-label="Buscar cartas" type="search" placeholder="Buscar por nome, ação ou facção…" value={search} onChange={(event) => setSearch(event.target.value)} /><select aria-label="Filtrar por tipo" value={type} onChange={(event) => setType(event.target.value as typeof type)}><option>Todos</option><option>Assalto</option><option>Guarda</option><option>Rito</option></select></div><div className="builder-card-grid">{visible.map((card) => <CardTile compact key={card.id} card={card} quantity={maxCopies(card)} selected={counts[card.id] ?? 0} disabled={locked || total >= DECK_SIZE || (counts[card.id] ?? 0) >= maxCopies(card)} onSelect={() => add(card)} />)}</div></div>
+        <div className="builder-section"><div className="builder-heading"><div><span>2</span><h2>Escolha 30 cartas</h2></div><button className="secondary-button" type="button" disabled={locked} onClick={autoBuild}>Montar 10 / 10 / 10</button></div><p className="builder-pool-note"><strong>{legalCards.length} cartas jogáveis</strong> neste modo. {archivedCount} cartas do ruleset antigo ficam no arquivo com o motivo explícito e não podem entrar no duelo.</p><div className="filter-bar compact builder-filters"><input aria-label="Buscar cartas" type="search" placeholder="Buscar por nome, ação ou facção…" value={search} onChange={(event) => setSearch(event.target.value)} /><select aria-label="Filtrar por tipo" value={type} onChange={(event) => setType(event.target.value as typeof type)}><option value="Todos">Todos</option><option value="Assalto">Assalto</option><option value="Guarda">Guarda</option><option value="Rito">Rito</option></select></div><div className="builder-card-grid">{visible.map((card) => <CardTile compact key={card.id} card={card} quantity={maxCopies(card)} selected={counts[card.id] ?? 0} disabled={locked || total >= DECK_SIZE || (counts[card.id] ?? 0) >= maxCopies(card)} onSelect={() => add(card)} />)}</div></div>
       </section>
 
-      <aside className="deck-summary confront-summary"><div className="deck-count"><span style={{ "--progress": `${Math.min(100, total / DECK_SIZE * 100)}%` } as React.CSSProperties}><b>{total}</b><small>/ {DECK_SIZE}</small></span><div><strong>{total === DECK_SIZE && compositionValid ? "Baralho completo" : `${Math.max(0, DECK_SIZE - total)} restantes`}</strong><small>Máx. 2 cópias · Lendária 1</small></div></div><div className="deck-type-meter">{typeCounts.map((item) => <div className={item.count >= TYPE_MINIMUMS[item.type] ? "is-valid" : "is-missing"} key={item.type}><span>{item.type} <small>mín. {TYPE_MINIMUMS[item.type]}</small></span><b>{item.count}</b><i><em style={{ width: `${Math.min(100, item.count / 10 * 100)}%` }} /></i></div>)}</div><label>Nome do baralho<input disabled={locked} value={name} maxLength={64} onChange={(event) => setName(event.target.value)} /></label><details className={`deck-advisor ${analysis.ready ? "is-ready" : ""}`} open><summary><span><UiIcon name="balance" /><strong>Leitura do baralho</strong></span><small>Consultiva · não prevê vitória</small></summary><div className="deck-advisor__metrics"><span><small>CUSTO MÉDIO</small><b>{analysis.averageCost.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</b></span><span><small>PODER MÉDIO</small><b>{analysis.averagePower?.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) ?? "—"}</b></span><span><small>PREVENÇÃO</small><b>{analysis.averagePrevention?.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) ?? "—"}</b></span><span><small>PAPÉIS DE RITO</small><b>{analysis.riteRoles.length || "—"}</b></span></div><div className="deck-advisor__signals">{analysis.signals.map((signal) => <article className={`is-${signal.tone}`} key={signal.title}><i aria-hidden="true" /><span><strong>{signal.title}</strong><small>{signal.copy}</small></span></article>)}</div><p>{analysis.lowCostCards} cartas leves · {analysis.highCostCards} de custo alto{analysis.totalPreventionCards ? ` · ${analysis.totalPreventionCards} com prevenção total` : ""}</p></details><div className="selected-cards"><header><strong>Lista escolhida</strong><small>{Object.keys(counts).length} únicas</small></header>{Object.entries(counts).sort().map(([id, quantity]) => { const card = cards.find((item) => item.id === id); return card ? <div key={id}><span className="mini-cost">{card.cost}</span><span><strong>{card.name}</strong><small>{card.type} · {cardConfrontMetric(card)}</small></span><b>×{quantity}</b><button type="button" disabled={locked} onClick={() => remove(id)} aria-label={`Remover ${card.name}`}><UiIcon name="minus" /></button></div> : null; })}</div><div className="deck-summary-actions">{message && <p className="builder-message" role="status">{message}</p>}<button className="primary-button" type="button" disabled={busy || locked || total !== DECK_SIZE || !compositionValid} onClick={save}>{busy ? "Salvando…" : locked ? "Baralho protegido" : "Salvar e usar na Arena"}</button></div></aside>
+      <aside className="deck-summary confront-summary"><div className="deck-count"><span style={{ "--progress": `${Math.min(100, total / DECK_SIZE * 100)}%` } as React.CSSProperties}><b>{total}</b><small>/ {DECK_SIZE}</small></span><div><strong>{total === DECK_SIZE && compositionValid ? "Baralho completo" : `${Math.max(0, DECK_SIZE - total)} restantes`}</strong><small>Máx. 2 cópias · Lendária 1</small></div></div><div className="deck-type-meter">{typeCounts.map((item) => <div className={item.count >= typeMinimums[item.type] ? "is-valid" : "is-missing"} key={item.type}><span>{item.type} <small>mín. {typeMinimums[item.type]}</small></span><b>{item.count}</b><i><em style={{ width: `${Math.min(100, item.count / 10 * 100)}%` }} /></i></div>)}</div><label>Nome do baralho<input disabled={locked} value={name} maxLength={64} onChange={(event) => setName(event.target.value)} /></label><details className={`deck-advisor ${analysis.ready ? "is-ready" : ""}`} open><summary><span><UiIcon name="balance" /><strong>Leitura do baralho</strong></span><small>Consultiva · não prevê vitória</small></summary><div className="deck-advisor__metrics"><span><small>CUSTO MÉDIO</small><b>{formatNumber(analysis.averageCost, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</b></span><span><small>PODER MÉDIO</small><b>{analysis.averagePower === null ? "—" : formatNumber(analysis.averagePower, locale, { maximumFractionDigits: 1 })}</b></span><span><small>PREVENÇÃO</small><b>{analysis.averagePrevention === null ? "—" : formatNumber(analysis.averagePrevention, locale, { maximumFractionDigits: 1 })}</b></span><span><small>PAPÉIS DE RITO</small><b>{analysis.riteRoles.length || "—"}</b></span></div><div className="deck-advisor__signals">{analysis.signals.map((signal) => <article className={`is-${signal.tone}`} key={signal.title}><i aria-hidden="true" /><span><strong>{signal.title}</strong><small>{signal.copy}</small></span></article>)}</div><p>{analysis.lowCostCards} cartas leves · {analysis.highCostCards} de custo alto{analysis.totalPreventionCards ? ` · ${analysis.totalPreventionCards} com prevenção total` : ""}</p></details><div className="selected-cards"><header><strong>Lista escolhida</strong><small>{Object.keys(counts).length} únicas</small></header>{Object.entries(counts).sort().map(([id, quantity]) => { const card = cards.find((item) => item.id === id); return card ? <div key={id}><span className="mini-cost">{card.cost}</span><span><strong>{card.name}</strong><small>{card.type} · {cardConfrontMetric(card)}</small></span><b>×{quantity}</b><button type="button" disabled={locked} onClick={() => remove(id)} aria-label={`Remover ${card.name}`}><UiIcon name="minus" /></button></div> : null; })}</div><div className="deck-summary-actions">{message && <p className="builder-message" role="status">{message}</p>}<button className="primary-button" type="button" disabled={busy || locked || total !== DECK_SIZE || !compositionValid} onClick={save}>{busy ? "Salvando…" : locked ? "Baralho protegido" : "Salvar e usar na Arena"}</button></div></aside>
     </div>
   </div>;
 }

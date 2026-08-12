@@ -2,6 +2,8 @@ import { useState } from "react";
 import { CardSigil, CardZoomIcon } from "./CardSigil";
 import { UiIcon } from "./UiIcon";
 import type { CardDefinition } from "../types";
+import { translateText } from "../i18n";
+import { usePreferencesStore } from "../store";
 
 function cardArtworkPath(card: CardDefinition) {
   return `/card-art/${card.id.toLocaleLowerCase("en-US")}.webp`;
@@ -53,7 +55,9 @@ export function CardTile({ card, quantity, selected, compact = false, disabled =
   onSelect?: () => void;
 }) {
   const [zoomed, setZoomed] = useState(false);
-  const tacticalText = card.confront?.tactical_text ?? card.rules_text;
+  const locale = usePreferencesStore((state) => state.locale);
+  const tacticalText = translateText(card.confront?.tactical_text ?? card.rules_text, locale);
+  const metric = translateText(cardConfrontMetric(card), locale);
   const body = (
     <article className={`card-tile faction-${card.faction.replaceAll(" ", "-").toLowerCase()} ${compact ? "is-compact" : ""}`}>
       <div className="card-tile__edge" aria-hidden="true" />
@@ -63,12 +67,12 @@ export function CardTile({ card, quantity, selected, compact = false, disabled =
         <span className="sigil" aria-label={`Afinidade visual ${card.sigil}`} title="Afinidade visual; sem efeito de regra"><CardSigil sigil={card.sigil} /></span>
       </header>
       <CardArtwork card={card} />
-      <div className="card-meta"><span>{card.type}</span><span>{card.rarity}</span></div>
+      <div className="card-meta"><span>{translateText(card.type, locale)}</span><span>{translateText(card.rarity, locale)}</span></div>
       {card.confront?.adapted && <span className="card-adapted">ADAPTADA AO CONFRONTO</span>}
       {card.confront?.keywords?.length ? <div className="card-keywords" aria-label="Palavras-chave">{card.confront.keywords.slice(0, 3).map((keyword) => <span key={keyword}>{keyword}</span>)}</div> : null}
       <p className={compact ? "card-rules-preview" : undefined}>{tacticalText}</p>
       <div className="card-tile__bottom">
-        <footer><span>{card.id}</span><span>{cardConfrontMetric(card)}</span></footer>
+        <footer><span>{card.id}</span><span>{metric}</span></footer>
         {typeof quantity === "number" && <span className="card-owned" aria-label={typeof selected === "number" ? `${selected} de ${quantity} cópias no deck` : `${quantity} cópias disponíveis`}>
           <small>{typeof selected === "number" ? "NO DECK" : "COLEÇÃO"}</small>
           <strong>{typeof selected === "number" ? `${selected}/${quantity}` : `×${quantity}`}</strong>
@@ -90,10 +94,10 @@ export function CardTile({ card, quantity, selected, compact = false, disabled =
             <button className="modal-close" type="button" autoFocus onClick={() => setZoomed(false)} aria-label="Fechar ampliação"><UiIcon name="close" /></button>
             <div className="card-dialog__visual">{body}</div>
             <div className="card-dialog__copy">
-              <p className="eyebrow">{card.confront?.role ?? card.design_role}</p>
+              <p className="eyebrow">{translateText(card.confront?.role ?? card.design_role, locale)}</p>
               <h2 id={`card-${card.id}`}>{card.name}</h2>
-              <div className="card-dialog__stats"><span><small>CUSTO</small><b>{card.cost} Vitalidade</b></span><span><small>FUNÇÃO</small><b>{cardConfrontMetric(card)}</b></span></div>
-              {card.confront?.keywords?.length ? <div className="card-dialog__keywords">{card.confront.keywords.map((keyword) => <span key={keyword}>{keyword}</span>)}</div> : null}
+              <div className="card-dialog__stats"><span><small>CUSTO</small><b>{card.cost} Vitalidade</b></span><span><small>FUNÇÃO</small><b>{metric}</b></span></div>
+              {card.confront?.keywords?.length ? <div className="card-dialog__keywords">{card.confront.keywords.map((keyword) => <span key={keyword}>{translateText(keyword, locale)}</span>)}</div> : null}
               <small className="rules-label">COMO RESOLVE</small>
               <p className="rules-copy">{tacticalText}</p>
               <blockquote>“{card.flavor}”</blockquote>

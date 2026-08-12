@@ -146,6 +146,7 @@ type PlayerState struct {
 	// Contadores da rodada (zerados na Preparação).
 	AssaultsRound    int  `json:"assaults_round"`
 	GuardsRound      int  `json:"guards_round"`
+	RitesRound       int  `json:"rites_round"`
 	SacrificesRound  int  `json:"sacrifices_round"`
 	DamageTakenRound int  `json:"damage_taken_round"`
 	ExiledRound      bool `json:"exiled_round"`

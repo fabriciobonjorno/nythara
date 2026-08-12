@@ -467,6 +467,13 @@ func (f *fakeStore) MatchHistory(_ context.Context, userID string, _ int) ([]dom
 		OpponentChampion: "CH-VA-02", Won: true, EndReason: "concessao"}}, nil
 }
 
+func (f *fakeStore) RecentFeedback(_ context.Context, limit int) ([]domain.Feedback, error) {
+	if limit < len(f.feedback) {
+		return f.feedback[:limit], nil
+	}
+	return f.feedback, nil
+}
+
 func (f *fakeStore) SaveFeedback(_ context.Context, entry domain.Feedback) error {
 	f.feedback = append(f.feedback, entry)
 	return nil

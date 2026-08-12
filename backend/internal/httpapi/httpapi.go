@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,12 +36,31 @@ type API struct {
 	generalLimiter *security.RateLimiter
 	authLimiter    *security.RateLimiter
 	wsLimiter      *security.RateLimiter
+	trustedProxies []*net.IPNet
 }
 
 func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, ready func(context.Context) error) http.Handler {
+	handler, err := NewWithOptions(service, battles, logger, ready, Options{})
+	if err != nil {
+		panic(err) // Options vazio é sempre válido; preserva a API dos testes.
+	}
+	return handler
+}
+
+type Options struct {
+	// TrustedProxyCIDRs permite usar X-Forwarded-For somente quando o peer TCP
+	// pertence explicitamente a uma rede de proxy confiável.
+	TrustedProxyCIDRs string
+}
+
+func NewWithOptions(service *app.Service, battles *battle.Manager, logger *slog.Logger, ready func(context.Context) error, options Options) (http.Handler, error) {
+	trustedProxies, err := parseTrustedProxyCIDRs(options.TrustedProxyCIDRs)
+	if err != nil {
+		return nil, err
+	}
 	api := &API{service: service, battles: battles, logger: logger, ready: ready,
 		generalLimiter: newGeneralLimiter(), authLimiter: newAuthLimiter(),
-		wsLimiter: newWSCommandLimiter()}
+		wsLimiter: newWSCommandLimiter(), trustedProxies: trustedProxies}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
 	mux.HandleFunc("GET /readyz", api.readiness)
@@ -83,7 +103,7 @@ func New(service *app.Service, battles *battle.Manager, logger *slog.Logger, rea
 		mux.Handle("POST /v1/battles/{id}/tickets", api.auth(http.HandlerFunc(api.battleTicket)))
 		mux.HandleFunc("GET /v1/battles/{id}/ws", api.battleWebSocket)
 	}
-	return api.recover(api.harden(mux))
+	return api.recover(api.harden(mux)), nil
 }
 
 func (a *API) matchmakingStatus(w http.ResponseWriter, r *http.Request) {
@@ -525,7 +545,21 @@ func (a *API) cards(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (a *API) champions(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.CompetitiveRulesetVersion, "champions": app.ChampionsSorted()})
+	// O poder do Avatar é do ruleset ativo, não do catálogo: o cliente recebe o
+	// texto pronto em vez de repetir a regra por conta própria.
+	powers := engine.CompetitiveRuleset().ConfrontRules.ChampionPowers
+	champions := app.ChampionsSorted()
+	out := make([]map[string]any, 0, len(champions))
+	for _, champion := range champions {
+		entry := map[string]any{"id": champion.ID, "name": champion.Name, "faction": champion.Faction,
+			"vitality": champion.Vitality, "passive": champion.Passive, "ultimate": champion.Ultimate,
+			"eclipse_form": champion.EclipseForm}
+		if power, ok := powers[champion.ID]; ok {
+			entry["confront_power"] = power.Text
+		}
+		out = append(out, entry)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ruleset_version": engine.CompetitiveRulesetVersion, "champions": out})
 }
 
 func (a *API) ruleset(w http.ResponseWriter, _ *http.Request) {
@@ -534,7 +568,9 @@ func (a *API) ruleset(w http.ResponseWriter, _ *http.Request) {
 	rules := engine.CompetitiveRuleset().ConfrontRules
 	writeJSON(w, http.StatusOK, map[string]any{"version": engine.CompetitiveRulesetVersion, "active": true,
 		"starting_vitality": rules.StartingVitality, "guard_leak_cap": rules.GuardLeakCap,
-		"pressure_start_turn": rules.PressureStartTurn, "pressure_base_loss": rules.PressureBaseLoss})
+		"pressure_start_turn": rules.PressureStartTurn, "pressure_base_loss": rules.PressureBaseLoss,
+		"deck_size": engine.ConfrontDeckSize, "min_assaults": rules.MinAssaults,
+		"min_guards": rules.MinGuards, "min_rites": rules.MinRites})
 }
 
 func (a *API) season(w http.ResponseWriter, r *http.Request) {

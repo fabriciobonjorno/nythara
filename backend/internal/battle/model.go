@@ -10,14 +10,16 @@ import (
 )
 
 var (
-	ErrNotParticipant = errors.New("usuário não participa da partida")
-	ErrNotReady       = errors.New("partida ainda não está pronta")
-	ErrSequenceGap    = errors.New("client_sequence fora de ordem")
-	ErrSequenceReuse  = errors.New("client_sequence reutilizado com outro payload")
-	ErrSpectatorWrite = errors.New("espectador é somente leitura")
-	ErrTicketInvalid  = errors.New("ticket inválido ou expirado")
-	ErrAlreadyQueued  = errors.New("jogador já está na fila")
-	ErrInvalidIntent  = errors.New("intenção inválida")
+	ErrNotParticipant   = errors.New("usuário não participa da partida")
+	ErrNotReady         = errors.New("partida ainda não está pronta")
+	ErrSequenceGap      = errors.New("client_sequence fora de ordem")
+	ErrSequenceReuse    = errors.New("client_sequence reutilizado com outro payload")
+	ErrSpectatorWrite   = errors.New("espectador é somente leitura")
+	ErrConnectionClosed = errors.New("conexão de batalha encerrada")
+	ErrSubscriberSlow   = errors.New("conexão removida por não consumir atualizações")
+	ErrTicketInvalid    = errors.New("ticket inválido ou expirado")
+	ErrAlreadyQueued    = errors.New("jogador já está na fila")
+	ErrInvalidIntent    = errors.New("intenção inválida")
 )
 
 type Status string

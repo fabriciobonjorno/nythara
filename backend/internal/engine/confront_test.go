@@ -144,8 +144,8 @@ func TestConfront091DoesNotReinterpret090(t *testing.T) {
 		t.Fatalf("perfil de Poder histórico/atual inesperado: %d/%d",
 			initial.Cards["VR-001"].Confront.Power, historical.Cards["VR-001"].Confront.Power)
 	}
-	if !current.ConfrontRules.TacticalSeals || current.Version != engine.LongDuelRulesetVersion {
-		t.Fatalf("ruleset de duelo longo não publicado: %s %+v", current.Version, current.ConfrontRules)
+	if !current.ConfrontRules.TacticalSeals || current.Version != engine.DecisionRulesetVersion {
+		t.Fatalf("ruleset de decisões não publicado: %s %+v", current.Version, current.ConfrontRules)
 	}
 	if !tacticalInitial.ConfrontRules.TacticalSeals || tacticalInitial.ConfrontRules.ExposedPowerBonus != 0 || current.ConfrontRules.ExposedPowerBonus != 2 {
 		t.Fatalf("snapshots táticos reinterpretados: inicial=%+v atual=%+v", tacticalInitial.ConfrontRules, current.ConfrontRules)
@@ -160,13 +160,31 @@ func TestConfront091DoesNotReinterpret090(t *testing.T) {
 		tactical.ConfrontRules.PressureStartTurn != engine.ConfrontPressureStartTurn {
 		t.Fatalf("alpha-0.10.2 foi reinterpretado: %+v", tactical.ConfrontRules)
 	}
-	if current.ConfrontRules.GuardBonus != engine.LongDuelGuardBonus ||
-		current.ConfrontRules.StartingVitality != engine.LongDuelStartingVitality ||
-		current.ConfrontRules.PressureStartTurn != engine.LongDuelPressureStartTurn {
-		t.Fatalf("duelo longo sem seus próprios números: %+v", current.ConfrontRules)
+	longDuel, err := engine.RulesetByVersion(engine.LongDuelRulesetVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if longDuel.ConfrontRules.GuardBonus != engine.LongDuelGuardBonus ||
+		longDuel.ConfrontRules.StartingVitality != engine.LongDuelStartingVitality ||
+		longDuel.ConfrontRules.PressureStartTurn != engine.LongDuelPressureStartTurn {
+		t.Fatalf("duelo longo sem seus próprios números: %+v", longDuel.ConfrontRules)
+	}
+	// O ruleset de Avatares existe registrado e completo, mas não pode vazar
+	// poder nem ajuste de carta para a versão que está no ar.
+	avatar := current
+	if len(avatar.ConfrontRules.ChampionPowers) != len(avatar.Champions) {
+		t.Fatalf("nem todo Avatar tem poder: %d de %d",
+			len(avatar.ConfrontRules.ChampionPowers), len(avatar.Champions))
+	}
+	if len(longDuel.ConfrontRules.ChampionPowers) != 0 || len(longDuel.ConfrontRules.CardAdjustments) != 0 {
+		t.Fatalf("alpha-0.11.0 foi reinterpretado: %+v", longDuel.ConfrontRules)
+	}
+	if avatar.Cards["VR-062"].Cost != 0 || longDuel.Cards["VR-062"].Cost == 0 {
+		t.Fatalf("ajuste de carta vazou entre versões: %d / %d",
+			avatar.Cards["VR-062"].Cost, longDuel.Cards["VR-062"].Cost)
 	}
 	// A Guarda recebe o bônus; a Vitalidade inicial acompanha o formato.
-	if got, want := current.Cards["VR-003"].Confront.Prevention,
+	if got, want := longDuel.Cards["VR-003"].Confront.Prevention,
 		tactical.Cards["VR-003"].Confront.Prevention+engine.LongDuelGuardBonus; got != want {
 		t.Fatalf("bônus de Guarda não aplicado ao perfil: %d, esperado %d", got, want)
 	}

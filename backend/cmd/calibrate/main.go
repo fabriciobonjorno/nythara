@@ -58,6 +58,11 @@ func main() {
 	leakCaps := flag.String("leak-cap", "0", "lista de tetos de vazamento da Guarda (0 = subtração pura)")
 	deckMode := flag.String("decks", "precon", "decks: precon|varied")
 	powerCap := flag.Int("power-cap", 0, "teto de Poder do Assalto (0 = curva original); testa compressão do topo sem alterar o catálogo")
+	ceiling := flag.Int("ceiling", 0, "teto de Poder via ajuste por versão (0 = sem ajuste)")
+	freeGuards := flag.String("free-guards", "", "IDs de Guarda com custo zerado, separados por vírgula")
+	fromCurrent := flag.Bool("from-current", false, "parte das regras do ruleset servido (poderes de Avatar, ajustes) e aplica só vitality/pressure/decisions")
+	decisions := flag.Bool("decisions", false, "liga o comando de escolha (pool com cartas de decisão)")
+	costAdjust := flag.String("cost-adjust", "", "ajustes de custo por versão, ex.: VR-002=2,VR-049=2")
 	flag.Parse()
 
 	cards, champions, effects, err := readData(*dataDir)
@@ -72,8 +77,102 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Ajustes por versão entram em toda variante da varredura.
+	adjust := map[string]engine.CardAdjustment{}
+	if *ceiling > 0 {
+		for _, card := range engine.CompetitiveRuleset().CardList {
+			if card.Confront == nil || !card.Confront.Legal || card.Type != engine.TypeAssalto {
+				continue
+			}
+			fx := engine.CompetitiveRuleset().Effects.Cards[card.ID].Assault
+			instances := max(1, fx.Instances)
+			if card.Confront.Power <= *ceiling {
+				continue
+			}
+			damage := (*ceiling - engine.ConfrontPowerBonus) / instances
+			adjust[card.ID] = engine.CardAdjustment{Damage: &damage, Reason: "compressão do topo da curva"}
+		}
+	}
+	for _, id := range strings.Split(*freeGuards, ",") {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		zero := 0
+		entry := adjust[id]
+		entry.Cost = &zero
+		entry.Reason = "Guarda gratuita: dar motivo de existir à carta mais fraca"
+		adjust[id] = entry
+	}
+
+	explicit := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { explicit[f.Name] = true })
+
+	if *fromCurrent {
+		// Ignora a grade combinatória: cada variante é o ruleset servido com
+		// vitalidade/pressão próprias — é assim que se calibra uma versão nova
+		// sem perder poderes e ajustes já aprovados.
+		vs, _ := ints(*vitalities)
+		ps, _ := ints(*pressures)
+		fs, _ := ints(*firstPenalties)
+		if !explicit["first-penalty"] {
+			fs = []int{engine.CompetitiveRuleset().ConfrontRules.FirstTurnPenalty}
+		}
+		ds, _ := ints(*bonusDraws)
+		if !explicit["second-draw"] {
+			ds = []int{engine.CompetitiveRuleset().ConfrontRules.SecondPlayerBonusDraw}
+		}
+		ls, _ := ints(*leakCaps)
+		if !explicit["leak-cap"] {
+			ls = []int{engine.CompetitiveRuleset().ConfrontRules.GuardLeakCap}
+		}
+		variants = variants[:0]
+		for _, v := range vs {
+			for _, p := range ps {
+				for _, f := range fs {
+					for _, d := range ds {
+						for _, l := range ls {
+							cfg := engine.CompetitiveRuleset().ConfrontRules
+							// O mapa de ajustes é compartilhado com o ruleset
+							// servido: sempre copiar antes de tocar.
+							merged := map[string]engine.CardAdjustment{}
+							for id, adj := range cfg.CardAdjustments {
+								merged[id] = adj
+							}
+							for _, pair := range strings.Split(*costAdjust, ",") {
+								parts := strings.SplitN(strings.TrimSpace(pair), "=", 2)
+								if len(parts) != 2 {
+									continue
+								}
+								value, err := strconv.Atoi(parts[1])
+								if err != nil {
+									continue
+								}
+								entry := merged[parts[0]]
+								entry.Cost = &value
+								entry.Reason = "calibragem de custo"
+								merged[parts[0]] = entry
+							}
+							cfg.CardAdjustments = merged
+							cfg.StartingVitality = v
+							cfg.PressureStartTurn = p
+							cfg.FirstTurnPenalty = f
+							cfg.SecondPlayerBonusDraw = d
+							cfg.GuardLeakCap = l
+							cfg.Decisions = *decisions
+							variants = append(variants, variant{name: fmt.Sprintf("cal-cur-v%df%dw%dl%d", v, f, d, l), cfg: cfg})
+						}
+					}
+				}
+			}
+		}
+	}
+
 	results := make([]outcome, 0, len(variants))
 	for _, v := range variants {
+		if len(adjust) > 0 {
+			v.cfg.CardAdjustments = adjust
+		}
 		rs, err := compile(v, cards, champions, effects, *powerCap)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "variante %s: %v\n", v.name, err)
@@ -282,6 +381,13 @@ func readData(dir string) (cards, champions, effects []byte, err error) {
 		return nil, nil, nil, err
 	}
 	return cards, champions, effects, nil
+}
+
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func ints(list string) ([]int, error) {

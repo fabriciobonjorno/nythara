@@ -1481,3 +1481,284 @@ erro na cara de quem quis ajudar. Nenhuma outra parte do produto lê essa tabela
 para decidir algo: se ela ficar vazia, nada quebra. A versão de regras viaja
 junto com o recado, então uma crítica de ritmo continua legível depois da
 próxima rotação de ruleset.
+
+## ADR-057 — Poderes de Avatar: construídos, medidos e ainda não publicados
+
+**Contexto.** O Modo Confronto tinha dez Avatares puramente cosméticos. O motor
+já trazia `championImpls`, `canUltimate` e `ultimate()`, mas nada disso era
+usado: os poderes históricos dependiam de Essência, Eclipse e Ressonância,
+sistemas que este modo removeu. Sobraram vestígios visíveis — o ícone de
+Ultimate e um banner "ULTIMATE DESATADA" que nunca podia disparar — e a tela de
+Avatares dizia ao jogador que a escolha não muda nada. Num jogo de duelo, o
+Avatar é o gancho de identidade; dez idênticos é o maior desperdício do produto.
+
+**Decisão.** O `alpha-0.12.0` implementa poder para cada Avatar usando apenas o
+que o Confronto tem: custo em Vitalidade, janelas de Assalto e Guarda, Ward,
+estilhaço e Fadiga. Os poderes são declarativos (gatilho + efeito + grandeza) e
+vivem na configuração do ruleset, junto com um mecanismo novo de
+`CardAdjustments` que reequilibra cartas **por versão** — antes disso, mexer
+numa carta reescreveria o significado de todas as versões anteriores, já que
+todos os rulesets compilam do mesmo catálogo. As duas Guardas que morriam na mão
+em ~56% das partidas passam a custar zero nesta versão.
+
+A calibragem trocou intuição por medição e derrubou três hipóteses:
+
+- Um desconto que vale todo turno soma ~20 de Vitalidade numa partida de 44
+  rodadas; o primeiro rascunho deu **82% de win rate** para um Avatar.
+- **Comprar carta virou desvantagem.** O baralho é o relógio do duelo longo, e
+  acelerar a compra aproxima a Fadiga: o Avatar que comprava ficou em 28%.
+  Nenhum poder publicado compra cartas.
+- **Cura vale pouco com a vida cheia**, então poder curativo só compensa quando
+  dispara depois do dano.
+
+**Consequências.** Os dois gates de 100.000 partidas **aprovam**. Precons:
+campeões entre 46,12% e 52,28%, primeiro jogador 49,32%, 43,74 rodadas, 39,70%
+das partidas decididas por dano. Decks sorteados: campeões entre 46,84% e
+53,36%, primeiro jogador 47,70%, 29,63 rodadas, 67,58% por dano. O espalhamento
+entre Avatares — o número que importa para a promessa de equidade — ficou em
+**6,2 pontos no baralho oficial e 6,5 no baralho montado à mão**.
+
+Chegar lá exigiu descobrir quais poderes são estáveis entre os dois modos. Só
+dois gatilhos passaram: "quando seu Assalto conecta" e "quando a Vitalidade cai
+até um limiar". Gatilhos ligados à frequência de Guarda ou de estilhaço variam
+com a agressividade do baralho — um deles marcou 48,6% no precon e 60,2% em
+deck livre, 11,6 pontos de diferença. O limiar de Vitalidade virou o dial fino
+do formato: cada ponto de limiar vale cerca de meio ponto de win rate.
+
+O preço dessa escolha é honesto: seis dos dez Avatares compartilham o arquétipo
+de resiliência, variando só o limiar. Um jogo equilibrado com arquétipos
+próximos vale mais que dez identidades distintas em que uma é vinte pontos mais
+forte — mas ampliar esse vocabulário sem perder estabilidade é trabalho aberto.
+
+A iniciativa exigiu um dial diferencial. Os poderes derrubaram o primeiro
+jogador para 45,9% no precon e o elevaram a 52,8% em deck livre; nenhuma
+penalidade de primeiro turno corrige os dois ao mesmo tempo, porque ela move
+ambos na mesma direção. A carta extra para quem não abre resolve: no jogo curto
+ela é ativo, no jogo longo é passivo, porque lá o baralho é o relógio. É a única
+alavanca medida que empurra os dois modos em sentidos opostos.
+
+**Nota sobre a curva de Poder.** A compressão do topo foi medida e descartada:
+render +1,3 rodada custando a identidade de dez cartas é troca ruim. O teto de
+vazamento da Guarda (ADR-055) já havia neutralizado a curva.
+
+**Trabalho aberto: o pool de Ritos.** Só 9 das 63 cartas legais são Ritos, o
+eixo mais fino do jogo. As 18 cartas de Rito bloqueadas foram mapeadas: seis
+delas dependem apenas de escolha do jogador (`choose_discard`, `pick_top2` e
+`recover_pick`, duas cartas cada) e o restante depende de Sigilos, Eclipse ou
+permanentes — sistemas que este modo removeu. Destravar as seis exige levar a
+máquina de decisão para o Confronto, que hoje tem executor próprio e recusa
+qualquer comando fora de jogar e passar: é uma fatia vertical de engine, view,
+interface, bot e replay, não um ajuste de dados.
+
+## ADR-058 — O Modo Confronto passa a aceitar decisões do jogador
+
+**Contexto.** O eixo mais fino do formato é o Rito: 9 cartas legais contra 28
+Assaltos e 26 Guardas. O mapeamento das 18 cartas de Rito bloqueadas mostrou que
+seis delas não dependem de nenhum sistema removido — dependem apenas de uma
+escolha do jogador (`choose_discard`, `pick_top2` e `recover_pick`, duas cartas
+cada). O motor já tinha a máquina de decisão completa e genérica: fila,
+validação, eventos `decision_requested`/`decision_resolved` e resolução. O
+Confronto simplesmente não a roteava — tinha executor próprio e recusava
+qualquer comando fora de jogar e passar. O custo disso não é só de seis cartas:
+enquanto o modo não aceitar escolha, **nenhuma carta futura pode pedir uma**.
+
+**Decisão.** O Confronto passa a aceitar o comando de escolha, com caminho
+próprio em vez de reaproveitar o executor legado — os dois fluxos permanecem
+separados, como no resto do modo. Uma decisão aberta **trava a mesa**: qualquer
+outra ação é recusada até ela ser respondida, porque a alternativa seria estado
+ambíguo no replay. A validação exige carta oferecida, ainda na mão, sem
+repetição; resposta inválida não muta estado nem emite evento. Mão vazia não
+abre decisão — a continuação roda direto, senão a partida travaria esperando uma
+resposta impossível.
+
+A capacidade é versionada pela alavanca `Decisions`, e a primeira operação
+aberta é `choose_discard`, que destrava `Dívida de Sangue` e `Ampola de
+Fuligem` — duas cartas de lapidação de mão, exatamente o que falta ao eixo
+tático do formato.
+
+**Consequências.** Verificação em 1.500 partidas simuladas: zero crashes, zero
+loops, zero estados mortos, zero comandos rejeitados e **zero divergências de
+replay** — a escolha entra no log e a partida se reproduz idêntica. Testes
+cobrem o efeito da escolha, a recusa de ação com decisão aberta, a recusa de
+resposta inválida sem mutação e a reprodução do replay.
+
+As duas cartas novas mudam a composição dos precons, que são montados a partir
+do pool legal, e o ritmo cai de 43,74 para 31,75 rodadas. Por isso a capacidade
+nasce em `alpha-0.13.0`, **registrada e verificada, mas não servida**: o produto
+segue em `alpha-0.12.0`, cujos dois gates estão aprovados. Calibrar o formato
+com o pool ampliado é o próximo trabalho, e agora ele é trabalho de números —
+não de arquitetura.
+
+O que ainda falta para `alpha-0.13.0` poder ser servida: a sala de batalha
+precisa publicar a decisão pendente na visão do jogador e aceitar a resposta
+pelo WebSocket, e a mesa precisa da interface de escolha. O bot já responde
+decisões pelo caminho que o motor legado usava.
+
+## ADR-059 — Decisões servidas: alpha-0.13.0 no ar
+
+**Contexto.** O ADR-058 deixou a capacidade de decisão pronta e verificada na
+engine, mas não servida: faltavam a sala em tempo real, a interface e a
+calibragem com o pool ampliado. Sem isso, as cartas de escolha eram letra morta.
+
+**Decisão.** O alpha-0.13.0 passa a ser a versão competitiva. Três peças:
+
+*Sala.* O cano do WebSocket já era genérico e a visão já redigia as opções do
+rival; o que faltava era o relógio: com decisão pendente, o timeout do treino
+tentava passar, falhava e caía em concessão. Agora a expiração responde a
+escolha com as primeiras N opções — determinística, persistida, reproduzível.
+Quem perdeu a janela perdeu a escolha, não a partida. Em PvP, o timeout segue
+concedendo (ADR-018). Coberto por teste de integração da sala que provoca uma
+decisão de verdade e dispara a expiração, com detector de corrida.
+
+*Interface.* A escolha é um sheet modal — o mesmo em telefone e desktop, porque
+decisão trava a mesa por regra e a interface torna isso visível. Seleção exata
+de N com numeração na ordem do toque, confirmação explícita (escolha
+irreversível não se auto-envia), teclado e auto-passe travados enquanto a
+pendência existe, e aviso no painel quando é o rival que decide.
+
+*Calibragem.* Os dois motores de carta a custo 1 quebravam a iniciativa: o
+first-player caía a 45,5% no baralho oficial. A varredura mostrou que nenhuma
+alavanca global corrigia os dois modos ao mesmo tempo — a causa eram as
+próprias cartas, então a correção foi nelas: custo 2 via ajuste por versão. A
+penalidade de primeiro turno zera pelo mesmo motivo. Gates de 100.000: precons
+**aprovado** (primeiro jogador 50,22%, p50 45, campeões 45,93%–52,70%, dano
+41,97%); decks sorteados **aprovado** (47,59%, campeões 45,98%–53,21%).
+
+**Consequências.** Publicar exigiu ensinar `choose_discard` ao gerador de texto
+tático — VR-049 compilava com texto vazio e o pipeline de draft do admin
+falhava por "sem texto de regras"; o guard de imutabilidade também obrigou o
+motivo de exclusão histórico a permanecer byte a byte nas versões antigas.
+Verificação de ponta a ponta no navegador com o servidor real: a carta abriu o
+sheet com as 7 opções da mão, o clique confirmou, o descarte cresceu e a mesa
+seguiu; no mesmo dia, o caminho de timeout resolveu uma decisão ao vivo sem
+conceder. O treino guiado e os textos seguem válidos; a temporada renomeia
+sozinha para "Alpha 0.13.0".
+
+## ADR-060 — Diagnóstico de conexão, prova de decisões e ritmo humano
+
+**Contexto.** O primeiro teste prolongado de uma decisão encontrou uma falha
+enganosa: um consumidor que deixava de ler o fluxo da sala enchia o buffer e
+era removido corretamente, mas o comando seguinte recebia
+`spectator_read_only`. A causa era transporte lento; a mensagem culpava uma
+permissão que o jogador possuía. A fatia de decisão também precisava provar as
+bordas que mais quebram em produção — quantidade exata, repetição, reconexão,
+restauração da sala, confirmação idempotente e timeout determinístico — e o
+pipeline tratava toda verificação como se tivesse o mesmo custo. Por fim, a
+simulação mede rodadas, mas o produto ainda não mostrava quanto uma partida
+humana demora no relógio.
+
+**Decisão.** A sala passa a guardar, durante sua própria vida, o motivo pelo
+qual cada assinante saiu. Apenas uma conexão ativa em modo espectador recebe
+`spectator_read_only`; uma conexão fechada recebe `connection_closed`, e um
+assinante removido por não consumir atualizações recebe
+`subscriber_too_slow`. Esses códigos são diagnóstico de transporte e não
+alteram autoridade, sequência nem regras da partida.
+
+A matriz de regressão cobre a decisão do pedido até o replay: quantidade
+exata, IDs e opções inválidas sem mutação, duplicatas, privacidade das opções,
+reconexão, restauração a partir do store, reenvio idempotente e a escolha das
+primeiras N opções no timeout de treino. O sheet ganha teste de interação no
+DOM e em Chromium real (ordem visual, limite, renumeração e confirmação); o
+duelo contra servidor real continua no gate de ponta a ponta.
+
+A CI fica dividida por custo: cada commit roda unidade/integração, corrida nos
+pacotes authoritative, regressão web e simulação curta com replay; a agenda
+noturna roda a suíte completa com detector de corrida e os dois gates de 100
+mil; o despacho explícito de release roda o servidor e o duelo de ponta a
+ponta, além das provas de restauração/replay. Relatórios de simulação são
+artefatos, não alterações automáticas de regra.
+
+O agregado administrativo de telemetria passa a incluir uma amostra de ritmo
+PvP: duração média, p50 e p95 em segundos, rodadas média/p50/p95 e quantidade
+acima de 30 minutos. A medida vem apenas de partidas finalizadas com início e
+fim persistidos. Ela é observação: qualquer ajuste posterior de Vitalidade,
+Fadiga, compra ou carta continua exigindo nova versão e novo ADR.
+
+**Consequências.** Falhas operacionais deixam de parecer falhas de autorização,
+e testes que não consomem o WebSocket precisam fazê-lo explicitamente. A nova
+telemetria é aditiva, pode retornar amostra zero e não muda rating nem
+matchmaking. A suíte rápida preserva retorno curto em pull requests; race
+integral, gates caros e E2E real continuam obrigatórios no momento apropriado,
+sem esconder seu custo dentro de todo commit.
+
+## ADR-061 — Idioma é uma projeção local, nunca parte da regra
+
+**Contexto.** O cliente nasceu em Português do Brasil e espalhou textos pela
+interface, enquanto engine, snapshots e eventos persistidos usam termos e
+identificadores estáveis. Traduzir esses valores authoritative faria filtros,
+comandos e replays dependerem do idioma do navegador; deixar mensagens e
+acessibilidade fora do catálogo produziria uma interface parcialmente
+traduzida.
+
+**Decisão.** O cliente passa a oferecer `pt-BR`, `es` e `en`. A primeira visita
+respeita o idioma preferido do navegador entre os três suportados e cai em
+`pt-BR`; a escolha explícita fica em `nythara-preferences`, pode ser alterada
+na entrada, na navegação e em Configurações, e atualiza `html[lang]` na hora.
+Português do Brasil é a fonte editorial e o fallback de qualquer texto ainda
+desconhecido.
+
+A localização é uma projeção exclusiva da apresentação. IDs de carta,
+tipos/fases do protocolo, comandos, `command_log`, snapshots e eventos não são
+traduzidos. A interface traduz os rótulos desses valores na borda, bem como
+texto visível, alternativas, títulos, placeholders e nomes acessíveis. Nomes
+próprios do universo (Nythara, Avatares e cartas) permanecem como foram
+publicados; instruções mecânicas e vocabulário do jogo são localizados. Erros
+conhecidos vindos da API/WebSocket são exibidos pelo `code`; mensagem de um
+código desconhecido é preservada para não esconder diagnóstico.
+
+O catálogo é local e embarcado no shell, sem serviço externo. Componentes que
+apresentam conteúdo mecânico (cartas, poderes e decisões) traduzem seus dados
+explicitamente; para a superfície textual já existente, uma projeção observa
+novos nós e atributos do documento, guarda o texto-fonte por nó e reaplica o
+idioma ativo. Isso permite migração incremental sem prender o produto a uma
+biblioteca ou alterar o React state. Toda interpolação conserva os valores
+authoritative, e datas/números usam o locale ativo. Testes verificam detecção,
+fallback, interpolação, mudança persistida e as três versões do seletor.
+
+**Consequências.** Trocar o idioma é imediato, funciona offline e não muda o
+hash nem a reprodutibilidade de uma batalha. Novos textos entram pelo catálogo
+de apresentação; novos conceitos de regra continuam exigindo versão/ADR como
+antes. Localizar futuramente nomes próprios ou flavor editorial exige um
+catálogo de conteúdo versionado separado, não alterações na engine.
+
+## ADR-062 — A VPS usa edge único, redes privadas e segredos montados
+
+**Contexto.** O repositório tinha Compose apenas para desenvolvimento, com
+credencial conhecida e portas de PostgreSQL/Redis publicadas. O backend ainda
+caía silenciosamente nessa URL de desenvolvimento quando `DATABASE_URL` não
+existia. Atrás de proxy, o rate limiter via o endereço do proxy; confiar
+livremente em `X-Forwarded-For`, por outro lado, permitiria falsificação do IP.
+
+**Decisão.** Produção usa imagens multi-stage separadas para API e PWA, Caddy
+como único edge público com HTTPS automático e PostgreSQL em rede interna sem
+porta no host. Migrações são um job bloqueante antes da API. Credenciais entram
+por arquivos `0600` montados como secrets; `DATABASE_URL`/`DATABASE_URL_FILE`
+são mutuamente exclusivos e a ausência impede o boot. O IP encaminhado só é
+aceito quando o peer TCP pertence ao CIDR exato do Caddy, e a cadeia é lida da
+direita para a esquerda. `/internal/*` é bloqueado no edge.
+
+**Consequências.** Desenvolvimento continua explícito pelo Makefile, mas nenhum
+binário inicia por acidente contra credenciais de desenvolvimento. A topologia
+de produção fica reproduzível em uma VPS e inclui healthchecks, limites de log,
+filesystem somente leitura onde possível, backup e runbook. A primeira versão
+é single-host: alta disponibilidade, PITR gerenciado, cofre externo de segredos
+e coletor de telemetria continuam decisões de operação quando a carga exigir.
+
+## ADR-063 — Mínimos de baralho são projeção do ruleset ativo
+
+**Contexto.** O Alpha 0.11 elevou o mínimo de Guardas de 8 para 10, mas GDD,
+tutorial e construtor ainda mostravam 8. O botão de salvar podia habilitar uma
+composição que a engine rejeitava. Repetir o valor no cliente faria a próxima
+calibragem produzir a mesma divergência.
+
+**Decisão.** `GET /v1/rulesets/current` projeta tamanho e mínimos de Assalto,
+Guarda e Rito da configuração já compilada. O construtor usa esses valores para
+contador, validação e mensagem, com fallback local igual ao Alpha 0.13 apenas
+para indisponibilidade transitória. GDD, tutorial e texto de Avatar são
+sincronizados com 0.13; IDs, comandos e validação continuam authoritative no
+servidor.
+
+**Consequências.** A interface não oferece mais um baralho que o backend
+recusa, e uma futura mudança de composição chega ao cliente junto da versão do
+ruleset. Os campos são aditivos no contrato REST e não mudam engine, replay,
+deck persistido ou regra publicada.

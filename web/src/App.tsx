@@ -13,6 +13,7 @@ import { BattlePage } from "./pages/Battle";
 import { ReplayPage } from "./pages/Replay";
 import { Missing, ProfilePage, ResultPage, SettingsPage, TutorialPage } from "./pages/Secondary";
 import { usePreferencesStore, useSessionStore } from "./store";
+import { installDocumentLocalization } from "./documentLocalization";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const authenticated = useSessionStore((state) => Boolean(state.tokens));
@@ -27,6 +28,7 @@ function ScrollToTop() {
 
 export default function App() {
   const preferences = usePreferencesStore();
+  useEffect(() => installDocumentLocalization(preferences.locale), [preferences.locale]);
   useEffect(() => {
     document.documentElement.dataset.motion = preferences.reducedMotion ? "reduced" : "full";
     document.documentElement.dataset.contrast = preferences.highContrast ? "high" : "normal";

@@ -24,6 +24,10 @@ export const useRuleset = () => useQuery({
     guard_leak_cap: number;
     pressure_start_turn: number;
     pressure_base_loss: number;
+    deck_size: number;
+    min_assaults: number;
+    min_guards: number;
+    min_rites: number;
   }>("/v1/rulesets/current"),
   staleTime: 60 * 60 * 1000,
 });

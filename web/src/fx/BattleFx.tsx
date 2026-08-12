@@ -11,7 +11,7 @@ export function FloaterLayer({ floaters, mySlot }: { floaters: Floater[]; mySlot
       const drift = ((floater.id * 53) % 88) - 44;
       return <span
         key={floater.id}
-        className={`fx-floater tone-${floater.tone} ${floater.slot === mySlot ? "is-own" : "is-opponent"}`}
+        className={`fx-floater tone-${floater.tone} ${floater.crit ? "is-crit" : ""} ${floater.slot === mySlot ? "is-own" : "is-opponent"}`}
         style={{ marginLeft: `${drift}px` }}
       >{floater.icon && <UiIcon name={floater.icon} />}{floater.text}</span>;
     })}
