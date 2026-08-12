@@ -105,6 +105,17 @@
 .admin-empty { color: var(--muted); }
 
 /* Recados do Alpha: texto de gente, então a leitura vem antes da densidade. */
+.admin-feedback-inbox { border-color: #6f5861; background: linear-gradient(135deg, #1b1217, #120d11); box-shadow: inset 3px 0 var(--gold); }
+.admin-feedback-inbox > header { align-items: flex-end; }
+.admin-feedback-inbox > header h2, .admin-feedback-inbox > header p { margin: 0; }
+.admin-feedback-inbox > header > div:first-child > small { display: block; margin-top: .25rem; color: var(--muted); }
+.admin-feedback-inbox__tools { display: flex; align-items: center; gap: .6rem; }
+.admin-feedback-inbox__tools > span { min-width: 4rem; display: grid; justify-items: center; padding: .35rem .55rem; background: #24181e; border: 1px solid #5d4650; }
+.admin-feedback-inbox__tools b { color: var(--gold-bright); font: 400 1.3rem Georgia, serif; }
+.admin-feedback-inbox__tools small { color: var(--muted); font-size: .48rem; font-weight: 800; letter-spacing: .12em; }
+.admin-inbox-error { display: flex; align-items: center; justify-content: space-between; gap: .7rem; margin-top: .7rem; padding: .65rem .75rem; color: #ff9ba4; background: #2b1016; border: 1px solid #75313c; }
+.admin-inbox-error p { margin: 0; }
+.admin-feedback-inbox .alpha-notes { margin-top: .8rem; }
 .alpha-notes { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; max-height: 26rem; overflow-y: auto; }
 .alpha-notes li { padding: .7rem; background: #120d11; border: 1px solid var(--line); border-left: 3px solid var(--gold); }
 .alpha-notes header { display: flex; align-items: center; gap: .6rem; margin-bottom: .35rem; color: var(--muted); font-size: .62rem; }
@@ -119,4 +130,6 @@
   .admin-search { width: 100%; margin: 0; }
   .admin-search input { min-width: 0; flex: 1; }
   .admin-secret { align-items: stretch; flex-direction: column; }
+  .admin-feedback-inbox__tools { width: 100%; justify-content: space-between; }
+  .admin-inbox-error { align-items: stretch; flex-direction: column; }
 }
