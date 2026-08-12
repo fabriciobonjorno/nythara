@@ -57,7 +57,7 @@ export function Home() {
         <header><div><p className="eyebrow">PRIMEIRO DUELO</p><h2 id="getting-started-title">Comece em três passos</h2></div><Link to="/tutorial">Abrir guia completo</Link></header>
         <div className="getting-started__steps">
           <Link to="/decks"><span>1</span><div><strong>Monte 30 cartas</strong><small>Escolha também um Avatar apenas visual.</small></div><b>Montar <UiIcon name="arrow-right" /></b></Link>
-          <Link to="/queue"><span>2</span><div><strong>Treine contra o bot</strong><small>Aprenda Assalto, Guarda e Rito sem esperar.</small></div><b>Treinar <UiIcon name="arrow-right" /></b></Link>
+          <Link to="/queue"><span>2</span><div><strong>Treine contra o adversário virtual</strong><small>Aprenda Assalto, Guarda e Rito sem esperar.</small></div><b>Treinar <UiIcon name="arrow-right" /></b></Link>
           <Link to="/arena"><span>3</span><div><strong>Entre no ranqueado</strong><small>O mesmo baralho enfrenta jogadores reais.</small></div><b>Arena <UiIcon name="arrow-right" /></b></Link>
         </div>
       </section>}
@@ -66,7 +66,7 @@ export function Home() {
 		<article><span className="stat-icon"><UiIcon name="mastery" /></span><div><small>NÍVEL DA CONTA</small><strong>{account ? `Nível ${account.level}` : "—"}</strong>{account && <em>{account.level_xp_required ? `${account.level_xp}/${account.level_xp_required} XP` : "Nível máximo"}</em>}</div><Link to="/collection">Lendárias</Link></article>
 		<article><span className="stat-icon"><UiIcon name="deck" /></span><div><small>BARALHO COMPETITIVO</small><strong>{decks ? (currentDeck ? "Pronto" : "Pendente") : "—"}</strong></div><Link to="/decks">Editar</Link></article>
         <article><span className="stat-icon"><UiIcon name="fragment" /></span><div><small>FRAGMENTOS DO VÉU</small><strong>{progress ? progress.fragments : "—"}</strong></div><Link to="/collection">Coleção</Link></article>
-        <article><span className="stat-icon"><UiIcon name="rank" /></span><div><small>RANKED</small><strong>{progress?.ranked && progress.ranked.games > 0 ? `${progress.ranked.rating} · #${progress.ranked.position || "—"}` : "Estreie no ranking"}</strong></div><Link to="/queue">Duelar</Link></article>
+        <article><span className="stat-icon"><UiIcon name="rank" /></span><div><small>RANQUEADAS</small><strong>{progress?.ranked && progress.ranked.games > 0 ? `${progress.ranked.rating} · #${progress.ranked.position || "—"}` : "Estreie no ranking"}</strong></div><Link to="/queue">Duelar</Link></article>
       </section>
 
       <div className="home-columns">

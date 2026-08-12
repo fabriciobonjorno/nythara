@@ -38,7 +38,7 @@ export function ArenaPage() {
         <strong className="arena-tier__rating">{ranked?.rating ?? 1000}</strong>
         <div className="ritual-progress arena-tier__bar"><span style={{ width: `${tierProgress}%` }} /></div>
         <small>{tier?.next_at
-          ? `${tier.next_at - (ranked?.rating ?? 0)} de rating até a próxima patente`
+          ? `${tier.next_at - (ranked?.rating ?? 0)} pontos até a próxima patente`
           : "Você alcançou a patente mais alta da temporada"}
           {ranked && ranked.games > 0 ? ` · ${ranked.wins}V/${ranked.games}J` : " · dispute ranqueadas para subir"}</small>
       </article>

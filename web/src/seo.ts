@@ -3,7 +3,7 @@ import type { Locale } from "./locales";
 const publicMetadata: Record<Locale, { title: string; description: string; ogLocale: string }> = {
   "pt-BR": {
     title: "Nythara — Jogo de cartas online PvP",
-    description: "Nythara é um jogo de cartas online PvP gratuito e original. Monte um baralho de 30 cartas, treine contra o bot e dispute duelos 1v1 em tempo real.",
+    description: "Nythara é um jogo de cartas online PvP gratuito e original. Monte um baralho de 30 cartas, treine contra um adversário virtual e dispute duelos 1v1 em tempo real.",
     ogLocale: "pt_BR",
   },
   es: {

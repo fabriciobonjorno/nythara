@@ -113,7 +113,7 @@ export function Landing() {
 		  {passwordChanged && <p className="form-success" role="status">Senha atualizada. Entre novamente com a nova credencial.</p>}
           <button className="primary-button" disabled={busy} type="submit">{busy ? "Atravessando…" : mode === "login" ? "Entrar no Véu" : "Criar conta gratuita"}</button>
           {mode === "login" && <Link className="auth-link" to="/forgot-password">Esqueci minha senha</Link>}
-          <p className="auth-note">Sem venda de poder. Monte um único baralho, treine contra o bot e entre no confronto quando estiver pronto.</p>
+          <p className="auth-note">Sem venda de poder. Monte um único baralho, treine contra o adversário virtual e entre no confronto quando estiver pronto.</p>
 		  </form>
         </section>
       </div>
@@ -132,8 +132,8 @@ export function Landing() {
 		<a className="secondary-button landing-showcase__cta" href="#inicio">Gostei — quero montar meu baralho</a>
 	  </section>
 	  <section className="landing-discovery" aria-labelledby="discovery-title">
-		<header><p className="eyebrow">JOGUE NO NAVEGADOR</p><h2 id="discovery-title">Um jogo de cartas competitivo, gratuito e original.</h2><p>Nythara reúne construção de baralho, treino contra bot e PvP em tempo real em uma experiência direta para computador e celular.</p></header>
-		<div><article><h3>Monte seu baralho</h3><p>Escolha 30 cartas entre Assaltos, Guardas e Ritos. Cada tipo ocupa um papel claro durante o confronto.</p></article><article><h3>Treine sem espera</h3><p>Teste suas decisões contra o bot antes de buscar um rival na Arena competitiva.</p></article><article><h3>Dispute duelos 1v1</h3><p>Enfrente jogadores reais, acompanhe sua progressão e reveja o histórico das partidas.</p></article></div>
+		<header><p className="eyebrow">JOGUE NO NAVEGADOR</p><h2 id="discovery-title">Um jogo de cartas competitivo, gratuito e original.</h2><p>Nythara reúne construção de baralho, treino contra adversário virtual e PvP em tempo real em uma experiência direta para computador e celular.</p></header>
+		<div><article><h3>Monte seu baralho</h3><p>Escolha 30 cartas entre Assaltos, Guardas e Ritos. Cada tipo ocupa um papel claro durante o confronto.</p></article><article><h3>Treine sem espera</h3><p>Teste suas decisões contra o adversário virtual antes de buscar um rival na Arena competitiva.</p></article><article><h3>Dispute duelos 1v1</h3><p>Enfrente jogadores reais, acompanhe sua progressão e reveja o histórico das partidas.</p></article></div>
 	  </section>
       <footer className="landing-footer">NYTHARA · IP ORIGINAL · ALPHA FECHADO</footer>
     </main>

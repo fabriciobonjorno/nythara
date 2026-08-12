@@ -1,7 +1,7 @@
 import type { Locale } from "./locales";
 import { translateText } from "./i18n";
 
-const attributes = ["aria-label", "aria-description", "placeholder", "title"] as const;
+const attributes = ["alt", "aria-label", "aria-description", "placeholder", "title"] as const;
 type Remembered = { source: string; rendered: string };
 const textSources = new WeakMap<Text, Remembered>();
 const attributeSources = new WeakMap<Element, Map<string, Remembered>>();
