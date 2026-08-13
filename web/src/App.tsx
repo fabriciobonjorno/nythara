@@ -17,15 +17,16 @@ import { usePreferencesStore, useSessionStore } from "./store";
 import { installDocumentLocalization } from "./documentLocalization";
 import { applyRouteMetadata } from "./seo";
 import { ReactivationDecisionModal } from "./components/ReactivationDecisionModal";
+import { settleRouteViewport } from "./mobileViewport";
 
 function Protected({ children }: { children: React.ReactNode }) {
   const authenticated = useSessionStore((state) => Boolean(state.tokens));
   return authenticated ? children : <Navigate to="/" replace />;
 }
 
-function ScrollToTop() {
+function RouteTransitionManager() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => settleRouteViewport(), [pathname]);
   return null;
 }
 
@@ -46,7 +47,7 @@ export default function App() {
     document.documentElement.dataset.pace = preferences.animationPace;
   }, [preferences.animationPace, preferences.combatHints, preferences.highContrast, preferences.largeText, preferences.reducedMotion]);
 
-  return <><ScrollToTop /><RouteMetadata locale={preferences.locale} /><Routes>
+  return <><RouteTransitionManager /><RouteMetadata locale={preferences.locale} /><Routes>
     <Route path="/" element={<Landing />} />
     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
     <Route path="/reset-password" element={<ResetPasswordPage />} />

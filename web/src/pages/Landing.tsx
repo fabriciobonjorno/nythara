@@ -7,6 +7,7 @@ import { needsFirstLoginTutorial, usePreferencesStore, useSessionStore } from ".
 import type { AuthEnvelope } from "../types";
 import { useCards } from "../queries";
 import { UiIcon } from "../components/UiIcon";
+import { releaseTextEntryFocus } from "../mobileViewport";
 
 export function Landing() {
   const tokens = useSessionStore((state) => state.tokens);
@@ -35,6 +36,7 @@ export function Landing() {
 	useEffect(() => { if (passwordChanged) sessionStorage.removeItem("nythara-password-changed"); }, [passwordChanged]);
 
 	const enterApp = (response: AuthEnvelope, forceTutorial = false) => {
+		releaseTextEntryFocus();
 		if (response.user.role !== "player") {
 			enteringTutorial.current = false;
 			setAuth(response.user, response.tokens);
