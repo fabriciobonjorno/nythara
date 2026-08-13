@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { UiIcon } from "./UiIcon";
+import { hasFinePointer } from "../mobileViewport";
 
 // Convite, não formulário. O Alpha precisa de leitura de quem joga, mas quem
 // acabou de perder um duelo não deve encontrar uma cobrança na frente: o bloco
@@ -41,6 +42,11 @@ export function AlphaNote({ matchId }: { matchId?: string }) {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (open && hasFinePointer()) fieldRef.current?.focus({ preventScroll: true });
+  }, [open]);
 
   const dismiss = () => { remember(matchId, "dismissed"); setDismissed(true); };
 
@@ -88,13 +94,13 @@ export function AlphaNote({ matchId }: { matchId?: string }) {
       ? <div className="alpha-note__form">
           <label className="sr-only" htmlFor="alpha-note-field">O que podemos melhorar</label>
           <textarea
+            ref={fieldRef}
             id="alpha-note-field"
             value={message}
             maxLength={MAX_LENGTH}
             rows={4}
             placeholder="O que atrapalhou, o que agradou, o que faltou…"
             onChange={(event) => setMessage(event.target.value)}
-            autoFocus
           />
           <div className="alpha-note__actions">
             <small>{message.length}/{MAX_LENGTH}</small>
